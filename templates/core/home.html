@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Welcome to StudySync{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="row align-items-center py-5">
+        <div class="col-md-6">
+            <h1 class="display-4 fw-bold mb-3">
+                Study Together, <br>
+                <span class="text-primary">Succeed Together</span>
+            </h1>
+            <p class="lead mb-4">
+                Connect with classmates, find study partners, and join study groups based on your schedule.
+                Make the most of your free time by studying with peers who share your goals.
+            </p>
+            <div class="d-grid gap-2 d-md-flex">
+                {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg px-4">
+                    <i class="fas fa-tachometer-alt me-2"></i> Go to Dashboard
+                </a>
+                {% else %}
+                <a href="{% url 'register' %}" class="btn btn-primary btn-lg px-4">
+                    <i class="fas fa-user-plus me-2"></i> Get Started
+                </a>
+                <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg px-4">
+                    <i class="fas fa-sign-in-alt me-2"></i> Login
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <img src="{% static 'images/study-group.svg' %}" alt="Study Group" class="img-fluid"
+                 onerror="this.src='https://via.placeholder.com/500x400/0d6efd/ffffff?text=StudySync'">
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="row py-5">
+        <div class="col-md-12 text-center mb-5">
+            <h2 class="fw-bold">How StudySync Works</h2>
+            <p class="text-muted">Three simple steps to better studying</p>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-primary bg-gradient rounded-circle p-3 mb-3 mx-auto" style="width: 70px; height: 70px;">
+                        <i class="fas fa-calendar-alt fa-2x text-white"></i>
+                    </div>
+                    <h4 class="card-title">1. Add Your Schedule</h4>
+                    <p class="card-text text-muted">
+                        Tell us when you have classes, free time, and study sessions.
+                        No rigid course codes - just your actual schedule.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-success bg-gradient rounded-circle p-3 mb-3 mx-auto" style="width: 70px; height: 70px;">
+                        <i class="fas fa-user-friends fa-2x text-white"></i>
+                    </div>
+                    <h4 class="card-title">2. Find Study Partners</h4>
+                    <p class="card-text text-muted">
+                        Our algorithm finds classmates with matching free time and similar courses.
+                        Connect with peers who study when you study.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-warning bg-gradient rounded-circle p-3 mb-3 mx-auto" style="width: 70px; height: 70px;">
+                        <i class="fas fa-comments fa-2x text-white"></i>
+                    </div>
+                    <h4 class="card-title">3. Study Together</h4>
+                    <p class="card-text text-muted">
+                        Join study groups, chat in real-time, share files, and schedule study sessions.
+                        Everything you need for effective group study.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="row py-5 bg-light rounded-3">
+        <div class="col-md-3 text-center">
+            <h2 class="display-4 fw-bold text-primary">100+</h2>
+            <p class="text-muted">Active Students</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <h2 class="display-4 fw-bold text-success">50+</h2>
+            <p class="text-muted">Study Groups</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <h2 class="display-4 fw-bold text-warning">500+</h2>
+            <p class="text-muted">Study Sessions</p>
+        </div>
+        <div class="col-md-3 text-center">
+            <h2 class="display-4 fw-bold text-info">1000+</h2>
+            <p class="text-muted">Files Shared</p>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="row py-5 text-center">
+        <div class="col-md-12">
+            <h2 class="fw-bold mb-4">Ready to Boost Your Study Experience?</h2>
+            <p class="lead mb-4">Join thousands of students who are already studying smarter together.</p>
+            {% if not user.is_authenticated %}
+            <a href="{% url 'register' %}" class="btn btn-primary btn-lg px-5">
+                <i class="fas fa-rocket me-2"></i> Start Free Today
+            </a>
+            {% else %}
+            <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg px-5">
+                <i class="fas fa-tachometer-alt me-2"></i> Go to Dashboard
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .feature-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}

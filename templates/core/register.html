@@ -1,0 +1,617 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Register - StudySync{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white py-4">
+                    <div class="text-center">
+                        <h2 class="fw-bold mb-2"><i class="fas fa-user-plus me-2"></i>Join StudySync</h2>
+                        <p class="mb-0">Connect with classmates and study smarter together</p>
+                    </div>
+                </div>
+                <div class="card-body p-5">
+                    <form method="POST" enctype="multipart/form-data" id="registrationForm" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Progress Indicator -->
+                        <div class="mb-5">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="text-center">
+                                    <div class="step-circle active">1</div>
+                                    <small class="mt-1 d-block">Account Info</small>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar" style="width: 33%"></div>
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="step-circle">2</div>
+                                    <small class="mt-1 d-block">Student Info</small>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="step-circle">3</div>
+                                    <small class="mt-1 d-block">Complete</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Error Messages -->
+                        {% if user_form.errors or profile_form.errors %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Please fix the following errors:</h5>
+                            <ul class="mb-0">
+                                {% for field in user_form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for field in profile_form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in user_form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                                {% for error in profile_form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endif %}
+
+                        <!-- Step 1: Account Information -->
+                        <div class="registration-step" id="step1">
+                            <h4 class="mb-4 border-bottom pb-2">
+                                <i class="fas fa-user-circle text-primary me-2"></i>Account Information
+                            </h4>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        {{ user_form.username }}
+                                        <label for="id_user-username">Username *</label>
+                                        <div class="form-text">This will be your unique identifier on StudySync</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        {{ user_form.email }}
+                                        <label for="id_user-email">Email Address *</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        {{ user_form.first_name }}
+                                        <label for="id_user-first_name">First Name *</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        {{ user_form.last_name }}
+                                        <label for="id_user-last_name">Last Name *</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        {{ user_form.password1 }}
+                                        <label for="id_user-password1">Password *</label>
+                                        <div class="form-text" id="passwordStrength"></div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        {{ user_form.password2 }}
+                                        <label for="id_user-password2">Confirm Password *</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between mt-4">
+                                <div></div> <!-- Empty div for spacing -->
+                                <button type="button" class="btn btn-primary btn-next" data-next="step2">
+                                    Next <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Student Information -->
+                        <div class="registration-step d-none" id="step2">
+                            <h4 class="mb-4 border-bottom pb-2">
+                                <i class="fas fa-graduation-cap text-success me-2"></i>Student Information
+                            </h4>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-major" class="form-label">Major/Program *</label>
+                                        {{ profile_form.major }}
+                                        <div class="form-text">Select your field of study</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-year" class="form-label">Year *</label>
+                                        {{ profile_form.year }}
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-year" class="form-label">Semester *</label>
+                                        {{ profile_form.semester }}
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-year" class="form-label">Preferred_study_start</label>
+                                        {{ profile_form.preferred_study_days }}
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-year" class="form-label">Preferred_study_start</label>
+                                        {{ profile_form.preferred_study_start }}
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-year" class="form-label">Preferred_study_end *</label>
+                                        {{ profile_form.preferred_study_end }}
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-profile_picture" class="form-label">Profile Picture</label>
+                                        {{ profile_form.profile_picture }}
+                                        <div class="form-text">Optional. Max 2MB. JPG, PNG, GIF supported.</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="mb-3">
+                                        <label for="id_profile-bio" class="form-label">Bio (Optional)</label>
+                                        {{ profile_form.bio }}
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="form-check mb-4">
+                                        {{ profile_form.terms }}
+                                        <label class="form-check-label" for="id_profile-terms">
+                                            I agree to the <a href="#" class="text-decoration-none">Terms of Service</a>
+                                            and <a href="#" class="text-decoration-none">Privacy Policy</a>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between mt-4">
+                                <button type="button" class="btn btn-outline-secondary btn-prev" data-prev="step1">
+                                    <i class="fas fa-arrow-left me-2"></i>Back
+                                </button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-check-circle me-2"></i>Create Account
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <hr class="my-5">
+
+                    <!-- Login Link -->
+                    <div class="text-center">
+                        <p class="mb-3">Already have an account?</p>
+                        <a href="{% url 'login' %}" class="btn btn-outline-primary px-4">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login to StudySync
+                        </a>
+                    </div>
+
+                    <!-- Demo Accounts -->
+                    <div class="card mt-4 border-info">
+                        <div class="card-header bg-info bg-opacity-10 border-info">
+                            <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Demo Accounts (Try First)</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card border-primary mb-3">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-primary">
+                                                <i class="fas fa-crown me-2"></i>Admin Account
+                                            </h6>
+                                            <p class="mb-1"><strong>Username:</strong> admin</p>
+                                            <p class="mb-1"><strong>Password:</strong> Admin@123</p>
+                                            <small class="text-muted">Full system access</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-success">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success">
+                                                <i class="fas fa-user-graduate me-2"></i>Student Account
+                                            </h6>
+                                            <p class="mb-1"><strong>Username:</strong> student1</p>
+                                            <p class="mb-1"><strong>Password:</strong> Student@123</p>
+                                            <small class="text-muted">Regular student access</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .step-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin: 0 auto;
+    }
+
+    .step-circle.active {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+    .registration-step {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-floating > .form-control {
+        height: calc(3.5rem + 2px);
+        line-height: 1.25;
+    }
+
+    .form-floating > label {
+        padding: 1rem 0.75rem;
+    }
+
+    .password-strength {
+        margin-top: 5px;
+    }
+
+    .strength-weak { color: #dc3545; }
+    .strength-medium { color: #ffc107; }
+    .strength-strong { color: #198754; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Multi-step form functionality
+    const steps = document.querySelectorAll('.registration-step');
+    const nextButtons = document.querySelectorAll('.btn-next');
+    const prevButtons = document.querySelectorAll('.btn-prev');
+
+    nextButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const currentStep = this.closest('.registration-step');
+            const nextStepId = this.dataset.next;
+            const nextStep = document.getElementById(nextStepId);
+
+            // Validate current step before proceeding
+            if (validateStep(currentStep.id)) {
+                currentStep.classList.add('d-none');
+                nextStep.classList.remove('d-none');
+                updateProgress(nextStepId);
+            }
+        });
+    });
+
+    prevButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const currentStep = this.closest('.registration-step');
+            const prevStepId = this.dataset.prev;
+            const prevStep = document.getElementById(prevStepId);
+
+            currentStep.classList.add('d-none');
+            prevStep.classList.remove('d-none');
+            updateProgress(prevStepId);
+        });
+    });
+
+    // Update progress indicator
+    function updateProgress(stepId) {
+        const progressBar = document.querySelector('.progress-bar');
+        const stepCircles = document.querySelectorAll('.step-circle');
+
+        stepCircles.forEach(circle => circle.classList.remove('active'));
+
+        if (stepId === 'step1') {
+            progressBar.style.width = '33%';
+            stepCircles[0].classList.add('active');
+        } else if (stepId === 'step2') {
+            progressBar.style.width = '66%';
+            stepCircles[0].classList.add('active');
+            stepCircles[1].classList.add('active');
+        }
+    }
+
+    // Step validation
+    function validateStep(stepId) {
+        let isValid = true;
+
+        if (stepId === 'step1') {
+            // Validate username
+            const username = document.getElementById('id_user-username').value;
+            if (!username || username.length < 3) {
+                showFieldError('id_user-username', 'Username must be at least 3 characters long');
+                isValid = false;
+            }
+
+            // Validate email
+            const email = document.getElementById('id_user-email').value;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!email || !emailRegex.test(email)) {
+                showFieldError('id_user-email', 'Please enter a valid email address');
+                isValid = false;
+            }
+
+            // Validate password
+            const password1 = document.getElementById('id_user-password1').value;
+            const password2 = document.getElementById('id_user-password2').value;
+
+            if (!password1 || password1.length < 8) {
+                showFieldError('id_user-password1', 'Password must be at least 8 characters long');
+                isValid = false;
+            }
+
+            if (password1 !== password2) {
+                showFieldError('id_user-password2', 'Passwords do not match');
+                isValid = false;
+            }
+
+            // Validate names
+            const firstName = document.getElementById('id_user-first_name').value;
+            const lastName = document.getElementById('id_user-last_name').value;
+
+            if (!firstName) {
+                showFieldError('id_user-first_name', 'First name is required');
+                isValid = false;
+            }
+
+            if (!lastName) {
+                showFieldError('id_user-last_name', 'Last name is required');
+                isValid = false;
+            }
+        }
+
+        return isValid;
+    }
+
+    // Show field error
+    function showFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        const formGroup = field.closest('.form-floating') || field.closest('.mb-3');
+
+        // Remove existing error
+        const existingError = formGroup.querySelector('.field-error');
+        if (existingError) existingError.remove();
+
+        // Add new error
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'field-error text-danger small mt-1';
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i>${message}`;
+
+        formGroup.appendChild(errorDiv);
+
+        // Add error class to field
+        field.classList.add('is-invalid');
+
+        // Scroll to error
+        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Remove field error
+    function removeFieldError(fieldId) {
+        const field = document.getElementById(fieldId);
+        const formGroup = field.closest('.form-floating') || field.closest('.mb-3');
+
+        const existingError = formGroup.querySelector('.field-error');
+        if (existingError) existingError.remove();
+
+        field.classList.remove('is-invalid');
+    }
+
+    // Real-time validation
+    document.getElementById('id_user-username').addEventListener('blur', function() {
+        const username = this.value;
+        if (username && username.length >= 3) {
+            removeFieldError('id_user-username');
+
+            // Check if username is available
+            fetch(`/api/check-username/?username=${encodeURIComponent(username)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.available) {
+                        showFieldError('id_user-username', 'This username is already taken');
+                    }
+                })
+                .catch(console.error);
+        }
+    });
+
+    document.getElementById('id_user-email').addEventListener('blur', function() {
+        const email = this.value;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (email && emailRegex.test(email)) {
+            removeFieldError('id_user-email');
+
+            // Check if email is available
+            fetch(`/api/check-email/?email=${encodeURIComponent(email)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.available) {
+                        showFieldError('id_user-email', 'This email is already registered');
+                    }
+                })
+                .catch(console.error);
+        }
+    });
+
+    document.getElementById('id_user-password2').addEventListener('input', function() {
+        const password1 = document.getElementById('id_user-password1').value;
+        const password2 = this.value;
+
+        if (password1 && password2 && password1 !== password2) {
+            showFieldError('id_user-password2', 'Passwords do not match');
+        } else {
+            removeFieldError('id_user-password2');
+        }
+    });
+
+    // Password strength indicator
+    const passwordInput = document.getElementById('id_user-password1');
+    const strengthIndicator = document.getElementById('passwordStrength');
+
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        let strength = 0;
+        let message = '';
+        let strengthClass = 'strength-weak';
+
+        if (password.length >= 8) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[a-z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+        switch(strength) {
+            case 0:
+            case 1:
+                message = 'Very Weak';
+                strengthClass = 'strength-weak';
+                break;
+            case 2:
+                message = 'Weak';
+                strengthClass = 'strength-medium';
+                break;
+            case 3:
+                message = 'Good';
+                strengthClass = 'strength-medium';
+                break;
+            case 4:
+                message = 'Strong';
+                strengthClass = 'strength-strong';
+                break;
+            case 5:
+                message = 'Very Strong';
+                strengthClass = 'strength-strong';
+                break;
+        }
+
+        strengthIndicator.innerHTML = `
+            <div class="progress" style="height: 5px;">
+                <div class="progress-bar bg-${strength >= 4 ? 'success' : strength >= 2 ? 'warning' : 'danger'}"
+                     style="width: ${strength * 20}%"></div>
+            </div>
+            <small class="${strengthClass}">${message}</small>
+        `;
+    });
+
+    // Form submission with validation
+    const registrationForm = document.getElementById('registrationForm');
+    registrationForm.addEventListener('submit', function(event) {
+        // Validate all steps
+        let allValid = true;
+
+        // Step 1 validation
+        if (!validateStep('step1')) {
+            // Show step 1
+            document.getElementById('step2').classList.add('d-none');
+            document.getElementById('step1').classList.remove('d-none');
+            updateProgress('step1');
+            allValid = false;
+        }
+
+        // Step 2 validation
+        const major = document.getElementById('id_profile-major').value;
+        const year = document.getElementById('id_profile-year').value;
+        const terms = document.getElementById('id_profile-terms').checked;
+
+        if (!major) {
+            showFieldError('id_profile-major', 'Please select your major');
+            allValid = false;
+        }
+
+        if (!year) {
+            showFieldError('id_profile-year', 'Please select your year');
+            allValid = false;
+        }
+
+        if (!terms) {
+            showFieldError('id_profile-terms', 'You must agree to the terms and conditions');
+            allValid = false;
+        }
+
+        if (!allValid) {
+            event.preventDefault();
+
+            // Show step 2 if not already visible
+            if (document.getElementById('step1').classList.contains('d-none')) {
+                document.getElementById('step1').classList.add('d-none');
+                document.getElementById('step2').classList.remove('d-none');
+                updateProgress('step2');
+            }
+
+            // Scroll to first error
+            const firstError = document.querySelector('.field-error');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    });
+
+    // Clear field errors on input
+    document.querySelectorAll('input, select, textarea').forEach(field => {
+        field.addEventListener('input', function() {
+            removeFieldError(this.id);
+        });
+    });
+});
+</script>
+{% endblock %}

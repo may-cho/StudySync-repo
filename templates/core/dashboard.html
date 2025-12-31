@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - StudySync{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card bg-light border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1">Welcome, {{ profile.user.first_name|default:profile.user.username }}!</h2>
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-graduation-cap me-1"></i> {{ profile.get_major_display }} Year {{ profile.year }}
+                                <i class="fas fa-graduation-cap me-1"></i> {{ profile.get_semester_display }} Semester {{ profile.semester }}
+
+                            </p>
+                        </div>
+                        <div>
+                            {% if user.is_superuser %}
+                            <span class="badge bg-warning p-2">
+                                <i class="fas fa-crown me-1"></i> Project Admin
+                            </span>
+                            {% endif %}
+                            <span class="badge bg-primary p-2 ms-2">
+                                <i class="fas fa-user-friends me-1"></i> {{ study_groups.count|default:0 }} Groups
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ today_slots.count|default:0 }}</h3>
+                            <p class="mb-0">Today's Schedule</p>
+                        </div>
+                        <i class="fas fa-calendar-day fa-3x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-primary bg-gradient border-0">
+                    <small><a href="{% url 'timetable_view' %}" class="text-white text-decoration-none">View Full Timetable →</a></small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-success shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ courses.count|default:0 }}</h3>
+                            <p class="mb-0">Your Courses</p>
+                        </div>
+                        <i class="fas fa-book fa-3x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-success bg-gradient border-0">
+                    <small><a href="{% url 'profile' %}" class="text-white text-decoration-none">Manage Courses →</a></small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-warning shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ study_groups.count|default:0 }}</h3>
+                            <p class="mb-0">Study Groups</p>
+                        </div>
+                        <i class="fas fa-users fa-3x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-warning bg-gradient border-0">
+                    <small><a href="{% url 'group_list' %}" class="text-white text-decoration-none">View All Groups →</a></small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-info shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ free_time_matches.count|default:0 }}</h3>
+                            <p class="mb-0">Available Partners</p>
+                        </div>
+                        <i class="fas fa-user-friends fa-3x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-info bg-gradient border-0">
+                    <small><a href="{% url 'find_study_partners_view' %}" class="text-white text-decoration-none">Find Partners →</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Schedule & Quick Actions -->
+    <div class="row mb-4">
+        <!-- Today's Schedule -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-day me-2"></i>Today's Schedule
+                        </h5>
+                        <span class="badge bg-light text-primary">
+                            {{ current_date|date:"l, F j, Y" }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if today_slots %}
+                    <div class="list-group list-group-flush">
+                        {% for slot in today_slots %}
+                        <div class="list-group-item border-0 px-0 py-2">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="slot-indicator me-3
+                                        {% if slot.slot_type == 'class' %}bg-primary
+                                        {% elif slot.slot_type == 'self_study' %}bg-success
+                                        {% elif slot.slot_type == 'break' %}bg-warning
+                                        {% elif slot.slot_type == 'activity' %}bg-info
+                                        {% else %}bg-secondary{% endif %}"
+                                        style="width: 8px; height: 40px; border-radius: 4px;">
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">
+                                            {% if slot.slot_type == 'class' and slot.course %}
+                                            <span class="badge bg-primary">{{ slot.course.code }}</span>
+                                            {{ slot.course.name }}
+                                            {% else %}
+                                            <span class="badge bg-secondary">{{ slot.get_slot_type_display }}</span>
+                                            {{ slot.custom_name|default:slot.get_slot_type_display }}
+                                            {% endif %}
+                                        </h6>
+                                        <small class="text-muted">
+                                            <i class="far fa-clock me-1"></i>
+                                            {{ slot.start_time|time:"g:i A" }} - {{ slot.end_time|time:"g:i A" }}
+                                        </small>
+                                    </div>
+                                </div>
+                                <span class="badge
+                                    {% if slot.slot_type == 'class' %}bg-primary
+                                    {% elif slot.slot_type == 'self_study' %}bg-success
+                                    {% elif slot.slot_type == 'break' %}bg-warning
+                                    {% elif slot.slot_type == 'activity' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ slot.get_slot_type_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}  <!-- THIS WAS MISSING -->
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No schedule for today</p>
+                        <a href="{% url 'add_timetable_slot' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-plus me-1"></i> Add Time Slot
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-light">
+                    <a href="{% url 'timetable_view' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-calendar-alt me-1"></i> View Full Timetable
+                    </a>
+                    <a href="{% url 'add_timetable_slot' %}" class="btn btn-primary btn-sm ms-2">
+                        <i class="fas fa-plus me-1"></i> Add Slot
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Recent Groups -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <a href="{% url 'find_study_partners_view' %}" class="btn btn-outline-primary w-100 py-3 text-start">
+                                <i class="fas fa-user-friends fa-2x mb-2"></i>
+                                <h6>Find Study Partners</h6>
+                                <small class="text-muted">Match with classmates</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'create_study_group' %}" class="btn btn-outline-success w-100 py-3 text-start">
+                                <i class="fas fa-users fa-2x mb-2"></i>
+                                <h6>Create Study Group</h6>
+                                <small class="text-muted">Start a new group</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'add_course' %}" class="btn btn-outline-warning w-100 py-3 text-start">
+                                <i class="fas fa-book fa-2x mb-2"></i>
+                                <h6>Add Courses</h6>
+                                <small class="text-muted">Manage your courses</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'edit_profile' %}" class="btn btn-outline-info w-100 py-3 text-start">
+                                <i class="fas fa-user-edit fa-2x mb-2"></i>
+                                <h6>Edit Profile</h6>
+                                <small class="text-muted">Update your info</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Study Groups & Free Time Matches -->
+    <div class="row">
+        <!-- Recent Study Groups -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Your Study Groups
+                        </h5>
+                        <a href="{% url 'group_list' %}" class="text-white text-decoration-none">
+                            View All <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if study_groups %}
+                    <div class="list-group list-group-flush">
+                        {% for group in study_groups %}
+                        <a href="{% url 'group_detail' group.id %}" class="list-group-item list-group-item-action border-0 py-3">
+                            <div class="d-flex w-100 justify-content-between">
+                                <div>
+                                    <h6 class="mb-1">{{ group.name }}</h6>
+                                    <small class="text-muted">
+                                        {{ group.description|truncatechars:60 }}
+                                    </small>
+                                    <div class="mt-2">
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-user me-1"></i> {{ group.member_count }} members
+                                        </span>
+                                        <span class="badge bg-secondary ms-1">
+                                            <i class="fas fa-calendar me-1"></i> {{ group.preferred_day }}
+                                        </span>
+                                        {% if group.is_active %}
+                                        <span class="badge bg-success ms-1">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-danger ms-1">Inactive</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted d-block">{{ group.created_at|date:"M d" }}</small>
+                                    <span class="badge bg-info">
+                                        {% if group.creator == profile %}Creator{% else %}Member{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">You haven't joined any study groups yet</p>
+                        <a href="{% url 'create_study_group' %}" class="btn btn-outline-warning">
+                            <i class="fas fa-plus me-1"></i> Create Your First Group
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Free Time Matches -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user-friends me-2"></i>Available Partners
+                        </h5>
+                        <a href="{% url 'study_partners_list' %}" class="text-white text-decoration-none">
+                            View All <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if free_time_matches %}
+                    <div class="list-group list-group-flush">
+                        {% for match in free_time_matches %}
+                        <div class="list-group-item border-0 py-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    {% if match.other_student.profile_picture %}
+                                    <img src="{{ match.other_student.profile_picture.url }}"
+                                         class="rounded-circle"
+                                         width="50"
+                                         height="50"
+                                         alt="{{ match.other_student.user.username }}">
+                                    {% else %}
+                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                         style="width: 50px; height: 50px;">
+                                        <i class="fas fa-user text-white"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-1">{{ match.other_student.user.get_full_name|default:match.other_student.user.username }}</h6>
+                                    <small class="text-muted">
+                                        {{ match.other_student.get_major_display }} |
+                                        Match Score: {{ match.match_score }}%
+                                    </small>
+                                    <div class="mt-2">
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-calendar-day me-1"></i> {{ match.day }}
+                                        </span>
+                                        <span class="badge bg-success ms-1">
+                                            <i class="far fa-clock me-1"></i>
+                                            {{ match.start_time|time:"g:i A" }} - {{ match.end_time|time:"g:i A" }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <a href="{% url 'create_study_group_from_match' match.id %}"
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-plus me-1"></i> Create Group
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-user-friends fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No available study partners found</p>
+                        <a href="{% url 'find_study_partners_view' %}" class="btn btn-outline-info">
+                            <i class="fas fa-search me-1"></i> Find Partners
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
