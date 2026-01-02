@@ -34,10 +34,17 @@ class UserRegisterForm(UserCreationForm):
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2']
 
-    def clean_email(self):
+        def clean_email(self):
         email = self.cleaned_data.get('email')
+
+        # ✅ Restrict email domain to UCSY only
+        if not email.endswith('@ucsy.edu.mm'):
+            raise forms.ValidationError('Only @ucsy.edu.mm email addresses are allowed.')
+
+        # ✅ Prevent duplicate email registration
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError('This email is already registered.')
+
         return email
 
 
