@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <!-- Profile Header -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body d-flex align-items-center gap-4">
+
+            <!-- Profile Picture -->
+            <div>
+                {% if profile.profile_picture %}
+                    <img src="{{ profile.profile_picture.url }}"
+                         class="rounded-circle"
+                         width="120" height="120"
+                         style="object-fit: cover;">
+                {% else %}
+                    <img src="{% static 'images/default-avatar.png' %}"
+                         class="rounded-circle"
+                         width="120" height="120">
+                {% endif %}
+            </div>
+
+            <!-- Basic Info -->
+            <div class="flex-grow-1">
+                <h4 class="fw-bold mb-1">
+                    {{ request.user.get_full_name|default:request.user.username }}
+                </h4>
+
+                <p class="text-muted mb-1">
+                    Major: {{ profile.major }}
+                </p>
+
+                <p class="text-muted mb-1">
+                    Year: {{ profile.year }} | Semester: {{ profile.semester }}
+                </p>
+
+                {% if profile.bio %}
+                    <p class="mt-2">{{ profile.bio }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Edit Button -->
+            <div>
+                <a href="{% url 'edit_profile' %}" class="btn btn-outline-primary">
+                    Edit Profile
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Courses -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold">
+            My Courses
+        </div>
+        <div class="card-body">
+            {% if courses %}
+                <ul class="list-group list-group-flush">
+                    {% for sc in courses %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ sc.course.code }}</strong>
+                                <div class="text-muted small">
+                                    {{ sc.course.name }}
+                                </div>
+                            </div>
+                            <span class="badge bg-secondary">
+                                {{ sc.course.credits }} credits
+                            </span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    You haven’t added any courses yet.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Preferred Study Time -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold">
+            Preferred Study Time
+        </div>
+        <div class="card-body">
+            <p class="mb-2">
+                <strong>Days:</strong>
+                {{ profile.preferred_study_days|join:", " }}
+            </p>
+
+            <p class="mb-2">
+                <strong>Time:</strong>
+                {{ profile.preferred_study_start }} – {{ profile.preferred_study_end }}
+            </p>
+
+            <p class="mb-0">
+                <strong>Weekend Study:</strong>
+                {% if profile.weekend_study %}
+                    <span class="badge bg-success">Yes</span>
+                {% else %}
+                    <span class="badge bg-secondary">No</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Free Time Slots -->
+    <div class="card shadow-sm">
+        <div class="card-header fw-semibold">
+            Free / Self-Study Time Slots
+        </div>
+        <div class="card-body">
+
+            {% if free_time_slots %}
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for slot in free_time_slots %}
+                            <tr>
+                                <td>{{ slot.day }}</td>
+                                <td>{{ slot.start_time }}</td>
+                                <td>{{ slot.end_time }}</td>
+                                <td>
+                                    <span class="badge bg-info text-dark">
+                                        {{ slot.get_slot_type_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="alert alert-secondary mb-0">
+                    No free time slots added yet.
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
