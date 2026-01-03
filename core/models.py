@@ -223,30 +223,42 @@ class TimetableSlot(models.Model):
         ('Sun', 'Sunday'),
     ]
 
-    # SLOT_TYPE_CHOICES = [
-    #     ('class', 'Class'),
-    #     ('self_study', 'Self Study'),
-    #     ('break', 'Break'),
-    #     ('activity', 'Activity'),
-    #     ('free', 'Free Time'),
-    # ]
+    SLOT_TYPE_CHOICES = [
+        ('class', 'Class'),
+        ('self_study', 'Self Study'),
+        ('break', 'Break'),
+        ('activity', 'Activity'),
+        ('free', 'Free Time'),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
+
     day = models.CharField(max_length=3, choices=DAY_CHOICES)
     start_time = models.TimeField()
     end_time = models.TimeField()
-    # slot_type = models.CharField(max_length=20, choices=SLOT_TYPE_CHOICES)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True)
+
+    slot_type = models.CharField(
+        max_length=20,
+        choices=SLOT_TYPE_CHOICES,
+        default='free'   # ✅ VERY IMPORTANT
+    )
+
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     custom_name = models.CharField(max_length=200, blank=True)
 
     class Meta:
         ordering = ['day', 'start_time']
 
-    # def __str__(self):
-    #     if self.slot_type == 'class' and self.course:
-    #         return f"{self.course.code} ({self.day} {self.start_time})"
-    #     return f"{self.custom_name or self.get_slot_type_display()} ({self.day} {self.start_time})"
+    def __str__(self):
+        if self.slot_type == 'class' and self.course:
+            return f"{self.course.code} ({self.day} {self.start_time})"
+        return f"{self.custom_name or self.get_slot_type_display()} ({self.day} {self.start_time})"
 
     def is_weekday(self):
         return self.day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -255,9 +267,8 @@ class TimetableSlot(models.Model):
         return self.day in ['Sat', 'Sun']
 
     def is_free_time(self):
-        """Check if this is free time (not class or scheduled activity)"""
         return self.slot_type in ['free', 'self_study']
-
+        
 class StudyGroup(models.Model):
     GROUP_TYPE_CHOICES = [
         ('major', 'Major-Based'),
