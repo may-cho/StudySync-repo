@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+
+{% block title %}Add Timetable Slot | StudySync{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-plus me-2"></i>Add Timetable Slot
+                    </h4>
+                </div>
+
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+
+                        <!-- Messages -->
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <!-- Day -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                Study Day <span class="text-danger">*</span>
+                            </label>
+                            {{ form.day|add_class:"form-select" }}
+                            {% if form.day.errors %}
+                                <div class="text-danger small">{{ form.day.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Time Row -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">
+                                    Start Time <span class="text-danger">*</span>
+                                </label>
+                                {{ form.start_time|add_class:"form-control" }}
+                                {% if form.start_time.errors %}
+                                    <div class="text-danger small">{{ form.start_time.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">
+                                    End Time <span class="text-danger">*</span>
+                                </label>
+                                {{ form.end_time|add_class:"form-control" }}
+                                {% if form.end_time.errors %}
+                                    <div class="text-danger small">{{ form.end_time.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Course -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                Course (Optional)
+                            </label>
+                            {{ form.course|add_class:"form-select" }}
+                            {% if form.course.errors %}
+                                <div class="text-danger small">{{ form.course.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Custom Name -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                Custom Name (Optional)
+                            </label>
+                            {{ form.custom_name|add_class:"form-control" }}
+                            <small class="text-muted">
+                                Example: Self Study, Revision, Group Meeting
+                            </small>
+                            {% if form.custom_name.errors %}
+                                <div class="text-danger small">{{ form.custom_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Non-field errors -->
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'timetable_view' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back
+                            </a>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="fas fa-save me-1"></i> Save Slot
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
