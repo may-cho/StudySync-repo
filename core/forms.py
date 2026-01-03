@@ -119,7 +119,7 @@ class StudentProfileForm(forms.ModelForm):
 class TimetableSlotForm(forms.ModelForm):
     class Meta:
         model = TimetableSlot
-        fields = ['day', 'start_time', 'end_time', 'course', 'custom_name']
+        fields = ['day', 'start_time', 'end_time', 'slot_type', 'course', 'custom_name']
         widgets = {
             'start_time': forms.TimeInput(attrs={'type': 'time'}),
             'end_time': forms.TimeInput(attrs={'type': 'time'}),
