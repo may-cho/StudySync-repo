@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold">Study Groups</h3>
+        <a href="{% url 'create_study_group' %}" class="btn btn-primary">
+            + Create Group
+        </a>
+    </div>
+
+    <!-- My Groups -->
+    <div class="mb-5">
+        <h5 class="fw-semibold mb-3">My Groups</h5>
+
+        {% if my_groups %}
+            <div class="row">
+                {% for group in my_groups %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold">
+                                    {{ group.name }}
+                                </h6>
+
+                                <p class="text-muted small mb-2">
+                                    {{ group.description|truncatechars:90 }}
+                                </p>
+
+                                <span class="badge bg-secondary mb-2">
+                                    {{ group.major }}
+                                </span>
+
+                                <div class="d-flex justify-content-between mt-3">
+                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-sm btn-outline-primary">
+                                        View
+                                    </a>
+                                    <a href="{% url 'group_manage' group.id %}" class="btn btn-sm btn-outline-secondary">
+                                        Manage
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                You haven't joined any study groups yet.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Recommended Groups -->
+    <div>
+        <h5 class="fw-semibold mb-3">Recommended for You</h5>
+
+        {% if recommended_groups %}
+            <div class="row">
+                {% for group in recommended_groups %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 border-success shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold">
+                                    {{ group.name }}
+                                </h6>
+
+                                <p class="text-muted small mb-2">
+                                    {{ group.description|truncatechars:90 }}
+                                </p>
+
+                                <div class="mb-2">
+                                    {% if group.course %}
+                                        <span class="badge bg-success">
+                                            {{ group.course.code }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            {{ group.major }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-flex justify-content-between mt-3">
+                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-sm btn-outline-primary">
+                                        View
+                                    </a>
+                                    <a href="{% url 'join_group' group.id %}" class="btn btn-sm btn-success">
+                                        Join
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-secondary">
+                No recommended groups available right now.
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
