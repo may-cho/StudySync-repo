@@ -1,0 +1,18 @@
+{% load widget_tweaks %}
+
+{% if selected_type == 'major' %}
+    <div class="mb-3">
+        <label class="form-label font-weight-bold">Select Major:</label> 
+        {# This adds the 'form-select' class to the Django-generated tag #}
+        {{ form.major|add_class:"form-select custom-dropdown" }}
+    </div>
+{% elif selected_type == 'course' %}
+    <div class="mb-3">
+        <label class="form-label font-weight-bold">Select Semester:</label> 
+        {{ form.semester|add_class:"form-select custom-dropdown" }}
+     </div>
+    <div class="mb-3">
+        <label class="form-label font-weight-bold">Select Course:</label> 
+        {{ form.course|add_class:"form-select custom-dropdown" }}
+    </div>
+{% endif %}
