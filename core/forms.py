@@ -35,17 +35,17 @@ class UserRegisterForm(UserCreationForm):
         fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2']
 
         def clean_email(self):
-        email = self.cleaned_data.get('email')
+            email = self.cleaned_data.get('email')
 
-        # ✅ Restrict email domain to UCSY only
-        if not email.endswith('@ucsy.edu.mm'):
-            raise forms.ValidationError('Only @ucsy.edu.mm email addresses are allowed.')
+            # ✅ Restrict email domain to UCSY only
+            if not email.endswith('@ucsy.edu.mm'):
+                raise forms.ValidationError('Only @ucsy.edu.mm email addresses are allowed.')
 
-        # ✅ Prevent duplicate email registration
-        if User.objects.filter(email=email).exists():
-            raise forms.ValidationError('This email is already registered.')
+            # ✅ Prevent duplicate email registration
+            if User.objects.filter(email=email).exists():
+                raise forms.ValidationError('This email is already registered.')
 
-        return email
+            return email
 
 
 class StudentProfileForm(forms.ModelForm):
@@ -133,28 +133,58 @@ class TimetableSlotForm(forms.ModelForm):
 
 
 class StudyGroupForm(forms.ModelForm):
+    DAY_CHOICES = [
+        ('Mon', 'Monday'),
+        ('Tue', 'Tuesday'),
+        ('Wed', 'Wednesday'),
+        ('Thu', 'Thursday'),
+        ('Fri', 'Friday'),
+        ('Sat', 'Saturday'),
+        ('Sun', 'Sunday'),
+    ]
+    study_day = forms.MultipleChoiceField(
+        choices=DAY_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=True
+    )
     class Meta:
         model = StudyGroup
-        fields = ['name', 'description', 'group_type', 'major', 'course',
-                  'preferred_day', 'preferred_start_time', 'preferred_end_time', 'max_members']
+        fields = ['name', 'description', 'group_type', 'major', 'course','semester',
+                  'study_day','start_time','end_time', 'max_members']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
-            'preferred_start_time': forms.TimeInput(attrs={'type': 'time'}),
-            'preferred_end_time': forms.TimeInput(attrs={'type': 'time'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time'}),
         }
 
     def __init__(self, *args, **kwargs):
         student = kwargs.pop('student', None)
         super().__init__(*args, **kwargs)
+        self.fields["group_type"].empty_label = "Please select a group type"
+        
+        self.fields['semester'].widget.attrs.update({
+            'hx-get': '/ajax/load-courses',
+            'hx-target': '#id_course',
+            'hx-trigger': 'change'
+        })
+        
         if student:
             self.fields['major'].queryset = Major.objects.filter(university=student.university)
-
-            self.fields['course'].queryset = Course.objects.filter(major=student.major)
+            if 'semester' in self.data:
+                try:
+                    semester_id = self.data.get('semester')
+                    self.fields['course'].queryset = Course.objects.filter(semester=semester_id)
+                except (ValueError, TypeError):
+                    pass
+            else:
+                self.fields['course'].queryset = Course.objects.filter(semester=student.semester)
+                
+                
 
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['code', 'name', 'major', 'credits']
+        fields = ['code', 'name', 'semester', 'credits']
 
 class StudentCourseForm(forms.ModelForm):
     class Meta:

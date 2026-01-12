@@ -4,339 +4,167 @@
 {% block title %}Create Study Group - StudySync{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">
-                        <i class="fas fa-users me-2"></i>Create New Study Group
-                    </h4>
-                </div>
-                <div class="card-body">
-                    <form method="POST" enctype="multipart/form-data">
-                        {% csrf_token %}
-
-                        {% if messages %}
-                        <div class="mb-4">
-                            {% for message in messages %}
-                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-
-                        <!-- Basic Information -->
-                        <div class="mb-4">
-                            <h5 class="mb-3 border-bottom pb-2">
-                                <i class="fas fa-info-circle me-2"></i>Basic Information
-                            </h5>
-
-                            <!-- Group Name -->
-                            <div class="mb-3">
-                                <label for="id_name" class="form-label">
-                                    <i class="fas fa-heading me-1"></i> Group Name *
-                                </label>
-                                <input type="text"
-                                       name="name"
-                                       id="id_name"
-                                       class="form-control {% if form.name.errors %}is-invalid{% endif %}"
-                                       value="{{ form.name.value|default:'' }}"
-                                       placeholder="e.g., Software Engineering Study Group"
-                                       required>
-                                {% if form.name.errors %}
-                                <div class="invalid-feedback">
-                                    {{ form.name.errors.0 }}
-                                </div>
-                                {% endif %}
-                                <small class="form-text text-muted">
-                                    Choose a descriptive name for your study group
-                                </small>
-                            </div>
-
-                            <!-- Description -->
-                            <div class="mb-3">
-                                <label for="id_description" class="form-label">
-                                    <i class="fas fa-align-left me-1"></i> Description *
-                                </label>
-                                <textarea name="description"
-                                          id="id_description"
-                                          class="form-control {% if form.description.errors %}is-invalid{% endif %}"
-                                          rows="3"
-                                          placeholder="Describe the purpose and goals of this study group..."
-                                          required>{{ form.description.value|default:'' }}</textarea>
-                                {% if form.description.errors %}
-                                <div class="invalid-feedback">
-                                    {{ form.description.errors.0 }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Course Selection -->
-                        <div class="mb-4">
-                            <h5 class="mb-3 border-bottom pb-2">
-                                <i class="fas fa-book me-2"></i>Course Information
-                            </h5>
-
-                            <!-- Course -->
-                            <div class="mb-3">
-                                <label for="id_course" class="form-label">
-                                    <i class="fas fa-graduation-cap me-1"></i> Select Course (Optional)
-                                </label>
-                                <select name="course"
-                                        id="id_course"
-                                        class="form-select {% if form.course.errors %}is-invalid{% endif %}">
-                                    <option value="">Select a course (Optional)</option>
-                                    {% for course in user_courses %}
-                                    <option value="{{ course.id }}"
-                                            {% if form.course.value == course.id %}selected{% endif %}>
-                                        {{ course.code }} - {{ course.name }} (Semester {{ course.semester }})
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                                {% if form.course.errors %}
-                                <div class="invalid-feedback">
-                                    {{ form.course.errors.0 }}
-                                </div>
-                                {% endif %}
-                                <small class="form-text text-muted">
-                                    Choose a course if this is a course-specific study group
-                                </small>
-                            </div>
-                        </div>
-
-                        <!-- Study Schedule -->
-                        <div class="mb-4">
-                            <h5 class="mb-3 border-bottom pb-2">
-                                <i class="fas fa-calendar-alt me-2"></i>Study Schedule
-                            </h5>
-
-                            <div class="row">
-                                <!-- Study Day -->
-                                <div class="col-md-6 mb-3">
-                                    <label for="id_study_day" class="form-label">
-                                        <i class="fas fa-calendar-day me-1"></i> Study Day *
-                                    </label>
-                                    <select name="study_day"
-                                            id="id_study_day"
-                                            class="form-select {% if form.study_day.errors %}is-invalid{% endif %}"
-                                            required>
-                                        <option value="">Select a day</option>
-                                        <option value="Mon" {% if form.study_day.value == 'Mon' %}selected{% endif %}>Monday</option>
-                                        <option value="Tue" {% if form.study_day.value == 'Tue' %}selected{% endif %}>Tuesday</option>
-                                        <option value="Wed" {% if form.study_day.value == 'Wed' %}selected{% endif %}>Wednesday</option>
-                                        <option value="Thu" {% if form.study_day.value == 'Thu' %}selected{% endif %}>Thursday</option>
-                                        <option value="Fri" {% if form.study_day.value == 'Fri' %}selected{% endif %}>Friday</option>
-                                        <option value="Sat" {% if form.study_day.value == 'Sat' %}selected{% endif %}>Saturday</option>
-                                        <option value="Sun" {% if form.study_day.value == 'Sun' %}selected{% endif %}>Sunday</option>
-                                    </select>
-                                    {% if form.study_day.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.study_day.errors.0 }}
-                                    </div>
-                                    {% endif %}
-                                </div>
-
-                                <!-- Max Members -->
-                                <div class="col-md-6 mb-3">
-                                    <label for="id_max_members" class="form-label">
-                                        <i class="fas fa-user-friends me-1"></i> Maximum Members
-                                    </label>
-                                    <input type="number"
-                                           name="max_members"
-                                           id="id_max_members"
-                                           class="form-control {% if form.max_members.errors %}is-invalid{% endif %}"
-                                           value="{{ form.max_members.value|default:'10' }}"
-                                           min="2"
-                                           max="50">
-                                    {% if form.max_members.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.max_members.errors.0 }}
-                                    </div>
-                                    {% endif %}
-                                    <small class="form-text text-muted">
-                                        Recommended: 4-10 members for effective study
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <!-- Start Time -->
-                                <div class="col-md-6 mb-3">
-                                    <label for="id_study_start_time" class="form-label">
-                                        <i class="far fa-clock me-1"></i> Start Time *
-                                    </label>
-                                    <input type="time"
-                                           name="study_start_time"
-                                           id="id_study_start_time"
-                                           class="form-control {% if form.study_start_time.errors %}is-invalid{% endif %}"
-                                           value="{{ form.study_start_time.value|default:'16:00' }}"
-                                           required>
-                                    {% if form.study_start_time.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.study_start_time.errors.0 }}
-                                    </div>
-                                    {% endif %}
-                                </div>
-
-                                <!-- End Time -->
-                                <div class="col-md-6 mb-3">
-                                    <label for="id_study_end_time" class="form-label">
-                                        <i class="far fa-clock me-1"></i> End Time *
-                                    </label>
-                                    <input type="time"
-                                           name="study_end_time"
-                                           id="id_study_end_time"
-                                           class="form-control {% if form.study_end_time.errors %}is-invalid{% endif %}"
-                                           value="{{ form.study_end_time.value|default:'18:00' }}"
-                                           required>
-                                    {% if form.study_end_time.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.study_end_time.errors.0 }}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Schedule Helper -->
-                            <div class="alert alert-info">
-                                <div class="d-flex">
-                                    <i class="fas fa-info-circle fa-2x me-3"></i>
-                                    <div>
-                                        <h6 class="alert-heading mb-2">Schedule Guidelines</h6>
-                                        <ul class="mb-0">
-                                            <li><strong>Weekdays (Mon-Fri):</strong> Recommended after 4:00 PM (after classes)</li>
-                                            <li><strong>Weekends:</strong> Any time suitable for members</li>
-                                            <li><strong>Duration:</strong> 1-3 hours per session is optimal</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Form Errors -->
-                        {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            <ul class="mb-0">
-                                {% for error in form.non_field_errors %}
-                                <li>{{ error }}</li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {% endif %}
-
-                        <!-- Submit Buttons -->
-                        <div class="d-flex justify-content-between mt-4">
-                            <a href="{% url 'group_list' %}" class="btn btn-outline-secondary">
-                                <i class="fas fa-arrow-left me-1"></i> Cancel
-                            </a>
-                            <button type="submit" class="btn btn-primary px-4">
-                                <i class="fas fa-plus me-1"></i> Create Group
-                            </button>
-                        </div>
-                    </form>
-                </div>
+        <div class="col-lg-10">
+            
+            <div class="text-center mb-5">
+                <h2 class="fw-bold text-dark">Start a New Study Journey</h2>
+                <p class="text-muted">Fill in the details below to create your group and invite others.</p>
             </div>
 
-            <!-- Quick Tips -->
-            <div class="card shadow-sm mt-4">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">
-                        <i class="fas fa-lightbulb me-2"></i>Tips for Successful Study Groups
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <div class="d-flex">
-                                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
-                                <div>
-                                    <h6>Clear Goals</h6>
-                                    <p class="text-muted small">Define what your group aims to achieve each session.</p>
+            <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show border-0 shadow-sm mb-4">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="row g-4 d-flex align-items-stretch">
+                    
+                    <div class="col-md-7">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body p-4 d-flex flex-column">
+                                <h5 class="card-title mb-4 text-primary fw-bold">
+                                    <i class="fas fa-edit me-2"></i>Group Details
+                                </h5>
+
+                                <div class="mb-4">
+                                    <label for="id_name" class="form-label">Group Name *</label>
+                                    <input type="text" name="name" id="id_name"
+                                           class="form-control form-control-lg {% if form.name.errors %}is-invalid{% endif %}"
+                                           value="{{ form.name.value|default:'' }}"
+                                           placeholder="e.g., Python Masters 2026" required>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="id_description" class="form-label">Description *</label>
+                                    <textarea name="description" id="id_description"
+                                              class="form-control {% if form.description.errors %}is-invalid{% endif %}"
+                                              rows="4" placeholder="What are the goals of this group?" required>{{ form.description.value|default:'' }}</textarea>
+                                </div>
+
+                                <div class="bg-light p-3 rounded-3 mt-auto">
+                                    <label for="id_group_type" class="form-label text-primary fw-bold">Group Type</label>
+                                    <select name="group_type" class="form-select border-primary-subtle" id="id_group_type"
+                                            hx-target="#dynamic-field"
+                                            hx-get="{% url 'ajax_load_group_fields' %}"
+                                            hx-trigger="change">
+                                        {% for key, val in form.fields.group_type.choices %}
+                                            <option value="{{ key }}">{{ val }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    
+                                    <div id="dynamic-field" class="mt-3">
+                                        {% include 'core/partials/group_type_fields.html' %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="d-flex">
-                                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
-                                <div>
-                                    <h6>Regular Schedule</h6>
-                                    <p class="text-muted small">Consistent meeting times improve attendance.</p>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body p-4 d-flex flex-column">
+                                <h5 class="card-title mb-4 text-primary fw-bold">
+                                    <i class="fas fa-calendar-alt me-2"></i>Session Details
+                                </h5>
+
+                                <div class="mb-4">
+                                    <label class="form-label d-block fw-bold small text-muted text-uppercase">Study Days</label>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for value, text in form.fields.study_day.choices %}
+                                        <div class="day-toggle">
+                                            <input type="checkbox" name="study_day" value="{{ value }}" 
+                                                class="btn-check day-checkbox" id="day_{{ value }}" 
+                                                {% if value in form.study_day.value or value in form.initial.study_day %}checked{% endif %}>
+                                            <label class="btn btn-outline-primary rounded-pill px-3 btn-sm" for="day_{{ value }}">
+                                                {{ text|slice:":3" }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="d-flex">
-                                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
-                                <div>
-                                    <h6>Active Participation</h6>
-                                    <p class="text-muted small">Encourage all members to contribute.</p>
+
+                                <div class="row g-2 mb-4">
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted">Starts</label>
+                                        <input type="time" name="start_time" id="id_study_start_time" class="form-control" value="16:00">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted">Ends</label>
+                                        <input type="time" name="end_time" id="id_study_end_time" class="form-control" value="18:00">
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="d-flex">
-                                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
-                                <div>
-                                    <h6>Resource Sharing</h6>
-                                    <p class="text-muted small">Share notes, slides, and practice questions.</p>
+
+                                <div class="mb-4">
+                                    <label for="id_max_members" class="form-label text-muted small fw-bold">MAX PARTICIPANTS</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white"><i class="fas fa-users"></i></span>
+                                        <input type="number" name="max_members" id="id_max_members" class="form-control" value="10" min="2" max="50">
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info border-0 shadow-sm p-3 mt-auto mb-0">
+                                    <h6 class="fw-bold small mb-1"><i class="fas fa-lightbulb me-2 text-warning"></i>Senior Tip</h6>
+                                    <p class="extra-small mb-0 text-dark">Most successful groups meet <strong>2 hours</strong> per session.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <div class="d-flex align-items-center justify-content-between mt-5 pt-4 border-top">
+                    <a href="{% url 'group_list' %}" class="text-decoration-none text-muted fw-bold">
+                        <i class="fas fa-chevron-left me-1"></i> Back to Dashboard
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 shadow rounded-pill">
+                        Create Study Group <i class="fas fa-rocket ms-2"></i>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<script>
-// Update schedule guidance based on selected day
-document.getElementById('id_study_day').addEventListener('change', function() {
-    const day = this.value;
-    const startTimeInput = document.getElementById('id_study_start_time');
-    const endTimeInput = document.getElementById('id_study_end_time');
-
-    // Weekday suggestions (Mon-Fri)
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
-    if (weekdays.includes(day)) {
-        startTimeInput.value = '16:00';
-        endTimeInput.value = '18:00';
-    } else {
-        // Weekend suggestions
-        startTimeInput.value = '10:00';
-        endTimeInput.value = '12:00';
-    }
-});
-
-// Validate end time is after start time
-document.querySelector('form').addEventListener('submit', function(e) {
-    const startTime = document.getElementById('id_study_start_time').value;
-    const endTime = document.getElementById('id_study_end_time').value;
-
-    if (startTime && endTime && startTime >= endTime) {
-        e.preventDefault();
-        alert('End time must be after start time.');
-        return false;
-    }
-});
-</script>
-
 <style>
-.form-label {
-    font-weight: 600;
-}
-.form-control, .form-select {
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-}
-.form-control:focus, .form-select:focus {
-    border-color: #4dabf7;
-    box-shadow: 0 0 0 0.25rem rgba(77, 171, 247, 0.25);
-}
+    body { background-color: #f4f7f6; }
+    .card { border-radius: 1rem; border: none !important; }
+    .extra-small { font-size: 0.75rem; }
+    .btn-check:checked + .btn-outline-primary {
+        background-color: #0d6efd;
+        color: white;
+    }
+    .btn-outline-primary:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+    }
 </style>
+
+<script>
+    // Logic for Multiple Day Toggles
+    const dayCheckboxes = document.querySelectorAll('.day-checkbox');
+    dayCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            const selected = Array.from(document.querySelectorAll('.day-checkbox:checked')).map(c => c.value);
+            const start = document.getElementById('id_study_start_time');
+            const end = document.getElementById('id_study_end_time');
+            const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            
+            if (selected.length > 0) {
+                const hasWeekday = selected.some(day => weekdays.includes(day));
+                if (hasWeekday) {
+                    start.value = '16:00'; end.value = '18:00';
+                } else {
+                    start.value = '10:00'; end.value = '12:00';
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}

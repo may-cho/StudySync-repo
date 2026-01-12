@@ -341,8 +341,10 @@ def create_study_group(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
 
     if request.method == 'POST':
-        form = StudyGroupForm(request.POST)  # Use the Form
+        form = StudyGroupForm(request.POST)  
+       
         if form.is_valid():
+            print("Form is valid.Processing...")
             group = form.save(commit=False)
             group.creator = profile
 
@@ -351,6 +353,7 @@ def create_study_group(request):
                 group.project_admin_managed = True
 
             group.save()
+            print("Saved successfully for group")
 
             # Add creator as admin
             role = 'project_admin' if profile.is_project_admin else 'admin'
@@ -366,15 +369,33 @@ def create_study_group(request):
 
             messages.success(request, 'Study group created successfully!')
             return redirect('group_detail', group_id=group.id)
+        else: 
+            print('Form is invalid')
     else:
         form = StudyGroupForm()  # Form instance
-
+    courses = Course.objects.all();
+    
+    
     context = {
         'form': form,
         'profile': profile,
+        'user_courses' : courses
+       
     }
     return render(request, 'core/create_study_group.html', context)
+def load_group_fields(request):
+    selected_type = request.GET.get('group_type')
+    form = StudyGroupForm()
+    
+    return render(request, 'core/partials/group_type_fields.html', {
+        'selected_type': selected_type,
+        'form': form
+    })
 
+def load_courses(request): 
+    semester_id = request.GET.get('semester')
+    courses = Course.objects.filter(semester=semester_id).order_by('name')
+    return render(request,'core/partials/course_dropdown_list_options.html',{'courses': courses})
 
 @login_required
 def group_detail(request, group_id):
@@ -691,6 +712,8 @@ def add_course(request):
         'profile': profile,
     }
     return render(request, 'core/add_course.html', context)
+
+
 
 
 @login_required
@@ -1085,3 +1108,6 @@ def create_study_session(request, group_id):
     return render(request, 'core/create_study_session.html', context)
 
 
+@login_required
+def edit_group(request,group_id) :
+    print(group_id)

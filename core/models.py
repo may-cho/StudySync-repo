@@ -189,15 +189,19 @@ class Course(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.CharField(max_length=20)
     name = models.CharField(max_length=200)
-    major = models.ForeignKey(Major, on_delete=models.CASCADE)
+    semester = models.CharField(max_length=2, choices=StudentProfile.SEMESTER_CHOICES, null=True, blank=True)
     credits = models.IntegerField(default=3)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
 
     class Meta:
-        unique_together = ['code', 'major']
-
+        constraints = [
+            models.UniqueConstraint(
+                fields=['code', 'semester'], 
+                name='unique_course_code_per_semester'
+            )
+        ]
 
 class StudentCourse(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -281,6 +285,9 @@ class StudyGroup(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField()
     group_type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES)
+    study_day = models.CharField(max_length=100)
+    start_time = models.TimeField(null=True)
+    end_time = models.TimeField(null=True)
 
     # For major-based groups
     major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
@@ -289,14 +296,9 @@ class StudyGroup(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True)
     semester = models.CharField(max_length=2, choices=StudentProfile.SEMESTER_CHOICES, null=True, blank=True)
     # For free time matching
-    preferred_day = models.CharField(max_length=3, choices=TimetableSlot.DAY_CHOICES, null=True, blank=True)
-    preferred_start_time = models.TimeField(null=True, blank=True)
-    preferred_end_time = models.TimeField(null=True, blank=True)
-
-    creator = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='created_groups')
-    created_at = models.DateTimeField(auto_now_add=True)
-    max_members = models.IntegerField(default=10)
-    is_active = models.BooleanField(default=True)
+    # preferred_day = models.CharField(max_length=3, choices=TimetableSlot.DAY_CHOICES, null=True, blank=True)
+    # preferred_start_time = models.TimeField(null=True, blank=True)
+    # preferred_end_time = models.TimeField(null=True, blank=True)
 
     # Project admin override
     project_admin_managed = models.BooleanField(default=False)
