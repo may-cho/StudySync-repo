@@ -84,24 +84,24 @@ class StudentProfileForm(forms.ModelForm):
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         label='I agree to the Terms of Service and Privacy Policy'
     )
-    preferred_study_days = forms.MultipleChoiceField(
-        choices=TimetableSlot.DAY_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
-        required=True,
-        initial=['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-    )
+    # preferred_study_days = forms.MultipleChoiceField(
+    #     choices=TimetableSlot.DAY_CHOICES,
+    #     widget=forms.CheckboxSelectMultiple,
+    #     required=True,
+    #     initial=['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+    # )
 
     class Meta:
         model = StudentProfile
-        fields = ['major', 'year','semester', 'bio', 'profile_picture',
-                   'preferred_study_days', 'preferred_study_start', 'preferred_study_end', 'weekend_study']
+        fields = ['major', 'year','semester', 'bio', 'profile_picture',]
+
 
         widgets = {
         #     # 'major': forms.Select(attrs={'class': 'form-control'}),
         #     # 'year': forms.Select(attrs={'class': 'form-control'}),
         #     # 'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-             'preferred_study_start': forms.TimeInput(attrs={'type': 'time'}),
-             'preferred_study_end': forms.TimeInput(attrs={'type': 'time'}),
+        #     'preferred_study_start': forms.TimeInput(attrs={'type': 'time'}),
+         #    'preferred_study_end': forms.TimeInput(attrs={'type': 'time'}),
          }
 
     # def __init__(self, *args, **kwargs):

@@ -5,20 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5ce9893c-7d9d-4c03-b8b2-b3302399372e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/templates/chat/edit_comment.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/templates/chat/edit_post.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/templates/chat/group_posts.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/StudySync.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/StudySync.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/chat/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/chat/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/chat/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/forms.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/forms.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/myproject/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/myproject/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/chat/group_chat.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/chat/group_chat.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/group_detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/group_detail.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/group_list.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/group_list.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/core/login.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/login.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/core/profile.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/profile.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/core/register.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/register.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,6 +46,7 @@
   &quot;associatedIndex&quot;: 6
 }</component>
   <component name="ProjectId" id="37VaA3q95xDnzX9pxwiibgwXNvZ" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -61,7 +57,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "partner__matching"
+    "git-widget-placeholder": "group__posts"
   }
 }]]></component>
   <component name="RecentsManager">
