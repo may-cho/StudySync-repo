@@ -186,7 +186,7 @@ def group_posts(request, group_id):
             )
 
         # ✅ THIS LINE PREVENTS DUPLICATES
-        return redirect('chat:group_posts', group_id=group.id)
+        return redirect('group_posts', group_id=group.id)
 
     posts = GroupPost.objects.filter(group=group).order_by('-created_at')
 

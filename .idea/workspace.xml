@@ -5,15 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5ce9893c-7d9d-4c03-b8b2-b3302399372e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/StudySync.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/StudySync.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/forms.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/forms.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/myproject/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/myproject/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/login.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/login.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/profile.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/profile.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/register.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/register.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -57,7 +49,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "group__posts"
+    "git-widget-placeholder": "master"
   }
 }]]></component>
   <component name="RecentsManager">
