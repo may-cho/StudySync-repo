@@ -26,7 +26,7 @@ urlpatterns = [
     path('courses/remove/<int:course_id>/', views.remove_course, name='remove_course'),
 
     # Study Partners
-    path('partners/find/', views.find_course_partners, name='find_study_partners_view'),
+    path('partners/find/', views.find_study_partners, name='find_study_partners'),
     path('partners/', views.study_partners_list, name='study_partners_list'),
 
     # Study Groups

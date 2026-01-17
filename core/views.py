@@ -94,7 +94,7 @@ def dashboard(request):
     return render(request, 'core/dashboard.html', context)
 
 @login_required
-def find_course_partners(request):
+def find_study_partners(request):
     """Find classmates for group study"""
     profile = get_object_or_404(StudentProfile, user=request.user)
 
@@ -111,16 +111,19 @@ def find_course_partners(request):
                 messages.info(request, f'No matching study partners found for {course.code}.')
 
             return redirect('course_partners_list', course_id=course_id)
-        # Get user's courses
-        user_courses = Course.objects.filter(
-            studentcourse__student=profile
-        ).order_by('semester', 'code')
+            # If no course_id in POST but it's POST request
+            messages.error(request, 'Please select a course.')
+            return redirect('find_study_partners')
+    # Get user's courses
+    user_courses = Course.objects.filter(
+        studentcourse__student=profile
+    ).order_by('semester', 'code')
 
-        context = {
-            'profile': profile,
-            'user_courses': user_courses,
-        }
-        return render(request, 'core/find_course_partners.html', context)
+    context = {
+        'profile': profile,
+        'user_courses': user_courses,
+    }
+    return render(request, 'core/find_study_partners.html', context)
 
 @login_required
 def study_partners_list(request):
