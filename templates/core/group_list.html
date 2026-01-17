@@ -2,45 +2,44 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container mt-4" style="max-width: 1100px;">
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold">Study Groups</h3>
-        <a href="{% url 'create_study_group' %}" class="btn btn-primary">
-            + Create Group
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h2 class="fw-bold mb-0">Study Hub</h2>
+            <p class="text-muted mb-0">Find your tribe and ace your exams together.</p>
+        </div>
+        <a href="{% url 'create_study_group' %}" class="btn btn-primary rounded-pill px-4 shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Create New Group
         </a>
     </div>
 
-    <!-- My Groups -->
     <div class="mb-5">
-        <h5 class="fw-semibold mb-3">My Groups</h5>
+        <div class="d-flex align-items-center mb-3">
+            <h5 class="fw-bold mb-0 text-dark">My Groups</h5>
+            <span class="badge rounded-pill bg-primary ms-2">{{ my_groups|length }}</span>
+        </div>
 
         {% if my_groups %}
             <div class="row">
                 {% for group in my_groups %}
-                    <div class="col-md-4 mb-3">
-                        <div class="card h-100 shadow-sm">
-                            <div class="card-body">
-                                <h6 class="card-title fw-bold">
-                                    {{ group.name }}
-                                </h6>
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card h-100 border-0 shadow-sm hover-lift transition-all">
+                            <div class="card-body p-4">
+                                <div class="mb-3">
+                                    <span class="badge bg-light text-primary border border-primary-subtle px-3 py-2 rounded-pill small">
+                                        {{ group.major }}
+                                    </span>
+                                </div>
 
-                                <p class="text-muted small mb-2">
-                                    {{ group.description|truncatechars:90 }}
+                                <h5 class="card-title fw-bold mb-2">{{ group.name }}</h5>
+                                <p class="text-muted small mb-4" style="height: 40px; overflow: hidden;">
+                                    {{ group.description|truncatechars:80 }}
                                 </p>
 
-                                <span class="badge bg-secondary mb-2">
-                                    {{ group.major }}
-                                </span>
-
-                                <div class="d-flex justify-content-between mt-3">
-                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-sm btn-outline-primary">
-                                        View
-                                    </a>
-                                    <a href="{% url 'group_manage' group.id %}" class="btn btn-sm btn-outline-secondary">
-                                        Manage
-                                    </a>
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-between">
+                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-primary rounded-pill px-4 btn-sm">Enter</a>
+                                    <a href="{% url 'group_manage' group.id %}" class="btn btn-outline-secondary rounded-pill px-3 btn-sm">Settings</a>
                                 </div>
                             </div>
                         </div>
@@ -48,49 +47,46 @@
                 {% endfor %}
             </div>
         {% else %}
-            <div class="alert alert-info">
-                You haven't joined any study groups yet.
+            <div class="text-center py-5 bg-light rounded-4 border-dashed">
+                <p class="text-muted mb-0">You haven't joined any study groups yet.</p>
             </div>
         {% endif %}
     </div>
 
-    <!-- Recommended Groups -->
     <div>
-        <h5 class="fw-semibold mb-3">Recommended for You</h5>
+        <div class="d-flex align-items-center mb-3">
+            <h5 class="fw-bold mb-0 text-dark">Recommended For You</h5>
+            <i class="bi bi-stars text-warning ms-2"></i>
+        </div>
 
         {% if recommended_groups %}
             <div class="row">
                 {% for group in recommended_groups %}
-                    <div class="col-md-4 mb-3">
-                        <div class="card h-100 border-success shadow-sm">
-                            <div class="card-body">
-                                <h6 class="card-title fw-bold">
-                                    {{ group.name }}
-                                </h6>
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card h-100 border-0 shadow-sm position-relative overflow-hidden">
+                            <div class="position-absolute top-0 start-0 w-100 bg-success" style="height: 4px;"></div>
 
-                                <p class="text-muted small mb-2">
-                                    {{ group.description|truncatechars:90 }}
-                                </p>
-
+                            <div class="card-body p-4 pt-5">
                                 <div class="mb-2">
                                     {% if group.course %}
-                                        <span class="badge bg-success">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
                                             {{ group.course.code }}
                                         </span>
                                     {% else %}
-                                        <span class="badge bg-secondary">
+                                        <span class="badge bg-light text-secondary border rounded-pill px-3">
                                             {{ group.major }}
                                         </span>
                                     {% endif %}
                                 </div>
 
-                                <div class="d-flex justify-content-between mt-3">
-                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-sm btn-outline-primary">
-                                        View
-                                    </a>
-                                    <a href="{% url 'join_group' group.id %}" class="btn btn-sm btn-success">
-                                        Join
-                                    </a>
+                                <h5 class="card-title fw-bold mb-2">{{ group.name }}</h5>
+                                <p class="text-muted small mb-4">
+                                    {{ group.description|truncatechars:85 }}
+                                </p>
+
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-sm text-primary fw-bold text-decoration-none px-0 me-3">Learn More</a>
+                                    <a href="{% url 'join_group' group.id %}" class="btn btn-success rounded-pill px-4 btn-sm shadow-sm ms-auto">Join Group</a>
                                 </div>
                             </div>
                         </div>
@@ -98,11 +94,22 @@
                 {% endfor %}
             </div>
         {% else %}
-            <div class="alert alert-secondary">
-                No recommended groups available right now.
-            </div>
+            <p class="text-muted small">Checking for groups matching your profile...</p>
         {% endif %}
     </div>
 
 </div>
+
+<style>
+    .hover-lift {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    .border-dashed {
+        border: 2px dashed #dee2e6;
+    }
+</style>
 {% endblock %}

@@ -6,123 +6,115 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container mt-4" style="max-width: 900px;">
 
-    <!-- Group Header -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-body">
-            <h2 class="card-title">{{ group.name }}</h2>
+    <div class="card border-0 shadow-sm mb-4 overflow-hidden">
+        <div class="card-header bg-primary py-3"></div> <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                <div>
+                    <h2 class="fw-bold mb-1">{{ group.name }}</h2>
+                    {% if group.description %}
+                        <p class="text-muted mb-3">{{ group.description }}</p>
+                    {% endif %}
 
-            {% if group.description %}
-                <p class="text-muted">{{ group.description }}</p>
-            {% endif %}
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge rounded-pill bg-light text-primary border border-primary">
+                            <i class="bi bi-calendar-event me-1"></i> Semester: {{ group.semester }}
+                        </span>
+                        <span class="badge rounded-pill bg-light text-secondary border">
+                            Created by: {{ group.creator.user.username }}
+                        </span>
+                        {% if group.project_admin_managed %}
+                            <span class="badge rounded-pill bg-warning text-dark">
+                                <i class="bi bi-shield-check me-1"></i> Admin Managed
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
 
-            <div class="d-flex flex-wrap gap-3">
-                <span class="badge bg-primary">
-                    Semester: {{ group.semester }}
-                </span>
-
-                <span class="badge bg-secondary">
-                    Created by: {{ group.creator.user.username }}
-                </span>
-
-                {% if group.project_admin_managed %}
-                    <span class="badge bg-warning text-dark">
-                        Project Admin Managed
-                    </span>
-                {% endif %}
+                <div class="d-flex gap-2">
+                    {% if group.chatroom %}
+                        <a href="{% url 'chat_room' group.chatroom.id %}" class="btn btn-success rounded-pill px-4 shadow-sm">
+                            Open Chat
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'group_posts' group.id %}" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                        View Posts
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Actions -->
-    <div class="mb-4 d-flex gap-2 flex-wrap">
-
-        {% if is_admin %}
-            <a href="{% url 'edit_group' group.id %}" class="btn btn-outline-primary">
-                Edit Group
+    {% if is_admin %}
+    <div class="mb-4">
+        <h6 class="text-muted fw-bold mb-3">ADMIN TOOLS</h6>
+        <div class="d-flex gap-2">
+            <a href="{% url 'edit_group' group.id %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                Edit Details
             </a>
-
-            <a href="{% url 'group_manage' group.id %}" class="btn btn-outline-secondary">
-                Manage Members
+            <a href="{% url 'group_manage' group.id %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                Manage Roles
             </a>
-        {% endif %}
-
-        {% if group.chatroom %}
-            <a href="{% url 'chat_room' group.chatroom.id %}" class="btn btn-success">
-                Open Group Chat
-            </a>
-        {% endif %}
-
+        </div>
     </div>
+    {% endif %}
 
-    <!-- Members Section -->
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h5 class="mb-0">Group Members</h5>
+    <div class="card border-0 shadow-sm mb-5">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h5 class="mb-0 fw-bold text-dark">Group Members <span class="badge bg-secondary rounded-pill ms-2">{{ memberships|length }}</span></h5>
         </div>
 
         <div class="card-body p-0">
-            <table class="table mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Name</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        {% if is_admin %}
-                            <th>Actions</th>
-                        {% endif %}
-                    </tr>
-                </thead>
+            <div class="list-group list-group-flush">
+                {% for membership in memberships %}
+                    <div class="list-group-item py-3 px-4 d-flex align-items-center justify-content-between border-0 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-light text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; font-weight: bold; font-size: 1.2rem; border: 1px solid #dee2e6;">
+                                {{ membership.student.user.username|slice:":1"|upper }}
+                            </div>
 
-                <tbody>
-                    {% for membership in memberships %}
-                        <tr>
-                            <td>
-                                {{ membership.student.user.get_full_name|default:membership.student.user.username }}
-                            </td>
-
-                            <td>
-                                {% if membership.role == 'project_admin' %}
-                                    <span class="badge bg-warning text-dark">Project Admin</span>
-                                {% elif membership.role == 'admin' %}
-                                    <span class="badge bg-info text-dark">Admin</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Member</span>
-                                {% endif %}
-                            </td>
-
-                            <td>
-                                {% if membership.is_active %}
-                                    <span class="text-success">Active</span>
-                                {% else %}
-                                    <span class="text-danger">Inactive</span>
-                                {% endif %}
-                            </td>
-
-                            {% if is_admin %}
-                                <td>
-                                    {% if membership.student != profile %}
-                                        <a href="{% url 'remove_member' group.id membership.student.id %}"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Remove this member?');">
-                                            Remove
-                                        </a>
-                                    {% else %}
-                                        <span class="text-muted">You</span>
+                            <div>
+                                <h6 class="mb-0 fw-bold">
+                                    {{ membership.student.user.get_full_name|default:membership.student.user.username }}
+                                    {% if membership.student == profile %}
+                                        <span class="badge bg-light text-muted fw-normal ms-1 border">You</span>
                                     {% endif %}
-                                </td>
-                            {% endif %}
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">
-                                No members found.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                                </h6>
+                                <div class="small">
+                                    {% if membership.role == 'project_admin' %}
+                                        <span class="text-warning fw-bold">Project Admin</span>
+                                    {% elif membership.role == 'admin' %}
+                                        <span class="text-info fw-bold">Admin</span>
+                                    {% else %}
+                                        <span class="text-muted">Member</span>
+                                    {% endif %}
+
+                                    <span class="mx-1 text-muted">•</span>
+
+                                    {% if membership.is_active %}
+                                        <span class="text-success small">Active Now</span>
+                                    {% else %}
+                                        <span class="text-danger small">Inactive</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if is_admin and membership.student != profile %}
+                            <a href="{% url 'remove_member' group.id membership.student.id %}"
+                               class="btn btn-sm btn-outline-danger rounded-pill px-3"
+                               onclick="return confirm('Remove this member?');">
+                                Remove
+                            </a>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    <div class="p-5 text-center">
+                        <p class="text-muted mb-0">No members found in this group.</p>
+                    </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 

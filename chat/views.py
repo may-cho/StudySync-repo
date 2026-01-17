@@ -1,11 +1,11 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import os
 from core.models import StudyGroup, GroupMembership
-from .models import ChatRoom, Message, SharedFile
+from .models import ChatRoom, Message, SharedFile,GroupPost,PostComment
 import json
 
 
@@ -46,17 +46,18 @@ def group_chat(request, group_id):
 def delete_message(request, message_id):
     message = get_object_or_404(Message, id=message_id)
 
-    # Check if user is sender or group admin
     membership = GroupMembership.objects.filter(
-        user=request.user,
-        group=message.group
+        group=message.room.group,
+        student__user=request.user
     ).first()
 
-    if message.sender == request.user or (membership and membership.role in ['admin', 'moderator']):
+    if message.sender == request.user or (membership and membership.is_admin):
         message.delete()
         return JsonResponse({'success': True})
 
     return JsonResponse({'success': False, 'error': 'Permission denied'})
+
+
 @login_required
 @csrf_exempt
 def upload_file(request, room_id):
@@ -159,3 +160,114 @@ def delete_file(request, file_id):
 
     shared_file.delete()
     return JsonResponse({'success': True})
+
+@login_required
+def group_posts(request, group_id):
+    group = get_object_or_404(StudyGroup, id=group_id)
+
+    # Security: only group members
+    is_member = GroupMembership.objects.filter(
+        group=group,
+        student__user=request.user
+    ).exists()
+
+    if not is_member:
+        return redirect('group_detail', group.id)
+
+    # 🔴 CREATE POST (POST-REDIRECT-GET pattern)
+    if request.method == 'POST':
+        content = request.POST.get('content')
+
+        if content:
+            GroupPost.objects.create(
+                group=group,
+                author=request.user,
+                content=content
+            )
+
+        # ✅ THIS LINE PREVENTS DUPLICATES
+        return redirect('chat:group_posts', group_id=group.id)
+
+    posts = GroupPost.objects.filter(group=group).order_by('-created_at')
+
+    return render(request, 'chat/group_posts.html', {
+        'group': group,
+        'posts': posts,
+        'user': request.user
+    })
+
+
+@login_required
+def add_comment(request, post_id):
+    post = get_object_or_404(GroupPost, id=post_id)
+
+    is_member = GroupMembership.objects.filter(
+        group=post.group,
+        student__user=request.user
+    ).exists()
+
+    if not is_member:
+        return HttpResponseForbidden("Access denied")
+
+    if request.method == 'POST':
+        content = request.POST.get('content')
+        if content:
+            PostComment.objects.create(
+                post=post,
+                author=request.user,
+                content=content
+            )
+
+    return redirect('group_posts', group_id=post.group.id)
+
+@login_required
+def delete_post(request, post_id):
+    post = get_object_or_404(GroupPost, id=post_id)
+
+    if post.author != request.user:
+        return redirect('group_posts', group_id=post.group.id)
+
+    post.delete()
+    return redirect('group_posts', group_id=post.group.id)
+
+@login_required
+def edit_post(request, post_id):
+    post = get_object_or_404(GroupPost, id=post_id)
+
+    if post.author != request.user:
+        return redirect('group_posts', group_id=post.group.id)
+
+    if request.method == 'POST':
+        post.content = request.POST.get('content')
+        post.save()
+        return redirect('group_posts', group_id=post.group.id)
+
+    return render(request, 'chat/edit_post.html', {'post': post})
+
+@login_required
+def delete_comment(request, comment_id):
+    comment = get_object_or_404(PostComment, id=comment_id)
+
+    if comment.author != request.user:
+        return redirect('group_posts', group_id=comment.post.group.id)
+
+    comment.delete()
+    return redirect('group_posts', group_id=comment.post.group.id)
+
+@login_required
+def edit_comment(request, comment_id):
+    comment = get_object_or_404(PostComment, id=comment_id)
+
+    # Authorization: Ensure only the author can edit
+    if comment.author != request.user:
+        return redirect('group_posts', group_id=comment.post.group.id)
+
+    if request.method == 'POST':
+        comment.content = request.POST.get('content')
+        comment.save()
+        return redirect('group_posts', group_id=comment.post.group.id)
+
+    return render(request, 'chat/edit_comment.html', {'comment': comment})
+
+
+
