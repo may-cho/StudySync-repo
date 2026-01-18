@@ -1,3 +1,5 @@
+import os
+
 from django.db import models
 from django.contrib.auth.models import User
 from core.models import StudyGroup, StudentProfile
@@ -44,7 +46,7 @@ class SharedFile(models.Model):
     file = models.FileField(upload_to='study_files/%Y/%m/%d/')
     filename = models.CharField(max_length=255)
     file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES)
-    file_size = models.IntegerField()  # in bytes
+    file_size = models.IntegerField(null=True, blank=True)
     description = models.TextField(blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
@@ -53,6 +55,8 @@ class SharedFile(models.Model):
 
     def __str__(self):
         return self.filename
+
+
     
 class GroupPost(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -89,3 +93,14 @@ class PostComment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.author.username}"
+
+class Reaction(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='reactions')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    emoji = models.CharField(max_length=10) # Stores the emoji character e.g. "👍"
+
+    class Meta:
+        unique_together = ('message', 'user', 'emoji') # One user can only react with one specific emoji once per message
+
+    def __str__(self):
+        return f"{self.user.username} - {self.emoji}"

@@ -25,8 +25,7 @@
                 {% for group in my_groups %}
                     <div class="col-lg-4 col-md-6 mb-4">
                         <div class="card h-100 border-0 shadow-sm hover-lift transition-all">
-                            <div class="card-body p-4">
-                                <div class="mb-3">
+                            <div class="card-body p-4 text-center"> <div class="mb-3">
                                     <span class="badge bg-light text-primary border border-primary-subtle px-3 py-2 rounded-pill small">
                                         {{ group.major }}
                                     </span>
@@ -37,9 +36,10 @@
                                     {{ group.description|truncatechars:80 }}
                                 </p>
 
-                                <div class="d-grid gap-2 d-md-flex justify-content-md-between">
-                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-primary rounded-pill px-4 btn-sm">Enter</a>
-                                    <a href="{% url 'group_manage' group.id %}" class="btn btn-outline-secondary rounded-pill px-3 btn-sm">Settings</a>
+                                <div class="d-flex justify-content-center">
+                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-primary rounded-pill px-5 btn-sm shadow-sm">
+                                        Enter Group
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -84,7 +84,7 @@
                                     {{ group.description|truncatechars:85 }}
                                 </p>
 
-                                <div class="d-flex gap-2">
+                                <div class="d-flex gap-2 align-items-center">
                                     <a href="{% url 'group_detail' group.id %}" class="btn btn-sm text-primary fw-bold text-decoration-none px-0 me-3">Learn More</a>
                                     <a href="{% url 'join_group' group.id %}" class="btn btn-success rounded-pill px-4 btn-sm shadow-sm ms-auto">Join Group</a>
                                 </div>

@@ -1,30 +1,35 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5" style="max-width: 600px;">
     <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">Edit Comment</h5>
-                </div>
-                <div class="card-body">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                            <i class="bi bi-chat-dots-fill"></i>
+                        </div>
+                        <h5 class="fw-bold mb-0">Edit Comment</h5>
+                    </div>
+
                     <form method="POST">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <label for="commentContent" class="form-label text-muted small">Update your comment:</label>
-                            <textarea name="content" 
-                                      id="commentContent" 
-                                      class="form-control" 
-                                      rows="3" 
+                            <textarea name="content"
+                                      id="commentContent"
+                                      class="form-control border-0 bg-light p-3"
+                                      rows="3"
+                                      placeholder="Update your comment..."
+                                      style="border-radius: 12px;"
                                       required>{{ comment.content }}</textarea>
                         </div>
-                        
-                        <div class="d-flex justify-content-between align-items-center">
-                            <a href="{% url 'group_posts' comment.post.group.id %}" class="text-decoration-none text-muted">
-                                Cancel
+
+                        <div class="d-flex justify-content-end align-items-center gap-3">
+                            <a href="{% url 'group_posts' comment.post.group.id %}" class="text-muted small text-decoration-none">
+                                Discard
                             </a>
-                            <button type="submit" class="btn btn-success">
+                            <button type="submit" class="btn btn-success rounded-pill px-4 shadow-sm fw-bold">
                                 Update Comment
                             </button>
                         </div>
