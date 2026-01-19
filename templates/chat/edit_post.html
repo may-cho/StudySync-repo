@@ -10,11 +10,11 @@
                 <div class="card-body p-4 p-md-5">
                     <div class="mb-4">
                         <h3 class="fw-bold text-dark mb-1">Edit Post</h3>
-                        <p class="text-muted small">Update your thoughts for the group.</p>
+                        <p class="text-muted small">Update your thoughts or image for the group.</p>
                     </div>
 
-                    <form method="POST">
-                        {% csrf_token %}
+                    <form method="POST" enctype="multipart/form-data"> {% csrf_token %}
+
                         <div class="mb-4">
                             <label for="postContent" class="form-label fw-semibold text-secondary small">POST CONTENT</label>
                             <textarea name="content"
@@ -23,6 +23,18 @@
                                       rows="6"
                                       style="resize: none; font-size: 1.1rem;"
                                       required>{{ post.content }}</textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold text-secondary small">ATTACHED IMAGE</label>
+                            {% if post.image %}
+                            <div class="mb-2">
+                                <small class="text-muted d-block mb-1">Current Image:</small>
+                                <img src="{{ post.image.url }}" class="img-thumbnail" style="max-height: 200px;">
+                            </div>
+                            {% endif %}
+                            <input type="file" name="image" class="form-control bg-light border-0" accept="image/*">
+                            <small class="text-muted">Leave empty to keep current image.</small>
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center mt-5">

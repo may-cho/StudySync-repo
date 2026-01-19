@@ -35,8 +35,8 @@ urlpatterns = [
     path('groups/<uuid:group_id>/', views.group_detail, name='group_detail'),
     path('groups/<uuid:group_id>/join/', views.join_group, name='join_group'),
     path('groups/<uuid:group_id>/leave/', views.leave_group, name='leave_group'),
+    path('groups/<uuid:group_id>/edit/', views.edit_group, name='edit_group'),
     path('groups/<uuid:group_id>/manage/', views.group_manage, name='group_manage'),
-    path('groups/<uuid:group_id>/edit/',views.edit_group ,name= "edit_group"),
     path('ajax/load-group-fields/', views.load_group_fields, name='ajax_load_group_fields'),
     path('ajax/load-courses/',views.load_courses,name="ajax_load_courses"),
 

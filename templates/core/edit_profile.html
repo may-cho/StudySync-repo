@@ -1,85 +1,162 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Edit Profile | StudySync{% endblock %}
-
 {% block content %}
 <div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-lg-10">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
 
-            <!-- Page Title -->
-            <div class="mb-4 text-center">
-                <h3 class="fw-bold">Edit Profile</h3>
-                <p class="text-muted">Update your personal information</p>
-            </div>
-
-            <!-- Card -->
-            <div class="card shadow-sm">
-                <div class="card-body">
-
-                    <!-- Messages -->
-                    {% if messages %}
-                        {% for message in messages %}
-                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-
-                    <!-- Form -->
-                    <form method="POST" enctype="multipart/form-data">
-                        {% csrf_token %}
-
-                        <!-- Non-field errors -->
-                        {% if form.non_field_errors %}
-                            <div class="alert alert-danger">
-                                {{ form.non_field_errors }}
-                            </div>
-                        {% endif %}
-
-                        <!-- Loop through fields -->
-                        {% for field in form %}
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">
-                                    {{ field.label }}
-                                    {% if field.field.required %}
-                                        <span class="text-danger">*</span>
-                                    {% endif %}
-                                </label>
-
-                                {{ field }}
-
-                                {% if field.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {{ field.errors|striptags }}
-                                    </div>
-                                {% endif %}
-
-                                {% if field.help_text %}
-                                    <div class="form-text">
-                                        {{ field.help_text }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-
-                        <!-- Buttons -->
-                        <div class="d-flex justify-content-between mt-4">
-                            <a href="{% url 'profile' %}" class="btn btn-outline-secondary">
-                                Cancel
-                            </a>
-                            <button type="submit" class="btn btn-primary px-4">
-                                Save Changes
-                            </button>
-                        </div>
-                    </form>
-
+                <div class="d-flex justify-content-between align-items-center mb-5">
+                    <h2 class="fw-bold text-dark m-0">Edit Profile</h2>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'profile' %}" class="btn btn-light rounded-pill px-4 border">Cancel</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">Save Changes</button>
+                    </div>
                 </div>
-            </div>
 
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 p-4 text-center mb-4">
+                            <label class="fw-bold small text-muted text-uppercase d-block mb-4 text-start">Profile Photo</label>
+
+                            <div class="position-relative d-inline-block mb-3">
+                                <div class="avatar-upload-container">
+                                    {% if profile.profile_picture %}
+                                        <img src="{{ profile.profile_picture.url }}" id="img-preview" class="rounded-circle border shadow-sm" width="160" height="160" style="object-fit: cover;">
+                                    {% else %}
+                                        <div id="img-placeholder" class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center mx-auto shadow-sm" style="width: 160px; height: 160px; font-size: 3rem; font-weight: bold;">
+                                            {{ request.user.username|slice:":1"|upper }}
+                                        </div>
+                                    {% endif %}
+
+                                    <label for="imageInput" class="avatar-edit-btn shadow-sm" title="Change Photo">
+                                        <i class="bi bi-camera-fill"></i>
+                                    </label>
+                                </div>
+                                {{ form.profile_picture }}
+                            </div>
+
+                            <p class="text-muted x-small mt-2 mb-0">Click the camera to upload a new photo</p>
+                            {% if form.profile_picture.errors %}
+                                <div class="text-danger small mt-2">{{ form.profile_picture.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="card border-0 shadow-sm rounded-4 p-4">
+                            <label class="fw-bold small text-muted text-uppercase d-block mb-3"><i class="bi bi-person-text me-2"></i>Bio</label>
+                            {{ form.bio }}
+                        </div>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                            <h5 class="fw-bold mb-4 text-primary"><i class="bi bi-mortarboard-fill me-2"></i>Academic Info</h5>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label fw-bold small text-muted">MAJOR</label>
+                                    {{ form.major }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold small text-muted">YEAR</label>
+                                    {{ form.year }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold small text-muted">SEMESTER</label>
+                                    {{ form.semester }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm rounded-4 p-4">
+                            <h5 class="fw-bold mb-4 text-primary"><i class="bi bi-clock-history me-2"></i>Study Preferences</h5>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold small text-muted">START TIME</label>
+                                    {{ form.preferred_study_start }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold small text-muted">END TIME</label>
+                                    {{ form.preferred_study_end }}
+                                </div>
+                                <div class="col-12 mt-3">
+                                    <div class="form-check form-switch p-3 bg-light rounded-3 border ps-5 d-flex justify-content-between align-items-center flex-row-reverse">
+                                        {{ form.weekend_study }}
+                                        <label class="form-check-label fw-bold small text-muted ms-0">
+                                            <i class="bi bi-calendar-check me-2"></i>INCLUDE WEEKENDS?
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<style>
+    /* Profile Image Styling */
+    .avatar-upload-container { position: relative; width: 160px; margin: 0 auto; }
+
+    .avatar-edit-btn {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        background: #0d6efd;
+        color: white;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 3px solid white;
+    }
+
+    .avatar-edit-btn:hover { background: #0b5ed7; transform: scale(1.1); }
+
+    .bg-primary-subtle { background-color: #e7f0ff !important; }
+    .x-small { font-size: 0.75rem; }
+
+    /* Input Styling */
+    input, select, textarea {
+        border-radius: 12px !important;
+        border: 1px solid #dee2e6 !important;
+        padding: 0.75rem !important;
+    }
+</style>
+
+<script>
+    // Live Image Preview Logic
+    document.getElementById('imageInput').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('img-preview');
+                const placeholder = document.getElementById('img-placeholder');
+
+                if (preview) {
+                    preview.src = e.target.result;
+                } else if (placeholder) {
+                    // Replace text placeholder with an image element
+                    const newImg = document.createElement('img');
+                    newImg.id = 'img-preview';
+                    newImg.src = e.target.result;
+                    newImg.className = 'rounded-circle border shadow-sm';
+                    newImg.width = 160;
+                    newImg.height = 160;
+                    newImg.style.objectFit = 'cover';
+                    placeholder.replaceWith(newImg);
+                }
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+</script>
 {% endblock %}

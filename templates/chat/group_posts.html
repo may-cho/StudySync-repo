@@ -2,23 +2,42 @@
 {% block content %}
 
 <div class="container mt-4" style="max-width: 800px;">
-    <div class="d-flex align-items-center mb-4">
-        <h3 class="fw-bold text-primary mb-0">{{ group.name }}</h3>
-        <span class="badge bg-light text-dark ms-3 border">Group Feed</span>
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h3 class="fw-bold text-primary mb-0">{{ group.name }}</h3>
+            <span class="badge bg-light text-dark border">Group Feed</span>
+        </div>
+        <a href="{% url 'group_detail' group.id %}" class="btn btn-outline-secondary btn-sm rounded-pill">
+            <i class="bi bi-arrow-left"></i> Back to Group
+        </a>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-4">
-            <form method="post">
+            <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <textarea name="content"
                           class="form-control border-0 bg-light mb-2"
                           rows="3"
-                          placeholder="What's on your mind?"
+                          placeholder="What's on your mind, {{ user.username }}?"
                           style="resize: none; font-size: 1.1rem;"
                           required></textarea>
-                <div class="d-flex justify-content-end">
-                    <button type="submit" class="btn btn-primary px-4 rounded-pill">Post</button>
+
+                <div id="image-preview-wrapper" class="mb-3 d-none position-relative" style="width: fit-content;">
+                    <img id="image-preview" src="#" alt="Selected Image" class="rounded border shadow-sm" style="max-height: 200px; width: auto;">
+                    <button type="button" class="btn btn-danger btn-sm rounded-circle position-absolute top-0 start-100 translate-middle" onclick="removeImage()">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                    <div>
+                        <label for="image-upload" class="btn btn-light rounded-pill px-3 mb-0">
+                            <i class="bi bi-image text-success me-2"></i>Photo
+                        </label>
+                        <input type="file" name="image" id="image-upload" class="d-none" accept="image/*" onchange="previewImage(this)">
+                    </div>
+                    <button type="submit" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm">Post</button>
                 </div>
             </form>
         </div>
@@ -29,7 +48,7 @@
         <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div class="d-flex align-items-center">
-                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; font-weight: bold;">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; font-weight: bold;">
                         {{ post.author.username|slice:":1"|upper }}
                     </div>
                     <div>
@@ -40,45 +59,96 @@
 
                 {% if post.author == user %}
                 <div class="dropdown">
-                    <a href="{% url 'edit_post' post.id %}" class="btn btn-sm btn-light text-secondary me-1">Edit</a>
-                    <a href="{% url 'delete_post' post.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete post?')">Delete</a>
+                    <button class="btn btn-light btn-sm rounded-circle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm">
+                        <li><a class="dropdown-item" href="{% url 'edit_post' post.id %}"><i class="bi bi-pencil me-2"></i>Edit Post</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{% url 'delete_post' post.id %}" onclick="return confirm('Delete this post?')"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                    </ul>
                 </div>
                 {% endif %}
             </div>
 
-            <p class="card-text fs-5 text-dark mb-4" style="line-height: 1.6;">{{ post.content }}</p>
+            <p class="card-text fs-5 text-dark mb-3" style="line-height: 1.5;">{{ post.content }}</p>
 
-            <div class="bg-light rounded-3 p-3">
-                <h6 class="text-muted small fw-bold mb-3">COMMENTS</h6>
+            {% if post.image %}
+            <div class="mb-3 mx-n4">
+                <img src="{{ post.image.url }}" class="img-fluid border-top border-bottom" style="width: 100%; max-height: 500px; object-fit: cover;">
+            </div>
+            {% endif %}
+
+            <div class="d-flex align-items-center py-2 border-top border-bottom mb-3">
+                <form action="{% url 'toggle_post_like' post.id %}" method="POST" class="me-3">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm rounded-pill px-3 {% if request.user in post.likes.all %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                        <i class="bi bi-hand-thumbs-up-fill me-1"></i> {{ post.total_likes }}
+                    </button>
+                </form>
+                <span class="text-muted small"><i class="bi bi-chat-left me-1"></i> {{ post.comments.count }} Comments</span>
+            </div>
+
+            <div class="bg-light rounded-4 p-3">
+                <h6 class="text-muted small fw-bold mb-3 uppercase">Comments</h6>
 
                 {% for comment in post.comments.all %}
-                <div class="mb-3 border-bottom pb-2">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <span class="fw-bold small">{{ comment.author.username }}</span>
-                            <span class="ms-2 text-dark small">{{ comment.content }}</span>
+                <div class="mb-3">
+                    <div class="d-flex gap-2">
+                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                            {{ comment.author.username|slice:":1"|upper }}
                         </div>
+
+                        <div class="w-100">
+                            <div id="comment-display-{{ comment.id }}" class="bg-white rounded-3 px-3 py-2 shadow-sm">
+                                <div class="fw-bold small text-primary">{{ comment.author.username }}</div>
+                                <div class="text-dark small">{{ comment.content }}</div>
+                            </div>
+
+                            {% if comment.author == user %}
+                            <div id="comment-edit-{{ comment.id }}" class="d-none mt-1">
+                                <form method="post" action="{% url 'edit_comment' comment.id %}">
+                                    {% csrf_token %}
+                                    <textarea name="content" class="form-control form-control-sm mb-2" rows="2" required>{{ comment.content }}</textarea>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-success btn-sm py-0 px-3 rounded-pill">Save</button>
+                                        <button type="button" class="btn btn-light btn-sm py-0 px-3 rounded-pill" onclick="toggleEdit('{{ comment.id }}')">Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="ms-5 mt-1 d-flex align-items-center gap-3">
+                        <form action="{% url 'toggle_comment_like' comment.id %}" method="POST">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-link p-0 text-decoration-none small" style="font-size: 0.75rem;">
+                                {% if request.user in comment.likes.all %}
+                                    <span class="text-danger fw-bold">Unlike</span>
+                                {% else %}
+                                    <span class="text-muted">Like</span>
+                                {% endif %}
+                                <span class="ms-1 text-muted">({{ comment.total_likes }})</span>
+                            </button>
+                        </form>
+
                         {% if comment.author == user %}
-                        <div>
-                            <a href="{% url 'edit_comment' comment.id %}" class="text-primary small text-decoration-none">Edit</a>
-                            <a href="{% url 'delete_comment' comment.id %}" class="text-danger small text-decoration-none ms-2">Delete</a>
-                        </div>
+                        <button type="button" class="btn btn-link p-0 text-muted small text-decoration-none" style="font-size: 0.75rem;" onclick="toggleEdit('{{ comment.id }}')">Edit</button>
+                        <a href="{% url 'delete_comment' comment.id %}" class="text-muted small text-decoration-none" style="font-size: 0.75rem;" onclick="return confirm('Delete comment?')">Delete</a>
                         {% endif %}
                     </div>
                 </div>
                 {% empty %}
-                <p class="text-muted small mb-0 italic">No comments yet. Start the conversation!</p>
+                <p class="text-muted small mb-0">No comments yet.</p>
                 {% endfor %}
 
                 <form method="post" action="{% url 'add_comment' post.id %}" class="mt-3">
                     {% csrf_token %}
-                    <div class="input-group">
-                        <input type="text" name="content"
-                               class="form-control border-0 bg-white"
-                               placeholder="Write a comment..."
-                               required>
-                        <button class="btn btn-white text-primary border-0" type="submit">
-                            <i class="bi bi-send-fill">Reply</i>
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="content" class="form-control border-0 bg-white rounded-start-pill px-3" placeholder="Write a comment..." required>
+                        <button class="btn btn-white text-primary border-0 rounded-end-pill" type="submit">
+                            <i class="bi bi-send-fill"></i>
                         </button>
                     </div>
                 </form>
@@ -91,5 +161,42 @@
     </div>
     {% endfor %}
 </div>
+
+<script>
+    // Logic for Comment Edit Toggle
+    function toggleEdit(commentId) {
+        const displayDiv = document.getElementById(`comment-display-${commentId}`);
+        const editDiv = document.getElementById(`comment-edit-${commentId}`);
+
+        if (editDiv.classList.contains('d-none')) {
+            editDiv.classList.remove('d-none');
+            displayDiv.classList.add('d-none');
+        } else {
+            editDiv.classList.add('d-none');
+            displayDiv.classList.remove('d-none');
+        }
+    }
+
+    // Image Upload Preview Logic
+    function previewImage(input) {
+        const preview = document.getElementById('image-preview');
+        const wrapper = document.getElementById('image-preview-wrapper');
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                wrapper.classList.remove('d-none');
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function removeImage() {
+        const input = document.getElementById('image-upload');
+        const wrapper = document.getElementById('image-preview-wrapper');
+        input.value = "";
+        wrapper.classList.add('d-none');
+    }
+</script>
 
 {% endblock %}

@@ -9,6 +9,7 @@ from .models import ChatRoom, Message, SharedFile,GroupPost,PostComment
 import json
 from django.http import JsonResponse
 from django.db.models import Count
+from django.http import HttpResponseForbidden
 
 
 @login_required
@@ -177,31 +178,29 @@ def delete_file(request, file_id):
 def group_posts(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
 
-    # Security: only group members
+    # Updated membership check based on your core models (StudentProfile relationship)
     is_member = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
     ).exists()
 
     if not is_member:
-        return redirect('group_detail', group.id)
+        return redirect('group_detail', group_id=group.id)
 
-    # 🔴 CREATE POST (POST-REDIRECT-GET pattern)
     if request.method == 'POST':
         content = request.POST.get('content')
+        image = request.FILES.get('image') # Handle the image file
 
-        if content:
+        if content or image:
             GroupPost.objects.create(
                 group=group,
                 author=request.user,
-                content=content
+                content=content,
+                image=image
             )
-
-        # ✅ THIS LINE PREVENTS DUPLICATES
         return redirect('group_posts', group_id=group.id)
 
     posts = GroupPost.objects.filter(group=group).order_by('-created_at')
-
     return render(request, 'chat/group_posts.html', {
         'group': group,
         'posts': posts,
@@ -266,20 +265,46 @@ def delete_comment(request, comment_id):
     comment.delete()
     return redirect('group_posts', group_id=comment.post.group.id)
 
+
 @login_required
 def edit_comment(request, comment_id):
     comment = get_object_or_404(PostComment, id=comment_id)
 
-    # Authorization: Ensure only the author can edit
+    # Authorization
     if comment.author != request.user:
         return redirect('group_posts', group_id=comment.post.group.id)
 
     if request.method == 'POST':
-        comment.content = request.POST.get('content')
-        comment.save()
-        return redirect('group_posts', group_id=comment.post.group.id)
+        content = request.POST.get('content')
+        if content:
+            comment.content = content
+            comment.save()
 
-    return render(request, 'chat/edit_comment.html', {'comment': comment})
+    # Always redirect back to the group feed
+    return redirect('group_posts', group_id=comment.post.group.id)
+
+@login_required
+def toggle_post_like(request, post_id):
+    post = get_object_or_404(GroupPost, id=post_id)
+    if request.user in post.likes.all():
+        post.likes.remove(request.user)
+    else:
+        post.likes.add(request.user)
+    return redirect('group_posts', group_id=post.group.id)
+
+
+@login_required
+def toggle_comment_like(request, comment_id):
+    comment = get_object_or_404(PostComment, id=comment_id)
+
+    # Toggle logic
+    if request.user in comment.likes.all():
+        comment.likes.remove(request.user)
+    else:
+        comment.likes.add(request.user)
+
+    # Redirect back to the feed
+    return redirect('group_posts', group_id=comment.post.group.id)
 
 
 
