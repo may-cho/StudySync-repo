@@ -8,6 +8,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from datetime import datetime, date, time, timedelta
 import json
+from .models import StudyGroup, StudentProfile, GroupMembership
+from .forms import StudyGroupForm
 
 from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
     get_common_courses, calculate_compatibility
@@ -409,26 +411,30 @@ def load_courses(request):
     courses = Course.objects.filter(semester=semester_id).order_by('name')
     return render(request,'core/partials/course_dropdown_list_options.html',{'courses': courses})
 
+
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Check if user is member
-    is_member = group.is_member(request.user)
+    # Explicit checks
+    is_member = GroupMembership.objects.filter(group=group, student=profile).exists()
     is_admin = group.is_admin(request.user)
+
+    # This is the key variable for the Leave button
+    is_creator = (group.creator == profile)
 
     if not is_member and not is_admin:
         messages.error(request, 'You are not a member of this group')
         return redirect('group_list')
 
-    # Get members
-    members = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
+    memberships = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
 
     context = {
         'group': group,
-        'members': members,
+        'memberships': memberships,
         'is_admin': is_admin,
+        'is_creator': is_creator,
         'profile': profile,
     }
     return render(request, 'core/group_detail.html', context)
@@ -489,85 +495,105 @@ def join_group(request, group_id):
 
 @login_required
 def leave_group(request, group_id):
-    profile = get_object_or_404(StudentProfile, user=request.user)
-    group = get_object_or_404(StudyGroup, id=group_id)
+    if request.method == 'POST':
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        group = get_object_or_404(StudyGroup, id=group_id)
 
-    # Check if member
-    try:
-        membership = GroupMembership.objects.get(group=group, student=profile)
+        try:
+            membership = GroupMembership.objects.get(group=group, student=profile)
 
-        # Don't allow creator to leave without transferring ownership
-        if group.creator == profile:
-            messages.error(request, 'Group creator cannot leave. Transfer ownership first.')
-            return redirect('group_manage', group_id=group_id)
+            # Prevent creator from leaving without transferring ownership
+            if group.creator == profile:
+                messages.error(request, 'Group creator cannot leave. Transfer ownership first.')
+                return redirect('group_manage', group_id=group.id)
 
-        membership.delete()
-        messages.success(request, f'You have left {group.name}')
-    except GroupMembership.DoesNotExist:
-        messages.error(request, 'You are not a member of this group')
+            membership.delete()
+            messages.success(request, f'You have successfully left {group.name}.')
+            return redirect('group_list')
 
-    return redirect('group_list')
+        except GroupMembership.DoesNotExist:
+            messages.error(request, 'You are not a member of this group.')
+            return redirect('group_list')
+
+    return redirect('group_detail', group_id=group_id)
 
 
 @login_required
 def group_manage(request, group_id):
+    """View to manage member roles, removals, and group deletion"""
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Check if user is admin
+    # Check if the user is the creator (needed for group deletion)
+    is_creator = (group.creator == profile)
+
     if not group.is_admin(request.user):
-        messages.error(request, 'You do not have permission to manage this group')
-        return redirect('group_detail', group_id=group_id)
+        messages.error(request, 'You do not have permission to manage roles.')
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         action = request.POST.get('action')
+        student_id = request.POST.get('student_id')
 
-        if action == 'update_group':
-            form = StudyGroupForm(request.POST, instance=group)  # Use Form with instance
-            if form.is_valid():
-                form.save()
-                messages.success(request, 'Group updated successfully')
-
-        elif action == 'add_admin':
-            student_id = request.POST.get('student_id')
-            try:
-                student = StudentProfile.objects.get(id=student_id)
-                membership = GroupMembership.objects.get(group=group, student=student)
-                membership.role = 'admin'
-                membership.save()
-                messages.success(request, f'{student.user.username} is now an admin')
-            except:
-                messages.error(request, 'Error adding admin')
-
-        elif action == 'remove_member':
-            student_id = request.POST.get('student_id')
-            try:
-                student = StudentProfile.objects.get(id=student_id)
-                if student != group.creator:
-                    GroupMembership.objects.filter(group=group, student=student).delete()
-                    messages.success(request, f'{student.user.username} removed from group')
-            except:
-                pass
-
-        elif action == 'delete_group':
-            if profile.is_project_admin or profile == group.creator:
+        # 1. DELETE GROUP ACTION
+        if action == 'delete_group':
+            if is_creator:
                 group_name = group.name
                 group.delete()
-                messages.success(request, f'Group "{group_name}" deleted')
-                return redirect('dashboard')
+                messages.success(request, f'Group "{group_name}" has been deleted.')
+                return redirect('group_list')
+            else:
+                messages.error(request, 'Only the group creator can delete this group.')
 
-        return redirect('group_manage', group_id=group_id)
+        # 2. PROMOTE TO ADMIN
+        elif action == 'add_admin':
+            membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
+            membership.role = 'admin'
+            membership.save()
+            messages.success(request, 'Member promoted to Admin.')
 
-    # Get members
-    members = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
+        # 3. REMOVE MEMBER
+        elif action == 'remove_member':
+            membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
+            if membership.student != group.creator:
+                membership.delete()
+                messages.success(request, 'Member removed.')
+            else:
+                messages.error(request, 'The creator cannot be removed.')
 
-    context = {
+        return redirect('group_manage', group_id=group.id)
+
+    memberships = GroupMembership.objects.filter(group=group).select_related('student__user')
+    return render(request, 'core/group_manage.html', {
         'group': group,
-        'members': members,
-        'is_creator': profile == group.creator,
-        'is_project_admin': profile.is_project_admin,
-    }
-    return render(request, 'core/group_manage.html', context)
+        'memberships': memberships,
+        'is_creator': is_creator,
+    })
+
+
+@login_required
+def edit_group(request, group_id):
+    group = get_object_or_404(StudyGroup, id=group_id)
+
+    # Check if user is an admin
+    if not group.is_admin(request.user):
+        messages.error(request, "You don't have permission to edit this group.")
+        return redirect('group_detail', group_id=group.id)
+
+    if request.method == 'POST':
+        form = StudyGroupForm(request.POST, request.FILES, instance=group)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Group updated successfully!')
+            return redirect('group_detail', group_id=group.id)
+    else:
+        form = StudyGroupForm(instance=group)
+
+    # THIS RETURN MUST BE OUTSIDE THE IF STATEMENTS
+    return render(request, 'core/edit_group.html', {
+        'form': form,
+        'group': group
+    })
 
 
 @user_passes_test(lambda u: u.is_superuser)
@@ -659,9 +685,7 @@ def project_admin_groups(request):
 @login_required
 def profile_view(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
-
-    # Get user's courses
-    courses = StudentCourse.objects.filter(student=profile)
+    courses = StudentCourse.objects.filter(student=profile).select_related('course')
 
     # Get user's free time slots
     free_time_slots = TimetableSlot.objects.filter(
@@ -682,19 +706,17 @@ def edit_profile(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
 
     if request.method == 'POST':
-        form = StudentProfileForm(request.POST, request.FILES, instance=profile)  # Use Form
+        form = StudentProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             form.save()
             messages.success(request, 'Profile updated successfully!')
-            return redirect('profile')
+            return redirect('profile') # Goes to profile page on success
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = StudentProfileForm(instance=profile)
 
-    context = {
-        'form': form,
-        'profile': profile,
-    }
-    return render(request, 'core/edit_profile.html', context)
+    return render(request, 'core/edit_profile.html', {'form': form, 'profile': profile})
 
 
 @login_required

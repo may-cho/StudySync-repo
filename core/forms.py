@@ -49,14 +49,7 @@ class UserRegisterForm(UserCreationForm):
 
 
 class StudentProfileForm(forms.ModelForm):
-    # university = forms.ModelChoiceField(
-    #     queryset=University.objects.all(),
-    #     empty_label="Select your university",
-    #     widget=forms.Select(attrs={'class': 'form-select'})
-    # )
     major = forms.ChoiceField(
-        # queryset=Major.objects.none(),
-        #empty_label="Select your major",
         choices=StudentProfile.MAJOR_CHOICES,
         widget=forms.Select(attrs={'class': 'form-select'})
     )
@@ -69,50 +62,38 @@ class StudentProfileForm(forms.ModelForm):
         widget=forms.Textarea(attrs={
             'class': 'form-control',
             'rows': 3,
-            'placeholder': 'Tell us about yourself, your study interests, etc.'
+            'placeholder': 'Tell us about yourself...'
         })
     )
     profile_picture = forms.ImageField(
         required=False,
         widget=forms.FileInput(attrs={
-            'class': 'form-control',
-            'accept': 'image/*'
+            'class': 'd-none',  # Hide the ugly default button
+            'accept': 'image/*',
+            'id': 'imageInput'
         })
     )
+
+    # Set this to False so it doesn't block the save if the checkbox is missing
     terms = forms.BooleanField(
-        required=True,
+        required=False,
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        label='I agree to the Terms of Service and Privacy Policy'
-    )
-    preferred_study_days = forms.MultipleChoiceField(
-        choices=TimetableSlot.DAY_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
-        required=True,
-        initial=['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+        label='I agree to the Terms of Service'
     )
 
     class Meta:
         model = StudentProfile
-        fields = ['major', 'year','semester', 'bio', 'profile_picture',
-                   'preferred_study_days', 'preferred_study_start', 'preferred_study_end', 'weekend_study']
-
+        # IMPORTANT: All fields rendered in HTML must be listed here
+        fields = [
+            'major', 'year', 'semester', 'bio', 'profile_picture',
+            'preferred_study_start', 'preferred_study_end', 'weekend_study'
+        ]
         widgets = {
-        #     # 'major': forms.Select(attrs={'class': 'form-control'}),
-        #     # 'year': forms.Select(attrs={'class': 'form-control'}),
-        #     # 'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-             'preferred_study_start': forms.TimeInput(attrs={'type': 'time'}),
-             'preferred_study_end': forms.TimeInput(attrs={'type': 'time'}),
-         }
-
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     if 'university' in self.data:
-    #         try:
-    #             # university_id = int(self.data.get('university'))
-    #             #self.fields['major'].queryset = Major.objects.filter(university_id=university_id)
-    #             self.fields['major'].widget.attrs.pop('disabled', None)
-    #         except (ValueError, TypeError):
-    #             pass
+            'preferred_study_start': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'preferred_study_end': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'semester': forms.Select(attrs={'class': 'form-select'}),
+            'weekend_study': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
 
 
 
@@ -142,32 +123,47 @@ class StudyGroupForm(forms.ModelForm):
         ('Sat', 'Saturday'),
         ('Sun', 'Sunday'),
     ]
+
     study_day = forms.MultipleChoiceField(
         choices=DAY_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
         required=True
     )
+
     class Meta:
         model = StudyGroup
-        fields = ['name', 'description', 'group_type', 'major', 'course','semester',
-                  'study_day','start_time','end_time', 'max_members']
+        fields = ['name', 'description', 'group_type', 'major', 'course', 'semester',
+                  'study_day', 'start_time', 'end_time', 'max_members']
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 4}),
-            'start_time': forms.TimeInput(attrs={'type': 'time'}),
-            'end_time': forms.TimeInput(attrs={'type': 'time'}),
+            'name': forms.TextInput(attrs={'class': 'form-control rounded-pill'}),
+            'description': forms.Textarea(attrs={'class': 'form-control rounded-4', 'rows': 4}),
+            'group_type': forms.Select(attrs={'class': 'form-select rounded-pill'}),
+            'major': forms.Select(attrs={'class': 'form-select rounded-pill'}),
+            'course': forms.Select(attrs={'class': 'form-select rounded-pill'}),
+            'semester': forms.Select(attrs={'class': 'form-select rounded-pill'}),
+            'start_time': forms.TimeInput(attrs={'class': 'form-control rounded-pill', 'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'class': 'form-control rounded-pill', 'type': 'time'}),
+            'max_members': forms.NumberInput(attrs={'class': 'form-control rounded-pill'}),
         }
 
     def __init__(self, *args, **kwargs):
         student = kwargs.pop('student', None)
         super().__init__(*args, **kwargs)
+
+        # Pre-populate study_day if editing an existing group
+        if self.instance and self.instance.pk and self.instance.study_day:
+            # Converts "Mon,Tue" back into ['Mon', 'Tue'] for the checkboxes
+            self.initial['study_day'] = self.instance.study_day.split(',')
+
         self.fields["group_type"].empty_label = "Please select a group type"
-        
+
+        # HTMX support for dynamic course loading
         self.fields['semester'].widget.attrs.update({
-            'hx-get': '/ajax/load-courses',
+            'hx-get': '/ajax/load-courses/',
             'hx-target': '#id_course',
             'hx-trigger': 'change'
         })
-        
+
         if student:
             self.fields['major'].queryset = Major.objects.filter(university=student.university)
             if 'semester' in self.data:
@@ -176,8 +172,18 @@ class StudyGroupForm(forms.ModelForm):
                     self.fields['course'].queryset = Course.objects.filter(semester=semester_id)
                 except (ValueError, TypeError):
                     pass
+            elif self.instance and self.instance.pk:
+                # If editing, show courses for the current group's semester
+                self.fields['course'].queryset = Course.objects.filter(semester=self.instance.semester)
             else:
                 self.fields['course'].queryset = Course.objects.filter(semester=student.semester)
+
+    def clean_study_day(self):
+        """Convert the list of days into a comma-separated string for storage."""
+        data = self.cleaned_data.get('study_day')
+        if isinstance(data, list):
+            return ",".join(data)
+        return data
                 
                 
 
