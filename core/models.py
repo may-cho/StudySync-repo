@@ -245,7 +245,7 @@ class TimetableSlot(models.Model):
     slot_type = models.CharField(
         max_length=20,
         choices=SLOT_TYPE_CHOICES,
-        default='free'   # ✅ VERY IMPORTANT
+        default='free'  
     )
 
     course = models.ForeignKey(
@@ -272,6 +272,19 @@ class TimetableSlot(models.Model):
 
     def is_free_time(self):
         return self.slot_type in ['free', 'self_study']
+    def get_styles(self):
+        total_height = 1200 
+        start_mins = self.start_time.hour * 60 + self.start_time.minute
+        end_mins = self.end_time.hour * 60 + self.end_time.minute
+    
+        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        left_percent = days.index(self.day) * (100 / 7)
+        
+        top = (start_mins / 1440) * total_height
+        height = ((end_mins - start_mins) / 1440) * total_height
+        width = 100 / 7
+        
+        return f"top: {top}px; left: {left_percent}%; height: {height}px; width: {width}%; position: absolute;"
         
 class StudyGroup(models.Model):
     GROUP_TYPE_CHOICES = [
@@ -375,6 +388,7 @@ class StudyGroup(models.Model):
             return self.memberships.filter(student=profile).exists()
         except:
             return False
+   
 
 
 class GroupMembership(models.Model):

@@ -252,31 +252,15 @@ def register(request):
 
 @login_required
 def timetable_view(request):
-    profile = get_object_or_404(StudentProfile, user=request.user)
+    
+    slots = TimetableSlot.objects.filter(student=request.user.studentprofile)
 
-    # Get timetable slots grouped by day
-    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    # Create a list of lists instead of dictionary
-    timetable_data = []
-    for day in days:
-        slots = TimetableSlot.objects.filter(
-            student=profile,
-            day=day
-        ).order_by('start_time')
-        timetable_data.append({
-            'day': day,
-            'slots': slots
-        })
-
-    # Define hours (8 AM to 6 PM)
-    hours = list(range(8, 19))
+    day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+    for slot in slots:
+        slot.day_index = day_map.get(slot.day, 0)
 
     context = {
-        'profile': profile,
-        'timetable_data': timetable_data,
-        'days': days,
-        'hours': hours,
+        'timetable_slots': slots
     }
     return render(request, 'core/timetable.html', context)
 
@@ -1111,3 +1095,49 @@ def create_study_session(request, group_id):
 @login_required
 def edit_group(request,group_id) :
     print(group_id)
+    
+@login_required
+def save_timetable_slot(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            # Use the actual profile object
+            profile = get_object_or_404(StudentProfile, user=request.user)
+            
+            raw_id = data.get('event_id')
+            
+            # Handle the ID properly
+            if not raw_id or raw_id in ["null", "undefined", "None", ""]:
+                slot_id = uuid.uuid4().hex
+            else:
+                try:
+                    slot_id = uuid.UUID(str(raw_id)).hex
+                except (ValueError, TypeError):
+                    slot_id = uuid.uuid4().hex
+
+            # IMPORTANT: Check your days_map
+            # If these are longer than 3 chars, it triggers "Data too long"
+            days_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            day_idx = int(data.get('day_index', 0))
+            day_str = days_map[day_idx]
+
+            # Use update_or_create but handle the foreign key properly
+            slot, created = TimetableSlot.objects.update_or_create(
+                id=slot_id,
+                defaults={
+                    'student': profile, # Pass the OBJECT, not a string
+                    'day': day_str,     # Must be exactly 3 chars
+                    'start_time': data.get('start_time'),
+                    'end_time': data.get('end_time'),
+                    'custom_name': str(data.get('title', ''))[:200],
+                    'slot_type': 'free',
+                }
+            )
+            
+            return JsonResponse({'status': 'success', 'id': str(slot.id)})
+            
+        except Exception as e:
+            # This will now print the FULL error to your terminal
+            import traceback
+            traceback.print_exc() 
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
