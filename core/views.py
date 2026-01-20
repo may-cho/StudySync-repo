@@ -94,9 +94,21 @@ def dashboard(request):
     return render(request, 'core/dashboard.html', context)
 
 @login_required
-def find_course_partners(request):
+def find_study_partners(request):
     """Find classmates for group study"""
     profile = get_object_or_404(StudentProfile, user=request.user)
+
+    # Get user's courses
+    user_courses = Course.objects.filter(
+        studentcourse__student=profile
+    ).order_by('semester', 'code')
+
+    # Get recent classmates (simple version)
+    recent_classmates = StudentProfile.objects.filter(
+        studentcourse__course__in=user_courses
+    ).exclude(
+        user=request.user
+    ).distinct().select_related('user')[:4]  # Just get 4 recent classmates
 
     if request.method == 'POST':
         course_id = request.POST.get('course_id')
@@ -110,20 +122,20 @@ def find_course_partners(request):
             else:
                 messages.info(request, f'No matching study partners found for {course.code}.')
 
-            return redirect('course_partners_list', course_id=course_id)
-        # Get user's courses
-        user_courses = Course.objects.filter(
-            studentcourse__student=profile
-        ).order_by('semester', 'code')
+            return redirect('study_partners_list')
+        else:
+            messages.error(request, 'Please select a course.')
+            return redirect('find_study_partners')
 
-        context = {
-            'profile': profile,
-            'user_courses': user_courses,
-        }
-        return render(request, 'core/find_course_partners.html', context)
+    context = {
+        'profile': profile,
+        'user_courses': user_courses,
+        'recent_classmates': recent_classmates,
+    }
+    return render(request, 'core/find_study_partners.html', context)
 
 @login_required
-def study_partners_list(request):
+def study_partners_list(request, course_id=None):
     """
     Display list of all potential study partners from user's courses
     """
@@ -139,11 +151,21 @@ def study_partners_list(request):
         messages.info(request, 'Please add courses first to find study partners.')
         return redirect('add_course')
 
+    # Filter by specific course if course_id is provided
+    if course_id:
+        course = get_object_or_404(Course, id=course_id)
+        filtered_courses = user_courses.filter(id=course_id)
+        if not filtered_courses.exists():
+            messages.error(request, "You're not enrolled in this course.")
+            return redirect('study_partners_list')
+    else:
+        filtered_courses = user_courses
+
     # Get study partners by course
     course_partners = []
     total_partners = 0
 
-    for course in user_courses:
+    for course in filtered_courses:
         # Get classmates for this course
         classmates = StudentProfile.objects.filter(
             studentcourse__course=course
@@ -167,16 +189,20 @@ def study_partners_list(request):
                     target_student=classmate
                 ).first()
 
+                # Get common courses
+                common_courses_list = get_common_courses(profile, classmate).exclude(id=course.id)
+
                 classmates_with_info.append({
                     'student': classmate,
                     'compatibility_score': compatibility_score,
                     'common_times': common_times[:3],  # Top 3 suggestions
                     'has_existing_match': existing_match is not None,
                     'match_status': existing_match.status if existing_match else None,
-                    'common_courses': get_common_courses(profile, classmate),
+                    'common_courses': common_courses_list,
+                    'common_courses_count': common_courses_list.count(),
                 })
 
-                # Sort by compatibility score
+            # Sort by compatibility score
             classmates_with_info.sort(key=lambda x: x['compatibility_score'], reverse=True)
 
             course_partners.append({
@@ -186,38 +212,40 @@ def study_partners_list(request):
             })
             total_partners += classmates.count()
 
-            # Get all potential partners (flattened)
-            all_partners = []
-            for cp in course_partners:
-                for classmate_info in cp['classmates']:
-                    classmate_info['course'] = cp['course']
-                    all_partners.append(classmate_info)
+    # Get all potential partners (flattened)
+    all_partners = []
+    for cp in course_partners:
+        for classmate_info in cp['classmates']:
+            classmate_info['course'] = cp['course']
+            all_partners.append(classmate_info)
 
-            # Get recommended groups to join
-            recommended_groups = StudyGroup.objects.filter(
-                course__in=user_courses,
-                is_active=True
-            ).exclude(
-                memberships__student=profile
-            ).order_by('-created_at')[:5]
+    # Get recommended groups to join
+    recommended_groups = StudyGroup.objects.filter(
+        course__in=user_courses,
+        is_active=True
+    ).exclude(
+        memberships__student=profile
+    ).order_by('-created_at')[:5]
 
-            # Get pending invitations
-            pending_invites = CourseGroupMatch.objects.filter(
-                Q(initiator=profile) | Q(target_student=profile),
-                status='pending'
-            ).count()
+    # Get pending invitations
+    pending_invites = CourseGroupMatch.objects.filter(
+        Q(initiator=profile) | Q(target_student=profile),
+        status='pending'
+    ).count()
 
-            context = {
-                'profile': profile,
-                'course_partners': course_partners,
-                'all_partners': all_partners,
-                'total_partners': total_partners,
-                'recommended_groups': recommended_groups,
-                'pending_invites': pending_invites,
-                'user_courses': user_courses,
-            }
+    context = {
+        'profile': profile,
+        'course_partners': course_partners,
+        'all_partners': all_partners,
+        'total_partners': total_partners,
+        'recommended_groups': recommended_groups,
+        'pending_invites': pending_invites,
+        'user_courses': user_courses,
+        'selected_course_id': course_id,
+    }
 
-            return render(request, 'core/study_partners_list.html', context)
+    return render(request, 'core/study_partners_list.html', context)
+
 
 
 def register(request):
