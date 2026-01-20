@@ -86,11 +86,8 @@ class StudentProfileForm(forms.ModelForm):
         # IMPORTANT: All fields rendered in HTML must be listed here
         fields = [
             'major', 'year', 'semester', 'bio', 'profile_picture',
-            'preferred_study_start', 'preferred_study_end', 'weekend_study'
         ]
         widgets = {
-            'preferred_study_start': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
-            'preferred_study_end': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
             'semester': forms.Select(attrs={'class': 'form-select'}),
             'weekend_study': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
