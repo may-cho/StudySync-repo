@@ -455,7 +455,7 @@ def group_list(request):
     ).exclude(
         memberships__student=profile
     ).filter(
-        Q(major=profile.major) |
+        Q(major__name=profile.major) |
         Q(course__in=profile.studentcourse_set.values('course'))
     ).order_by('-created_at')[:5]
 

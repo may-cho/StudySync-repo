@@ -101,7 +101,7 @@ CHANNEL_LAYERS = {
 
 DATABASES = {
     'default': {
-        'ENGINE': 'mysql.connector.django',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'studysync_db',
         'USER': 'studysync_user',
         'PASSWORD': 'StudySync@2024',
