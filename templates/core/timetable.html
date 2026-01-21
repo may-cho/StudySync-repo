@@ -7,11 +7,13 @@
 {% block title %}Timetable - StudySync{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="fas fa-calendar-alt"></i> My Timetable</h2>
-    <a href="{% url 'add_timetable_slot' %}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Add Time Slot
-    </a>
+<div class="d-flex justify-content-between align-items-center mb-4 p-2">
+    <div>
+        <h2 class="fw-bold mb-0" style="color: var(--text-main);">
+            <i class="fas fa-calendar-alt me-2 text-primary"></i>My Timetable
+        </h2>
+        <p class="text-muted small mb-0">Organize your weekly study sessions</p>
+    </div>
 </div>
 
 <div class="calendar-container">
@@ -68,40 +70,68 @@
                     data-start="{{slot.start_time|time:'H:i'}}"
                     data-end="{{slot.end_time|time:'H:i'}}"
                     data-title="{{slot.custom_name}}"
-                    style="{{slot.get_styles}}"
+                    data-slot-type="{{slot.slot_type}}"
+                    data-day_index="{{slot.day_index}}"
+                    style="{{ slot.get_styles }}; background-color: {{ slot.get_color }}20;"
                     >
                     <p class="time-block-label">{{ slot.custom_name }}</p>
-                    <p class="time-block-time">{{slot.start_time|time:'g:ia'}}-{{slot.end_time|time:'g:ia'}}</p>
+                    
+                    <p class="time-block-time">{{ slot.start_time|time:'g:iA'|lower }}-{{ slot.end_time|time:'g:iA'|lower }}</p>
                     
                 </div>
             {% endfor %}
 
         {% csrf_token %}
-        <div id="floating-menu" class="floating-popover" style="display: none;">
-                <input type="text" id="event-title" placeholder="Event Name..." class="form-control form-control-sm mb-2">
-        
-                <div class="row g-2 mb-2">
-                    <div class="col-6">
-                        <label class="small text-muted">Start</label>
-                        <input type="time" id="modal-start" class="form-control form-control-sm" step="900">
-                    </div>
-                    <div class="col-6">
-                        <label class="small text-muted">End</label>
-                        <input type="time" id="modal-end" class="form-control form-control-sm" step="900">
-                    </div>
-                </div>
+      <div id="floating-menu" class="floating-popover" style="display: none;">
+    <input type="text" id="event-title" placeholder="Event Name..." class="form-control mb-3">
+    <div class="mb-3">
+        <label class="small text-muted d-block mb-2">Slot Category</label>
+        <div class="custom-select-wrapper">
+            <select id="slot-type" class="form-select custom-select">
+                <option value="class">🏛️ Class</option>
+                <option value="self_study">📖 Self Study</option>
+                <option value="break">☕ Break</option>
+                <option value="activity">🏀 Activity</option>
+                <option value="free">☁️ Free Time</option>
+            </select>
+        </div>
+    </div>
 
-                <div class="d-flex justify-content-between">
-                    <button class="btn btn-sm btn-primary px-3" onclick="saveEvent()">Save</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="closeMenu()">✕</button>
-                </div>
-            </div>
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <label class="small text-muted">Start</label>
+            <input type="time" id="modal-start" class="form-control form-control-sm">
+        </div>
+        <div class="col-6">
+            <label class="small text-muted">End</label>
+            <input type="time" id="modal-end" class="form-control form-control-sm">
+        </div>
+    </div>
+
+    <div class="popover-footer">
+        <button class="btn-icon btn-delete" onclick="deleteEvent()" title="Delete">
+            <i class="fas fa-trash"></i>
+        </button>
+        <div class="d-flex gap-2">
+            <button class="btn-text btn-cancel" onclick="closeMenu()">Cancel</button>
+            <button class="btn-text btn-save" onclick="saveEvent()">Save</button>
         </div>
     </div>
 </div>
+    </div>
+</div>
 
-<div class="debug-panel">
-    Selected Time: <span id="time-output">None</span>
+<div id="delete-confirm-modal" class="custom-modal-overlay" style="display: none;">
+    <div class="mini-modal">
+        <div class="mini-modal-header">
+            <span class="warning-dot"></span>
+            <p>Remove Session?</p>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel-mini" onclick="hideDeleteModal()">Cancel</button>
+            <button class="btn-delete-mini" id="confirm-delete-btn">Remove</button>
+        </div>
+    </div>
 </div>
 
 

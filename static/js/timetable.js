@@ -6,7 +6,9 @@ window.onload = () => {
   const modalStart = document.getElementById("modal-start");
   const modalEnd = document.getElementById("modal-end");
   const inputTitle = document.getElementById("event-title");
+  const slotTypeSelect = document.getElementById("slot-type");
 
+  let originalState = null;
   let startY = 0;
   let startX = 0;
   let isDragging = false;
@@ -35,6 +37,7 @@ window.onload = () => {
       const relativeLeft = blockRect.left - gridRect.left;
 
       showMenuAt(relativeTop, relativeLeft, blockRect.width, blockRect.height);
+
       const startTime = clickedBlock.dataset.start;
       const endTime = clickedBlock.dataset.end;
       const [startH, startM] = startTime.trim().split(":");
@@ -54,15 +57,51 @@ window.onload = () => {
 
   function showMenuAt(top, left, width, height) {
     const gridWidth = grid.offsetWidth;
+    const gridHeight = grid.offsetHeight;
+    const popoverWidth = 280;
+    const popoverHeight = floatingMenu.offsetHeight || 320;
+    const spacing = 15;
+
+    originalState = {
+      title: activeElement.dataset.title || "",
+      slotType: activeElement.dataset.slotType || "class",
+      start: activeElement.dataset.start || modalStart.value,
+      end: activeElement.dataset.end || modalEnd.value,
+      top: activeElement.style.top,
+      height: activeElement.style.height,
+      backgroundColor: activeElement.style.backgroundColor,
+      borderColor: activeElement.style.borderColor,
+    };
+
+    // 1. Restore the Category/Type and Color data
+    const savedType = activeElement.dataset.slotType;
+    if (savedType) {
+      document.getElementById("slot-type").value = savedType;
+    }
+
+    // 2. Handle Delete Button Visibility
+    const deleteBtn = document.querySelector(".btn-delete");
+    if (!activeElement.dataset.id && !activeElement.dataset.eventId) {
+      deleteBtn.style.visibility = "hidden";
+    } else {
+      deleteBtn.style.visibility = "visible";
+    }
 
     floatingMenu.style.display = "block";
-    floatingMenu.style.top = `${top}px`;
+
+    if (top + popoverHeight > gridHeight) {
+      floatingMenu.style.top = `${top - popoverHeight + height}px`;
+      floatingMenu.classList.add("popover-top");
+    } else {
+      floatingMenu.style.top = `${top}px`;
+      floatingMenu.classList.remove("popover-top");
+    }
 
     if (left > gridWidth * 0.6) {
-      floatingMenu.style.left = `${left - 260}px`;
+      floatingMenu.style.left = `${left - popoverWidth - spacing}px`;
       floatingMenu.classList.add("popover-left");
     } else {
-      floatingMenu.style.left = `${left + width + 10}px`;
+      floatingMenu.style.left = `${left + width + spacing}px`;
       floatingMenu.classList.remove("popover-left");
     }
 
@@ -176,8 +215,6 @@ window.onload = () => {
     dragStarted = false;
     mouseUp = true;
     ghost.querySelector(".time-block-label").innerHTML = "";
-
-    // Here is where you would trigger your Django Form Modal
   });
   function updateTimeFromBlocks(topBlock, numOfBlocks) {
     const MINUTES_PER_BLOCK = 15;
@@ -188,14 +225,17 @@ window.onload = () => {
     modalStart.value = formatTime(startMins);
     modalEnd.value = formatTime(endMins);
 
-    output.innerText = `${formatTime(startMins)} - ${formatTime(endMins)}`;
+    if (output) {
+      output.innerText = `${formatTime(startMins)} - ${formatTime(endMins)}`;
+    }
   }
 
   function formatTime(totalMinutes) {
     const total = Math.round(totalMinutes);
-    const hour = Math.floor(total / 60);
+    let hour = Math.floor(total / 60);
     const m = total % 60;
 
+    if (hour >= 24) hour = 0;
     const hh = hour.toString().padStart(2, "0");
     const mm = m.toString().padStart(2, "0");
     return `${hh}:${mm}`;
@@ -280,15 +320,37 @@ window.onload = () => {
   }
 
   function closeMenu() {
+    if (activeElement && originalState) {
+      // 1. Restore Data Attributes
+      activeElement.dataset.title = originalState.title;
+      activeElement.dataset.slotType = originalState.slotType;
+      activeElement.dataset.start = originalState.start;
+      activeElement.dataset.end = originalState.end;
+
+      // 2. Restore Visuals (CSS)
+      activeElement.style.top = originalState.top;
+      activeElement.style.height = originalState.height;
+      activeElement.style.backgroundColor = originalState.backgroundColor;
+      activeElement.style.borderColor = originalState.borderColor;
+
+      // 3. Restore Inner Labels
+      const titleLabel = activeElement.querySelector(".time-block-label");
+      if (titleLabel) titleLabel.innerText = originalState.title;
+
+      const timeLabel = activeElement.querySelector(".time-block-time");
+      if (timeLabel)
+        timeLabel.innerText = `${originalState.start}-${originalState.end}`;
+    }
+
     floatingMenu.style.display = "none";
-    activeElement = null;
     ghost.style.display = "none";
+    activeElement = null;
+    originalState = null;
   }
 
   function updateTitle() {
     if (!activeElement) return;
     const inputValue = inputTitle.value;
-    activeElement.dataset.title = inputValue;
 
     const titleLabel = activeElement.querySelector(".time-block-label");
     if (titleLabel) {
@@ -298,20 +360,40 @@ window.onload = () => {
   async function saveEvent() {
     if (!activeElement) return;
 
+    const title = inputTitle.value.trim();
+    if (!title) {
+      inputTitle.style.border = "2px solid #ef4444";
+      inputTitle.placeholder = "Title is required!";
+      inputTitle.focus();
+
+      inputTitle.classList.add("shake");
+      setTimeout(() => inputTitle.classList.remove("shake"), 500);
+      return;
+    }
+
+    inputTitle.style.border = "none";
     const csrftoken = getCookie("csrftoken");
     const rect = grid.getBoundingClientRect();
     const dayWidth = rect.width / 7;
-    const ghostLeft = parseFloat(activeElement.style.left);
 
-    // Bug Fix: Use floor for more predictable day indexing
-    const dayIndex = Math.floor((ghostLeft + 2) / dayWidth);
+    let dayIndex;
+    const styleLeft = activeElement.style.left;
+    if (styleLeft.includes("%")) {
+      dayIndex = Math.round(parseFloat(styleLeft) / (100 / 7));
+    } else if (styleLeft.includes("px")) {
+      dayIndex = Math.floor((parseFloat(styleLeft) + 5) / dayWidth);
+    } else {
+      dayIndex = parseInt(activeElement.dataset.dayIndex || 0);
+    }
+
+    dayIndex = Math.max(0, Math.min(6, dayIndex));
 
     const eventData = {
       title: inputTitle.value,
+      slot_type: document.getElementById("slot-type").value,
       start_time: modalStart.value,
       end_time: modalEnd.value,
       day_index: dayIndex,
-      // Bug Fix: Check both id and eventId
       event_id:
         activeElement.dataset.id || activeElement.dataset.eventId || null,
     };
@@ -330,14 +412,71 @@ window.onload = () => {
       const result = await response.json();
 
       if (response.ok) {
-        alert("Saved Successfully");
+        activeElement.dataset.id = result.id;
+        originalState = null;
+        closeMenu();
         location.reload();
       } else {
-        // Handle Django's error message (like the 500 we saw)
         alert("Error: " + (result.message || "Unknown server error"));
       }
     } catch (error) {
       console.error("Error saving event:", error);
+    }
+  }
+  function deleteEvent() {
+    if (!activeElement) return;
+
+    const slotId = activeElement.dataset.id;
+    if (!slotId) {
+      activeElement.remove();
+      originalState = null;
+      closeMenu();
+      return;
+    }
+
+    floatingMenu.style.display = "none";
+    const deleteConfirmModal = document.getElementById("delete-confirm-modal");
+
+    deleteConfirmModal.style.display = "flex";
+    deleteConfirmModal.addEventListener("mousedown", (e) => {
+      e.stopPropagation();
+    });
+
+    deleteConfirmModal.addEventListener("mouseup", (e) => {
+      e.stopPropagation();
+    });
+
+    deleteConfirmModal.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    document.getElementById("confirm-delete-btn").onclick = (e) => {
+      executeDelete(slotId);
+    };
+  }
+
+  function hideDeleteModal() {
+    document.getElementById("delete-confirm-modal").style.display = "none";
+    if (floatingMenu) {
+      floatingMenu.style.display = "block";
+    }
+  }
+
+  async function executeDelete(slotId) {
+    hideDeleteModal();
+
+    try {
+      const response = await fetch(`/timetable/delete-slot/${slotId}/`, {
+        method: "DELETE",
+        headers: { "X-CSRFToken": getCookie("csrftoken") },
+      });
+
+      if (response.ok) {
+        activeElement.remove();
+        closeMenu();
+        location.reload();
+      }
+    } catch (e) {
+      console.error("Delete failed", e);
     }
   }
 
@@ -358,11 +497,34 @@ window.onload = () => {
 
   modalStart.addEventListener("input", syncVisualsToTime);
   modalEnd.addEventListener("input", syncVisualsToTime);
-  inputTitle.addEventListener("input", updateTitle);
+  inputTitle.addEventListener("input", () => {
+    if (inputTitle.value.trim().length > 0) {
+      inputTitle.style.border = "none";
+    }
+    updateTitle();
+  });
+
+  const typeColorMap = {
+    class: "#6366f1",
+    self_study: "#8b5cf6",
+    break: "#10b981",
+    activity: "#f59e0b",
+    free: "#3b82f6",
+  };
+
+  slotTypeSelect.addEventListener("change", (e) => {
+    const selectedType = e.target.value;
+    const activeColor = typeColorMap[selectedType];
+
+    if (activeColor && activeElement) {
+      activeElement.style.backgroundColor = activeColor + "40";
+      activeElement.style.borderColor = activeColor;
+      activeElement.dataset.slotType = selectedType;
+    }
+  });
 
   window.closeMenu = closeMenu;
-
+  window.deleteEvent = deleteEvent;
   window.saveEvent = saveEvent;
-
-  createTimeBlock("3:00", "5:00", 2, "Hello World");
+  window.hideDeleteModal = hideDeleteModal;
 };

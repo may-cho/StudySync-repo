@@ -17,6 +17,7 @@ urlpatterns = [
     # Timetable
     path('timetable/', views.timetable_view, name='timetable_view'),
     path('timetable/save-timeslot', views.save_timetable_slot,name="save_timetable_slot"),
+    path("timetable/delete-slot/<uuid:slot_id>/",views.delete_timetable_slot,name="delete_timetable_slot"),
     path('timetable/add/', views.add_timetable_slot, name='add_timetable_slot'),
     path('timetable/edit/<uuid:slot_id>/', views.edit_timetable_slot, name='edit_timetable_slot'),
     path('timetable/delete/<uuid:slot_id>/', views.delete_timetable_slot, name='delete_timetable_slot'),

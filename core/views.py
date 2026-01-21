@@ -10,6 +10,7 @@ from datetime import datetime, date, time, timedelta
 import json
 from .models import StudyGroup, StudentProfile, GroupMembership
 from .forms import StudyGroupForm
+from django.views.decorators.http import require_http_methods
 
 from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
     get_common_courses, calculate_compatibility
@@ -288,7 +289,6 @@ def timetable_view(request):
     day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
     for slot in slots:
         slot.day_index = day_map.get(slot.day, 0)
-
     context = {
         'timetable_slots': slots
     }
@@ -1148,46 +1148,78 @@ def edit_group(request,group_id) :
     
 @login_required
 def save_timetable_slot(request):
+    
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            # Use the actual profile object
             profile = get_object_or_404(StudentProfile, user=request.user)
             
             raw_id = data.get('event_id')
+            title = data.get('title', '').strip()
+            if not title:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': 'Title cannot be empty.'
+                }, status=400)
             
-            # Handle the ID properly
-            if not raw_id or raw_id in ["null", "undefined", "None", ""]:
-                slot_id = uuid.uuid4().hex
-            else:
+            slot_id = None
+            if raw_id and raw_id not in ["null", "undefined", "None", ""]:
                 try:
-                    slot_id = uuid.UUID(str(raw_id)).hex
+                    slot_id = uuid.UUID(str(raw_id))
                 except (ValueError, TypeError):
-                    slot_id = uuid.uuid4().hex
+                    slot_id = None
 
-            # IMPORTANT: Check your days_map
-            # If these are longer than 3 chars, it triggers "Data too long"
             days_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
             day_idx = int(data.get('day_index', 0))
-            day_str = days_map[day_idx]
+            day_idx = max(0, min(6, day_idx))
+            day_str = days_map[day_idx] 
+            slot_type = data.get("slot_type", "class")
 
-            # Use update_or_create but handle the foreign key properly
-            slot, created = TimetableSlot.objects.update_or_create(
-                id=slot_id,
-                defaults={
-                    'student': profile, # Pass the OBJECT, not a string
-                    'day': day_str,     # Must be exactly 3 chars
-                    'start_time': data.get('start_time'),
-                    'end_time': data.get('end_time'),
-                    'custom_name': str(data.get('title', ''))[:200],
-                    'slot_type': 'free',
-                }
-            )
-            
+            if slot_id:
+               try:
+                    slot = TimetableSlot.objects.get(id=slot_id, student=profile)
+                    slot.day = day_str
+                    slot.start_time = data.get('start_time')
+                    slot.end_time = data.get('end_time')
+                    slot.custom_name = str(data.get('title', 'Untitled'))[:200]
+                    slot.slot_type = slot_type
+                    slot.save()
+               except TimetableSlot.DoesNotExist:
+                    slot = TimetableSlot.objects.create(
+                        student=profile, day=day_str, 
+                        start_time=data.get('start_time'), 
+                        end_time=data.get('end_time'),
+                        custom_name=data.get('title'), 
+                        slot_type=slot_type
+                        )
+            else:
+                slot = TimetableSlot.objects.create(
+                    student=profile, day=day_str, 
+                    start_time=data.get('start_time'), 
+                    end_time=data.get('end_time'),
+                    custom_name=data.get('title'), 
+                    slot_type=slot_type
+                )
+                        
             return JsonResponse({'status': 'success', 'id': str(slot.id)})
-            
         except Exception as e:
-            # This will now print the FULL error to your terminal
             import traceback
-            traceback.print_exc() 
+            print(traceback.format_exc())
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_timetable_slot(request, slot_id):
+    try:
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        slot = TimetableSlot.objects.filter(id=slot_id, student=profile).first()
+        
+        if slot:
+            slot.delete()
+            return JsonResponse({'status': 'success', 'message': 'Deleted'})
+        else:
+            return JsonResponse({'status': 'success', 'message': 'Already deleted'})
+            
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    

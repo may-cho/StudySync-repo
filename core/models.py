@@ -272,18 +272,32 @@ class TimetableSlot(models.Model):
 
     def is_free_time(self):
         return self.slot_type in ['free', 'self_study']
+    def get_color(self):
+        type_colors = {
+            'class': '#6366f1',    
+            'self_study': '#8b5cf6',
+            'break': '#10b981',     
+            'activity': '#f59e0b',  
+            'free': '#3b82f6'     
+        }
+        return type_colors.get(self.slot_type, '#6366f1') 
     def get_styles(self):
         total_height = 1200 
         start_mins = self.start_time.hour * 60 + self.start_time.minute
         end_mins = self.end_time.hour * 60 + self.end_time.minute
-    
-        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        left_percent = days.index(self.day) * (100 / 7)
-        
+
+        try:
+            day_idx = int(self.day) 
+            print(f"try {day_idx}")
+        except (ValueError, TypeError):
+            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            day_idx = days.index(self.day) if self.day in days else 0
+                  
+        left_percent = day_idx * (100 / 7)
         top = (start_mins / 1440) * total_height
         height = ((end_mins - start_mins) / 1440) * total_height
         width = 100 / 7
-        
+
         return f"top: {top}px; left: {left_percent}%; height: {height}px; width: {width}%; position: absolute;"
         
 class StudyGroup(models.Model):
