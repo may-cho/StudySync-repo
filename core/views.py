@@ -10,6 +10,7 @@ from datetime import datetime, date, time, timedelta
 import json
 from .models import StudyGroup, StudentProfile, GroupMembership
 from .forms import StudyGroupForm
+from django.views.decorators.http import require_http_methods
 
 from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
     get_common_courses, calculate_compatibility
@@ -282,31 +283,14 @@ def register(request):
 
 @login_required
 def timetable_view(request):
-    profile = get_object_or_404(StudentProfile, user=request.user)
+    
+    slots = TimetableSlot.objects.filter(student=request.user.studentprofile)
 
-    # Get timetable slots grouped by day
-    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    # Create a list of lists instead of dictionary
-    timetable_data = []
-    for day in days:
-        slots = TimetableSlot.objects.filter(
-            student=profile,
-            day=day
-        ).order_by('start_time')
-        timetable_data.append({
-            'day': day,
-            'slots': slots
-        })
-
-    # Define hours (8 AM to 6 PM)
-    hours = list(range(8, 19))
-
+    day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+    for slot in slots:
+        slot.day_index = day_map.get(slot.day, 0)
     context = {
-        'profile': profile,
-        'timetable_data': timetable_data,
-        'days': days,
-        'hours': hours,
+        'timetable_slots': slots
     }
     return render(request, 'core/timetable.html', context)
 
@@ -471,7 +455,7 @@ def group_list(request):
     ).exclude(
         memberships__student=profile
     ).filter(
-        Q(major=profile.major) |
+        Q(major__name=profile.major) |
         Q(course__in=profile.studentcourse_set.values('course'))
     ).order_by('-created_at')[:5]
 
@@ -1161,3 +1145,81 @@ def create_study_session(request, group_id):
 @login_required
 def edit_group(request,group_id) :
     print(group_id)
+    
+@login_required
+def save_timetable_slot(request):
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            profile = get_object_or_404(StudentProfile, user=request.user)
+            
+            raw_id = data.get('event_id')
+            title = data.get('title', '').strip()
+            if not title:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': 'Title cannot be empty.'
+                }, status=400)
+            
+            slot_id = None
+            if raw_id and raw_id not in ["null", "undefined", "None", ""]:
+                try:
+                    slot_id = uuid.UUID(str(raw_id))
+                except (ValueError, TypeError):
+                    slot_id = None
+
+            days_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            day_idx = int(data.get('day_index', 0))
+            day_idx = max(0, min(6, day_idx))
+            day_str = days_map[day_idx] 
+            slot_type = data.get("slot_type", "class")
+
+            if slot_id:
+               try:
+                    slot = TimetableSlot.objects.get(id=slot_id, student=profile)
+                    slot.day = day_str
+                    slot.start_time = data.get('start_time')
+                    slot.end_time = data.get('end_time')
+                    slot.custom_name = str(data.get('title', 'Untitled'))[:200]
+                    slot.slot_type = slot_type
+                    slot.save()
+               except TimetableSlot.DoesNotExist:
+                    slot = TimetableSlot.objects.create(
+                        student=profile, day=day_str, 
+                        start_time=data.get('start_time'), 
+                        end_time=data.get('end_time'),
+                        custom_name=data.get('title'), 
+                        slot_type=slot_type
+                        )
+            else:
+                slot = TimetableSlot.objects.create(
+                    student=profile, day=day_str, 
+                    start_time=data.get('start_time'), 
+                    end_time=data.get('end_time'),
+                    custom_name=data.get('title'), 
+                    slot_type=slot_type
+                )
+                        
+            return JsonResponse({'status': 'success', 'id': str(slot.id)})
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_timetable_slot(request, slot_id):
+    try:
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        slot = TimetableSlot.objects.filter(id=slot_id, student=profile).first()
+        
+        if slot:
+            slot.delete()
+            return JsonResponse({'status': 'success', 'message': 'Deleted'})
+        else:
+            return JsonResponse({'status': 'success', 'message': 'Already deleted'})
+            
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
