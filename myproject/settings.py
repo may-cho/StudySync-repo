@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'widget_tweaks',
     'import_export',
+    'debug_toolbar',
+    'django_extensions',
 
     # Local apps
     'core.apps.CoreConfig',
@@ -50,6 +52,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -77,6 +80,10 @@ TEMPLATES = [
     },
 ]
 
+INTERNAL_IPS = [
+    "127.0.0.1"
+]
+
 #WSGI_APPLICATION = 'myproject.wsgi.application'
 ASGI_APPLICATION = 'myproject.asgi.application'
 # Channel layers for WebSocket (Windows compatible)
@@ -101,10 +108,10 @@ DATABASES = {
         'HOST': 'localhost',
         'PORT': '3307',
         'OPTIONS': {
+
         }
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -145,7 +152,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files (Uploaded files)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

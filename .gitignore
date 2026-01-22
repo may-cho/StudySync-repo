@@ -1,3 +1,9 @@
 studysync_db
-__pyache__
 .venv
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+db.sqlite3
+.env
+settings.py

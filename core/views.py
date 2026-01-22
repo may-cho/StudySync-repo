@@ -8,6 +8,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from datetime import datetime, date, time, timedelta
 import json
+from .models import StudyGroup, StudentProfile, GroupMembership
+from .forms import StudyGroupForm
+from django.views.decorators.http import require_http_methods
 
 from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
     get_common_courses, calculate_compatibility
@@ -94,9 +97,21 @@ def dashboard(request):
     return render(request, 'core/dashboard.html', context)
 
 @login_required
-def find_course_partners(request):
+def find_study_partners(request):
     """Find classmates for group study"""
     profile = get_object_or_404(StudentProfile, user=request.user)
+
+    # Get user's courses
+    user_courses = Course.objects.filter(
+        studentcourse__student=profile
+    ).order_by('semester', 'code')
+
+    # Get recent classmates (simple version)
+    recent_classmates = StudentProfile.objects.filter(
+        studentcourse__course__in=user_courses
+    ).exclude(
+        user=request.user
+    ).distinct().select_related('user')[:4]  # Just get 4 recent classmates
 
     if request.method == 'POST':
         course_id = request.POST.get('course_id')
@@ -110,20 +125,20 @@ def find_course_partners(request):
             else:
                 messages.info(request, f'No matching study partners found for {course.code}.')
 
-            return redirect('course_partners_list', course_id=course_id)
-        # Get user's courses
-        user_courses = Course.objects.filter(
-            studentcourse__student=profile
-        ).order_by('semester', 'code')
+            return redirect('study_partners_list')
+        else:
+            messages.error(request, 'Please select a course.')
+            return redirect('find_study_partners')
 
-        context = {
-            'profile': profile,
-            'user_courses': user_courses,
-        }
-        return render(request, 'core/find_course_partners.html', context)
+    context = {
+        'profile': profile,
+        'user_courses': user_courses,
+        'recent_classmates': recent_classmates,
+    }
+    return render(request, 'core/find_study_partners.html', context)
 
 @login_required
-def study_partners_list(request):
+def study_partners_list(request, course_id=None):
     """
     Display list of all potential study partners from user's courses
     """
@@ -139,11 +154,21 @@ def study_partners_list(request):
         messages.info(request, 'Please add courses first to find study partners.')
         return redirect('add_course')
 
+    # Filter by specific course if course_id is provided
+    if course_id:
+        course = get_object_or_404(Course, id=course_id)
+        filtered_courses = user_courses.filter(id=course_id)
+        if not filtered_courses.exists():
+            messages.error(request, "You're not enrolled in this course.")
+            return redirect('study_partners_list')
+    else:
+        filtered_courses = user_courses
+
     # Get study partners by course
     course_partners = []
     total_partners = 0
 
-    for course in user_courses:
+    for course in filtered_courses:
         # Get classmates for this course
         classmates = StudentProfile.objects.filter(
             studentcourse__course=course
@@ -167,16 +192,20 @@ def study_partners_list(request):
                     target_student=classmate
                 ).first()
 
+                # Get common courses
+                common_courses_list = get_common_courses(profile, classmate).exclude(id=course.id)
+
                 classmates_with_info.append({
                     'student': classmate,
                     'compatibility_score': compatibility_score,
                     'common_times': common_times[:3],  # Top 3 suggestions
                     'has_existing_match': existing_match is not None,
                     'match_status': existing_match.status if existing_match else None,
-                    'common_courses': get_common_courses(profile, classmate),
+                    'common_courses': common_courses_list,
+                    'common_courses_count': common_courses_list.count(),
                 })
 
-                # Sort by compatibility score
+            # Sort by compatibility score
             classmates_with_info.sort(key=lambda x: x['compatibility_score'], reverse=True)
 
             course_partners.append({
@@ -186,38 +215,40 @@ def study_partners_list(request):
             })
             total_partners += classmates.count()
 
-            # Get all potential partners (flattened)
-            all_partners = []
-            for cp in course_partners:
-                for classmate_info in cp['classmates']:
-                    classmate_info['course'] = cp['course']
-                    all_partners.append(classmate_info)
+    # Get all potential partners (flattened)
+    all_partners = []
+    for cp in course_partners:
+        for classmate_info in cp['classmates']:
+            classmate_info['course'] = cp['course']
+            all_partners.append(classmate_info)
 
-            # Get recommended groups to join
-            recommended_groups = StudyGroup.objects.filter(
-                course__in=user_courses,
-                is_active=True
-            ).exclude(
-                memberships__student=profile
-            ).order_by('-created_at')[:5]
+    # Get recommended groups to join
+    recommended_groups = StudyGroup.objects.filter(
+        course__in=user_courses,
+        is_active=True
+    ).exclude(
+        memberships__student=profile
+    ).order_by('-created_at')[:5]
 
-            # Get pending invitations
-            pending_invites = CourseGroupMatch.objects.filter(
-                Q(initiator=profile) | Q(target_student=profile),
-                status='pending'
-            ).count()
+    # Get pending invitations
+    pending_invites = CourseGroupMatch.objects.filter(
+        Q(initiator=profile) | Q(target_student=profile),
+        status='pending'
+    ).count()
 
-            context = {
-                'profile': profile,
-                'course_partners': course_partners,
-                'all_partners': all_partners,
-                'total_partners': total_partners,
-                'recommended_groups': recommended_groups,
-                'pending_invites': pending_invites,
-                'user_courses': user_courses,
-            }
+    context = {
+        'profile': profile,
+        'course_partners': course_partners,
+        'all_partners': all_partners,
+        'total_partners': total_partners,
+        'recommended_groups': recommended_groups,
+        'pending_invites': pending_invites,
+        'user_courses': user_courses,
+        'selected_course_id': course_id,
+    }
 
-            return render(request, 'core/study_partners_list.html', context)
+    return render(request, 'core/study_partners_list.html', context)
+
 
 
 def register(request):
@@ -252,31 +283,14 @@ def register(request):
 
 @login_required
 def timetable_view(request):
-    profile = get_object_or_404(StudentProfile, user=request.user)
+    
+    slots = TimetableSlot.objects.filter(student=request.user.studentprofile)
 
-    # Get timetable slots grouped by day
-    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    # Create a list of lists instead of dictionary
-    timetable_data = []
-    for day in days:
-        slots = TimetableSlot.objects.filter(
-            student=profile,
-            day=day
-        ).order_by('start_time')
-        timetable_data.append({
-            'day': day,
-            'slots': slots
-        })
-
-    # Define hours (8 AM to 6 PM)
-    hours = list(range(8, 19))
-
+    day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+    for slot in slots:
+        slot.day_index = day_map.get(slot.day, 0)
     context = {
-        'profile': profile,
-        'timetable_data': timetable_data,
-        'days': days,
-        'hours': hours,
+        'timetable_slots': slots
     }
     return render(request, 'core/timetable.html', context)
 
@@ -397,26 +411,30 @@ def load_courses(request):
     courses = Course.objects.filter(semester=semester_id).order_by('name')
     return render(request,'core/partials/course_dropdown_list_options.html',{'courses': courses})
 
+
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Check if user is member
-    is_member = group.is_member(request.user)
+    # Explicit checks
+    is_member = GroupMembership.objects.filter(group=group, student=profile).exists()
     is_admin = group.is_admin(request.user)
+
+    # This is the key variable for the Leave button
+    is_creator = (group.creator == profile)
 
     if not is_member and not is_admin:
         messages.error(request, 'You are not a member of this group')
         return redirect('group_list')
 
-    # Get members
-    members = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
+    memberships = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
 
     context = {
         'group': group,
-        'members': members,
+        'memberships': memberships,
         'is_admin': is_admin,
+        'is_creator': is_creator,
         'profile': profile,
     }
     return render(request, 'core/group_detail.html', context)
@@ -437,7 +455,7 @@ def group_list(request):
     ).exclude(
         memberships__student=profile
     ).filter(
-        Q(major=profile.major) |
+        Q(major__name=profile.major) |
         Q(course__in=profile.studentcourse_set.values('course'))
     ).order_by('-created_at')[:5]
 
@@ -477,85 +495,105 @@ def join_group(request, group_id):
 
 @login_required
 def leave_group(request, group_id):
-    profile = get_object_or_404(StudentProfile, user=request.user)
-    group = get_object_or_404(StudyGroup, id=group_id)
+    if request.method == 'POST':
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        group = get_object_or_404(StudyGroup, id=group_id)
 
-    # Check if member
-    try:
-        membership = GroupMembership.objects.get(group=group, student=profile)
+        try:
+            membership = GroupMembership.objects.get(group=group, student=profile)
 
-        # Don't allow creator to leave without transferring ownership
-        if group.creator == profile:
-            messages.error(request, 'Group creator cannot leave. Transfer ownership first.')
-            return redirect('group_manage', group_id=group_id)
+            # Prevent creator from leaving without transferring ownership
+            if group.creator == profile:
+                messages.error(request, 'Group creator cannot leave. Transfer ownership first.')
+                return redirect('group_manage', group_id=group.id)
 
-        membership.delete()
-        messages.success(request, f'You have left {group.name}')
-    except GroupMembership.DoesNotExist:
-        messages.error(request, 'You are not a member of this group')
+            membership.delete()
+            messages.success(request, f'You have successfully left {group.name}.')
+            return redirect('group_list')
 
-    return redirect('group_list')
+        except GroupMembership.DoesNotExist:
+            messages.error(request, 'You are not a member of this group.')
+            return redirect('group_list')
+
+    return redirect('group_detail', group_id=group_id)
 
 
 @login_required
 def group_manage(request, group_id):
+    """View to manage member roles, removals, and group deletion"""
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Check if user is admin
+    # Check if the user is the creator (needed for group deletion)
+    is_creator = (group.creator == profile)
+
     if not group.is_admin(request.user):
-        messages.error(request, 'You do not have permission to manage this group')
-        return redirect('group_detail', group_id=group_id)
+        messages.error(request, 'You do not have permission to manage roles.')
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         action = request.POST.get('action')
+        student_id = request.POST.get('student_id')
 
-        if action == 'update_group':
-            form = StudyGroupForm(request.POST, instance=group)  # Use Form with instance
-            if form.is_valid():
-                form.save()
-                messages.success(request, 'Group updated successfully')
-
-        elif action == 'add_admin':
-            student_id = request.POST.get('student_id')
-            try:
-                student = StudentProfile.objects.get(id=student_id)
-                membership = GroupMembership.objects.get(group=group, student=student)
-                membership.role = 'admin'
-                membership.save()
-                messages.success(request, f'{student.user.username} is now an admin')
-            except:
-                messages.error(request, 'Error adding admin')
-
-        elif action == 'remove_member':
-            student_id = request.POST.get('student_id')
-            try:
-                student = StudentProfile.objects.get(id=student_id)
-                if student != group.creator:
-                    GroupMembership.objects.filter(group=group, student=student).delete()
-                    messages.success(request, f'{student.user.username} removed from group')
-            except:
-                pass
-
-        elif action == 'delete_group':
-            if profile.is_project_admin or profile == group.creator:
+        # 1. DELETE GROUP ACTION
+        if action == 'delete_group':
+            if is_creator:
                 group_name = group.name
                 group.delete()
-                messages.success(request, f'Group "{group_name}" deleted')
-                return redirect('dashboard')
+                messages.success(request, f'Group "{group_name}" has been deleted.')
+                return redirect('group_list')
+            else:
+                messages.error(request, 'Only the group creator can delete this group.')
 
-        return redirect('group_manage', group_id=group_id)
+        # 2. PROMOTE TO ADMIN
+        elif action == 'add_admin':
+            membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
+            membership.role = 'admin'
+            membership.save()
+            messages.success(request, 'Member promoted to Admin.')
 
-    # Get members
-    members = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
+        # 3. REMOVE MEMBER
+        elif action == 'remove_member':
+            membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
+            if membership.student != group.creator:
+                membership.delete()
+                messages.success(request, 'Member removed.')
+            else:
+                messages.error(request, 'The creator cannot be removed.')
 
-    context = {
+        return redirect('group_manage', group_id=group.id)
+
+    memberships = GroupMembership.objects.filter(group=group).select_related('student__user')
+    return render(request, 'core/group_manage.html', {
         'group': group,
-        'members': members,
-        'is_creator': profile == group.creator,
-        'is_project_admin': profile.is_project_admin,
-    }
-    return render(request, 'core/group_manage.html', context)
+        'memberships': memberships,
+        'is_creator': is_creator,
+    })
+
+
+@login_required
+def edit_group(request, group_id):
+    group = get_object_or_404(StudyGroup, id=group_id)
+
+    # Check if user is an admin
+    if not group.is_admin(request.user):
+        messages.error(request, "You don't have permission to edit this group.")
+        return redirect('group_detail', group_id=group.id)
+
+    if request.method == 'POST':
+        form = StudyGroupForm(request.POST, request.FILES, instance=group)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Group updated successfully!')
+            return redirect('group_detail', group_id=group.id)
+    else:
+        form = StudyGroupForm(instance=group)
+
+    # THIS RETURN MUST BE OUTSIDE THE IF STATEMENTS
+    return render(request, 'core/edit_group.html', {
+        'form': form,
+        'group': group
+    })
 
 
 @user_passes_test(lambda u: u.is_superuser)
@@ -647,9 +685,7 @@ def project_admin_groups(request):
 @login_required
 def profile_view(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
-
-    # Get user's courses
-    courses = StudentCourse.objects.filter(student=profile)
+    courses = StudentCourse.objects.filter(student=profile).select_related('course')
 
     # Get user's free time slots
     free_time_slots = TimetableSlot.objects.filter(
@@ -670,19 +706,17 @@ def edit_profile(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
 
     if request.method == 'POST':
-        form = StudentProfileForm(request.POST, request.FILES, instance=profile)  # Use Form
+        form = StudentProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             form.save()
             messages.success(request, 'Profile updated successfully!')
-            return redirect('profile')
+            return redirect('profile') # Goes to profile page on success
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = StudentProfileForm(instance=profile)
 
-    context = {
-        'form': form,
-        'profile': profile,
-    }
-    return render(request, 'core/edit_profile.html', context)
+    return render(request, 'core/edit_profile.html', {'form': form, 'profile': profile})
 
 
 @login_required
@@ -1111,3 +1145,81 @@ def create_study_session(request, group_id):
 @login_required
 def edit_group(request,group_id) :
     print(group_id)
+    
+@login_required
+def save_timetable_slot(request):
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            profile = get_object_or_404(StudentProfile, user=request.user)
+            
+            raw_id = data.get('event_id')
+            title = data.get('title', '').strip()
+            if not title:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': 'Title cannot be empty.'
+                }, status=400)
+            
+            slot_id = None
+            if raw_id and raw_id not in ["null", "undefined", "None", ""]:
+                try:
+                    slot_id = uuid.UUID(str(raw_id))
+                except (ValueError, TypeError):
+                    slot_id = None
+
+            days_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            day_idx = int(data.get('day_index', 0))
+            day_idx = max(0, min(6, day_idx))
+            day_str = days_map[day_idx] 
+            slot_type = data.get("slot_type", "class")
+
+            if slot_id:
+               try:
+                    slot = TimetableSlot.objects.get(id=slot_id, student=profile)
+                    slot.day = day_str
+                    slot.start_time = data.get('start_time')
+                    slot.end_time = data.get('end_time')
+                    slot.custom_name = str(data.get('title', 'Untitled'))[:200]
+                    slot.slot_type = slot_type
+                    slot.save()
+               except TimetableSlot.DoesNotExist:
+                    slot = TimetableSlot.objects.create(
+                        student=profile, day=day_str, 
+                        start_time=data.get('start_time'), 
+                        end_time=data.get('end_time'),
+                        custom_name=data.get('title'), 
+                        slot_type=slot_type
+                        )
+            else:
+                slot = TimetableSlot.objects.create(
+                    student=profile, day=day_str, 
+                    start_time=data.get('start_time'), 
+                    end_time=data.get('end_time'),
+                    custom_name=data.get('title'), 
+                    slot_type=slot_type
+                )
+                        
+            return JsonResponse({'status': 'success', 'id': str(slot.id)})
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_timetable_slot(request, slot_id):
+    try:
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        slot = TimetableSlot.objects.filter(id=slot_id, student=profile).first()
+        
+        if slot:
+            slot.delete()
+            return JsonResponse({'status': 'success', 'message': 'Deleted'})
+        else:
+            return JsonResponse({'status': 'success', 'message': 'Already deleted'})
+            
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    

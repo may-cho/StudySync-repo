@@ -16,6 +16,8 @@ urlpatterns = [
 
     # Timetable
     path('timetable/', views.timetable_view, name='timetable_view'),
+    path('timetable/save-timeslot', views.save_timetable_slot,name="save_timetable_slot"),
+    path("timetable/delete-slot/<uuid:slot_id>/",views.delete_timetable_slot,name="delete_timetable_slot"),
     path('timetable/add/', views.add_timetable_slot, name='add_timetable_slot'),
     path('timetable/edit/<uuid:slot_id>/', views.edit_timetable_slot, name='edit_timetable_slot'),
     path('timetable/delete/<uuid:slot_id>/', views.delete_timetable_slot, name='delete_timetable_slot'),
@@ -26,7 +28,7 @@ urlpatterns = [
     path('courses/remove/<int:course_id>/', views.remove_course, name='remove_course'),
 
     # Study Partners
-    path('partners/find/', views.find_course_partners, name='find_study_partners_view'),
+    path('partners/find/', views.find_study_partners, name='find_study_partners_view'),
     path('partners/', views.study_partners_list, name='study_partners_list'),
 
     # Study Groups
@@ -35,8 +37,8 @@ urlpatterns = [
     path('groups/<uuid:group_id>/', views.group_detail, name='group_detail'),
     path('groups/<uuid:group_id>/join/', views.join_group, name='join_group'),
     path('groups/<uuid:group_id>/leave/', views.leave_group, name='leave_group'),
+    path('groups/<uuid:group_id>/edit/', views.edit_group, name='edit_group'),
     path('groups/<uuid:group_id>/manage/', views.group_manage, name='group_manage'),
-    path('groups/<uuid:group_id>/edit/',views.edit_group ,name= "edit_group"),
     path('ajax/load-group-fields/', views.load_group_fields, name='ajax_load_group_fields'),
     path('ajax/load-courses/',views.load_courses,name="ajax_load_courses"),
 
