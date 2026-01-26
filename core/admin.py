@@ -6,12 +6,12 @@ from .models import Major,Course
 
 @admin.register(Major)
 class SubjectAdmin(ImportExportModelAdmin):
-    list_display = ('code','name')
+    list_display = ('name',)
 
 
-@admin.register(Course) 
+@admin.register(Course)
 class CourseAdmin(ImportExportModelAdmin) :
-    list_display = ('code','name','semester')
+    list_display = ('semester',)
     list_filter=('semester',)
-    search_fields = ('code','name')
-    
+    search_fields = ('major',)
+

@@ -116,22 +116,6 @@ import uuid
 
 
 class Major(models.Model):
-    name = models.CharField(max_length=200)
-    code = models.CharField(max_length=20)
-    # university = models.ForeignKey(University, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f"{self.code} - {self.name}"
-
-class StudentProfile(models.Model):
-    YEAR_CHOICES = [
-        (1, 'First Year'),
-        (2, 'Second Year'),
-        (3, 'Third Year'),
-        (4, 'Fourth Year'),
-        (5, 'Fifth Year'),
-    ]
-
     MAJOR_CHOICES = [
         ('1', 'Software Engineering'),
         ('2', 'Knowledge Engineering'),
@@ -140,6 +124,22 @@ class StudentProfile(models.Model):
         ('5', 'Business Information Systems (BIS)'),
         ('6', 'Embedded Systems'),
         ('7', 'Computer Communication and Networks')
+    ]
+    name = models.CharField(max_length=50, choices=MAJOR_CHOICES)
+    code = models.CharField(max_length=20)
+
+    # university = models.ForeignKey(University, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f" {self.code} - {self.name}"
+
+class StudentProfile(models.Model):
+    YEAR_CHOICES = [
+        (1, 'First Year'),
+        (2, 'Second Year'),
+        (3, 'Third Year'),
+        (4, 'Fourth Year'),
+        (5, 'Fifth Year'),
     ]
 
     SEMESTER_CHOICES = [
@@ -158,8 +158,7 @@ class StudentProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     # university = models.ForeignKey(University, on_delete=models.CASCADE)
-    # major = models.ForeignKey(Major, on_delete=models.CASCADE)
-    major = models.CharField(max_length=50, choices=MAJOR_CHOICES)
+    major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
     year = models.IntegerField(choices=YEAR_CHOICES)
     semester = models.CharField(max_length=2, choices=SEMESTER_CHOICES, default='1')
     bio = models.TextField(blank=True)
@@ -190,6 +189,7 @@ class Course(models.Model):
     code = models.CharField(max_length=20)
     name = models.CharField(max_length=200)
     semester = models.CharField(max_length=2, choices=StudentProfile.SEMESTER_CHOICES, null=True, blank=True)
+    major = models.ManyToManyField(Major)
     credits = models.IntegerField(default=3)
 
     def __str__(self):

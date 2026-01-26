@@ -2,7 +2,7 @@ import json
 import os
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from core.models import Course
+from core.models import Course,Major
 
 class Command(BaseCommand):
     help = 'Converts raw JSON and imports majors directly into the database'
@@ -29,7 +29,7 @@ class Command(BaseCommand):
 
         for item in data:
             
-            obj, created = Course.objects.update_or_create(
+            obj, created = Major.objects.update_or_create(
                 code=item.get('code'),
                 defaults={
                     'name': item.get('name'),

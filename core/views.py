@@ -261,6 +261,8 @@ def register(request):
             user = user_form.save()
             profile = profile_form.save(commit=False)
             profile.user = user
+            major_id = profile_form.cleaned_data.get('major')
+            profile.major = major_id
             profile.save()
 
             login(request, user)
