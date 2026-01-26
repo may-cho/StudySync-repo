@@ -687,6 +687,11 @@ def profile_view(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
     courses = StudentCourse.objects.filter(student=profile).select_related('course')
 
+    # Get groups user is member of
+    my_groups = StudyGroup.objects.filter(
+        memberships__student=profile
+    ).order_by('-created_at')
+
     # Get user's free time slots
     free_time_slots = TimetableSlot.objects.filter(
         student=profile,
@@ -696,6 +701,7 @@ def profile_view(request):
     context = {
         'profile': profile,
         'courses': courses,
+        'my_groups': my_groups,
         'free_time_slots': free_time_slots,
     }
     return render(request, 'core/profile.html', context)
