@@ -30,6 +30,7 @@ urlpatterns = [
     # Study Partners
     path('partners/find/', views.find_study_partners, name='find_study_partners_view'),
     path('partners/', views.study_partners_list, name='study_partners_list'),
+    path('partners/<uuid:course_id>/', views.study_partners_list, name='study_partners_list'),
 
     # Study Groups
     path('groups/', views.group_list, name='group_list'),
