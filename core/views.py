@@ -135,117 +135,22 @@ def find_study_partners(request):
     }
     return render(request, 'core/find_study_partners.html', context)
 
-@login_required
-def study_partners_list(request, course_id=None):
-    """
-    Display list of all potential study partners from user's courses
-    """
-    profile = get_object_or_404(StudentProfile, user=request.user)
+def study_partners_list(request):
+    # 1. Get the profile of the current user
+    viewer_profile = request.user.studentprofile
 
-    # Get all courses the user is enrolled in
-    user_courses = Course.objects.filter(
-        studentcourse__student=profile
-    ).order_by('semester', 'code')
+    # 2. Get IDs of all courses the current user is taking
+    user_course_ids = Course.objects.filter(
+        studentcourse__student=viewer_profile
+    ).values_list('id', flat=True)
 
-    # If no courses, redirect to add courses
-    if not user_courses.exists():
-        messages.info(request, 'Please add courses first to find study partners.')
-        return redirect('add_course')
+    # 3. Find other student profiles who are in those same courses
+    # We filter by course IDs AND exclude the current user at the same time
+    partners = StudentProfile.objects.filter(
+        studentcourse__course_id__in=user_course_ids
+    ).exclude(id=viewer_profile.id).distinct()
 
-    # Filter by specific course if course_id is provided
-    if course_id:
-        course = get_object_or_404(Course, id=course_id)
-        filtered_courses = user_courses.filter(id=course_id)
-        if not filtered_courses.exists():
-            messages.error(request, "You're not enrolled in this course.")
-            return redirect('study_partners_list')
-    else:
-        filtered_courses = user_courses
-
-    # Get study partners by course
-    course_partners = []
-    total_partners = 0
-
-    for course in filtered_courses:
-        # Get classmates for this course
-        classmates = StudentProfile.objects.filter(
-            studentcourse__course=course
-        ).exclude(
-            user=request.user
-        ).distinct()
-
-        if classmates.exists():
-            # Calculate compatibility for each classmate
-            classmates_with_info = []
-            for classmate in classmates:
-                compatibility_score = calculate_compatibility(profile, classmate, course)
-
-                # Get common free times
-                common_times = suggest_group_times(profile, classmate)
-
-                # Check if match already exists
-                existing_match = CourseGroupMatch.objects.filter(
-                    course=course,
-                    initiator=profile,
-                    target_student=classmate
-                ).first()
-
-                # Get common courses
-                common_courses_list = get_common_courses(profile, classmate).exclude(id=course.id)
-
-                classmates_with_info.append({
-                    'student': classmate,
-                    'compatibility_score': compatibility_score,
-                    'common_times': common_times[:3],  # Top 3 suggestions
-                    'has_existing_match': existing_match is not None,
-                    'match_status': existing_match.status if existing_match else None,
-                    'common_courses': common_courses_list,
-                    'common_courses_count': common_courses_list.count(),
-                })
-
-            # Sort by compatibility score
-            classmates_with_info.sort(key=lambda x: x['compatibility_score'], reverse=True)
-
-            course_partners.append({
-                'course': course,
-                'classmates': classmates_with_info,
-                'total_classmates': classmates.count(),
-            })
-            total_partners += classmates.count()
-
-    # Get all potential partners (flattened)
-    all_partners = []
-    for cp in course_partners:
-        for classmate_info in cp['classmates']:
-            classmate_info['course'] = cp['course']
-            all_partners.append(classmate_info)
-
-    # Get recommended groups to join
-    recommended_groups = StudyGroup.objects.filter(
-        course__in=user_courses,
-        is_active=True
-    ).exclude(
-        memberships__student=profile
-    ).order_by('-created_at')[:5]
-
-    # Get pending invitations
-    pending_invites = CourseGroupMatch.objects.filter(
-        Q(initiator=profile) | Q(target_student=profile),
-        status='pending'
-    ).count()
-
-    context = {
-        'profile': profile,
-        'course_partners': course_partners,
-        'all_partners': all_partners,
-        'total_partners': total_partners,
-        'recommended_groups': recommended_groups,
-        'pending_invites': pending_invites,
-        'user_courses': user_courses,
-        'selected_course_id': course_id,
-    }
-
-    return render(request, 'core/study_partners_list.html', context)
+    return render(request, 'core/study_partners_list.html', {'partners': partners})
 
 def register(request):
     if request.method == 'POST':
@@ -1029,14 +934,6 @@ def auto_create_group(request, course_id):
 
     messages.error(request, 'Could not find suitable time for group creation.')
     return redirect('course_partners_list', course_id=course_id)
-
-
-# Add these imports
-from django.contrib import messages
-from django.utils import timezone
-from datetime import timedelta
-from .models import GroupInvitation
-
 
 @login_required
 def create_group_with_student(request, student_id):
