@@ -745,8 +745,11 @@ def add_course(request):
             messages.error(request, 'Course not found')
 
     # Get courses for user's major
-    courses = Course.objects.filter(major=profile.major).exclude(
-        id__in=profile.studentcourse_set.values('course')
+    courses = Course.objects.filter(
+        major=profile.major,
+        semester=profile.semester
+    ).distinct().exclude(
+        id__in=profile.studentcourse_set.values_list('course_id', flat=True)
     )
 
     context = {

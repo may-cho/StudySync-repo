@@ -27,7 +27,7 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
 
-        default_major, _ = Major.objects.get_or_create(name='Software Engineering', defaults={'code': 'SE'})
+        all_majors = Major.objects.all()
 
         for item in data:
             
@@ -39,7 +39,7 @@ class Command(BaseCommand):
                     'credits' : item.get('credits')
                 }
             )
-            obj.major.add(default_major)
+            obj.major.add(*all_majors)
             if created:
                 created_count += 1
             else:
