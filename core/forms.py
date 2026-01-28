@@ -49,9 +49,10 @@ class UserRegisterForm(UserCreationForm):
 
 
 class StudentProfileForm(forms.ModelForm):
-    major = forms.ChoiceField(
-        choices=StudentProfile.MAJOR_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-select'})
+    major = forms.ModelChoiceField(
+        queryset=Major.objects.all(),
+        empty_label="Select Major",
+        widget=forms.Select(attrs={'class': 'form-control'})
     )
     year = forms.ChoiceField(
         choices=StudentProfile.YEAR_CHOICES,

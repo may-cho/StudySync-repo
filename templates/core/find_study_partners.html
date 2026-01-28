@@ -34,7 +34,7 @@
                 </div>
                 <div class="card-body">
                     {% if user_courses %}
-                    <form method="post" action="{% url 'find_study_partners' %}">
+                    <form method="post" action="{% url 'find_study_partners_view' %}">
                         {% csrf_token %}
 
                         <div class="mb-4">

@@ -23,8 +23,6 @@ from .models import *
 from .forms import *
 from .matching_algorithm import find_course_study_partners, suggest_group_times
 
-
-
 def home(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -137,119 +135,22 @@ def find_study_partners(request):
     }
     return render(request, 'core/find_study_partners.html', context)
 
-@login_required
-def study_partners_list(request, course_id=None):
-    """
-    Display list of all potential study partners from user's courses
-    """
-    profile = get_object_or_404(StudentProfile, user=request.user)
+def study_partners_list(request):
+    # 1. Get the profile of the current user
+    viewer_profile = request.user.studentprofile
 
-    # Get all courses the user is enrolled in
-    user_courses = Course.objects.filter(
-        studentcourse__student=profile
-    ).order_by('semester', 'code')
+    # 2. Get IDs of all courses the current user is taking
+    user_course_ids = Course.objects.filter(
+        studentcourse__student=viewer_profile
+    ).values_list('id', flat=True)
 
-    # If no courses, redirect to add courses
-    if not user_courses.exists():
-        messages.info(request, 'Please add courses first to find study partners.')
-        return redirect('add_course')
+    # 3. Find other student profiles who are in those same courses
+    # We filter by course IDs AND exclude the current user at the same time
+    partners = StudentProfile.objects.filter(
+        studentcourse__course_id__in=user_course_ids
+    ).exclude(id=viewer_profile.id).distinct()
 
-    # Filter by specific course if course_id is provided
-    if course_id:
-        course = get_object_or_404(Course, id=course_id)
-        filtered_courses = user_courses.filter(id=course_id)
-        if not filtered_courses.exists():
-            messages.error(request, "You're not enrolled in this course.")
-            return redirect('study_partners_list')
-    else:
-        filtered_courses = user_courses
-
-    # Get study partners by course
-    course_partners = []
-    total_partners = 0
-
-    for course in filtered_courses:
-        # Get classmates for this course
-        classmates = StudentProfile.objects.filter(
-            studentcourse__course=course
-        ).exclude(
-            user=request.user
-        ).distinct()
-
-        if classmates.exists():
-            # Calculate compatibility for each classmate
-            classmates_with_info = []
-            for classmate in classmates:
-                compatibility_score = calculate_compatibility(profile, classmate, course)
-
-                # Get common free times
-                common_times = suggest_group_times(profile, classmate)
-
-                # Check if match already exists
-                existing_match = CourseGroupMatch.objects.filter(
-                    course=course,
-                    initiator=profile,
-                    target_student=classmate
-                ).first()
-
-                # Get common courses
-                common_courses_list = get_common_courses(profile, classmate).exclude(id=course.id)
-
-                classmates_with_info.append({
-                    'student': classmate,
-                    'compatibility_score': compatibility_score,
-                    'common_times': common_times[:3],  # Top 3 suggestions
-                    'has_existing_match': existing_match is not None,
-                    'match_status': existing_match.status if existing_match else None,
-                    'common_courses': common_courses_list,
-                    'common_courses_count': common_courses_list.count(),
-                })
-
-            # Sort by compatibility score
-            classmates_with_info.sort(key=lambda x: x['compatibility_score'], reverse=True)
-
-            course_partners.append({
-                'course': course,
-                'classmates': classmates_with_info,
-                'total_classmates': classmates.count(),
-            })
-            total_partners += classmates.count()
-
-    # Get all potential partners (flattened)
-    all_partners = []
-    for cp in course_partners:
-        for classmate_info in cp['classmates']:
-            classmate_info['course'] = cp['course']
-            all_partners.append(classmate_info)
-
-    # Get recommended groups to join
-    recommended_groups = StudyGroup.objects.filter(
-        course__in=user_courses,
-        is_active=True
-    ).exclude(
-        memberships__student=profile
-    ).order_by('-created_at')[:5]
-
-    # Get pending invitations
-    pending_invites = CourseGroupMatch.objects.filter(
-        Q(initiator=profile) | Q(target_student=profile),
-        status='pending'
-    ).count()
-
-    context = {
-        'profile': profile,
-        'course_partners': course_partners,
-        'all_partners': all_partners,
-        'total_partners': total_partners,
-        'recommended_groups': recommended_groups,
-        'pending_invites': pending_invites,
-        'user_courses': user_courses,
-        'selected_course_id': course_id,
-    }
-
-    return render(request, 'core/study_partners_list.html', context)
-
-
+    return render(request, 'core/study_partners_list.html', {'partners': partners})
 
 def register(request):
     if request.method == 'POST':
@@ -261,6 +162,8 @@ def register(request):
             user = user_form.save()
             profile = profile_form.save(commit=False)
             profile.user = user
+            major_id = profile_form.cleaned_data.get('major')
+            profile.major = major_id
             profile.save()
 
             login(request, user)
@@ -294,7 +197,6 @@ def timetable_view(request):
     }
     return render(request, 'core/timetable.html', context)
 
-
 @login_required
 def add_timetable_slot(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -316,7 +218,6 @@ def add_timetable_slot(request):
     }
     return render(request, 'core/add_timetable_slot.html', context)
 
-
 @login_required
 def edit_timetable_slot(request, slot_id):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -337,7 +238,6 @@ def edit_timetable_slot(request, slot_id):
     }
     return render(request, 'core/edit_timetable_slot.html', context)
 
-
 @login_required
 def delete_timetable_slot(request, slot_id):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -348,7 +248,6 @@ def delete_timetable_slot(request, slot_id):
         messages.success(request, 'Time slot deleted successfully!')
 
     return redirect('timetable_view')
-
 
 @login_required
 def create_study_group(request):
@@ -397,6 +296,7 @@ def create_study_group(request):
        
     }
     return render(request, 'core/create_study_group.html', context)
+
 def load_group_fields(request):
     selected_type = request.GET.get('group_type')
     form = StudyGroupForm()
@@ -410,7 +310,6 @@ def load_courses(request):
     semester_id = request.GET.get('semester')
     courses = Course.objects.filter(semester=semester_id).order_by('name')
     return render(request,'core/partials/course_dropdown_list_options.html',{'courses': courses})
-
 
 @login_required
 def group_detail(request, group_id):
@@ -439,7 +338,6 @@ def group_detail(request, group_id):
     }
     return render(request, 'core/group_detail.html', context)
 
-
 @login_required
 def group_list(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -466,7 +364,6 @@ def group_list(request):
     }
     return render(request, 'core/group_list.html', context)
 
-
 @login_required
 def join_group(request, group_id):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -492,7 +389,6 @@ def join_group(request, group_id):
     messages.success(request, f'You have joined {group.name}')
     return redirect('group_detail', group_id=group_id)
 
-
 @login_required
 def leave_group(request, group_id):
     if request.method == 'POST':
@@ -516,7 +412,6 @@ def leave_group(request, group_id):
             return redirect('group_list')
 
     return redirect('group_detail', group_id=group_id)
-
 
 @login_required
 def group_manage(request, group_id):
@@ -570,7 +465,6 @@ def group_manage(request, group_id):
         'is_creator': is_creator,
     })
 
-
 @login_required
 def edit_group(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
@@ -594,7 +488,6 @@ def edit_group(request, group_id):
         'form': form,
         'group': group
     })
-
 
 @user_passes_test(lambda u: u.is_superuser)
 def project_admin_dashboard(request):
@@ -687,6 +580,11 @@ def profile_view(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
     courses = StudentCourse.objects.filter(student=profile).select_related('course')
 
+    # Get groups user is member of
+    my_groups = StudyGroup.objects.filter(
+        memberships__student=profile
+    ).order_by('-created_at')
+
     # Get user's free time slots
     free_time_slots = TimetableSlot.objects.filter(
         student=profile,
@@ -696,6 +594,7 @@ def profile_view(request):
     context = {
         'profile': profile,
         'courses': courses,
+        'my_groups': my_groups,
         'free_time_slots': free_time_slots,
     }
     return render(request, 'core/profile.html', context)
@@ -719,6 +618,47 @@ def edit_profile(request):
     return render(request, 'core/edit_profile.html', {'form': form, 'profile': profile})
 
 
+def student_profile(request, user_id):
+    # 1. Get the User object for the profile you are viewing
+    target_user = get_object_or_404(User, id=user_id)
+
+    # 2. Get the StudentProfile for both the target and the current viewer
+    # Note: Check your model to see if it's .profile or .studentprofile
+    target_profile = target_user.studentprofile
+    viewer_profile = request.user.studentprofile
+
+    # 3. Query courses using the Profile instances
+    student_courses = Course.objects.filter(studentcourse__student=target_profile)
+    viewer_courses = Course.objects.filter(studentcourse__student=viewer_profile)
+
+    # 4. Find shared courses
+    shared_courses = student_courses.filter(id__in=viewer_courses)
+
+    # Get groups where user is admin
+    user_groups = StudyGroup.objects.filter(
+        memberships__student=viewer_profile,
+        memberships__role__in=['admin', 'project_admin']
+    ).distinct()
+
+    # # Get groups where user is admin - pre-filter in the view
+    # user_admin_groups = []
+    # all_user_groups = StudyGroup.objects.filter(
+    #     memberships__student=viewer_profile
+    # ).distinct()
+    #
+    # for group in all_user_groups:
+    #     if group.is_admin(request.user):
+    #         user_admin_groups.append(group)
+
+    context = {
+        'student': target_user,
+        'student_profile': target_profile,
+        'shared_courses': shared_courses,
+        'user_groups': user_groups,
+        # 'user_admin_groups': user_admin_groups,
+    }
+    return render(request, 'core/student_profile.html', context)
+
 @login_required
 def add_course(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -737,8 +677,11 @@ def add_course(request):
             messages.error(request, 'Course not found')
 
     # Get courses for user's major
-    courses = Course.objects.filter(major=profile.major).exclude(
-        id__in=profile.studentcourse_set.values('course')
+    courses = Course.objects.filter(
+        major=profile.major,
+        semester=profile.semester
+    ).distinct().exclude(
+        id__in=profile.studentcourse_set.values_list('course_id', flat=True)
     )
 
     context = {
@@ -746,9 +689,6 @@ def add_course(request):
         'profile': profile,
     }
     return render(request, 'core/add_course.html', context)
-
-
-
 
 @login_required
 def remove_course(request, course_id):
@@ -762,7 +702,6 @@ def remove_course(request, course_id):
         messages.error(request, 'Course not found')
 
     return redirect('profile')
-
 
 @csrf_exempt
 @login_required
@@ -834,7 +773,6 @@ def api_save_timetable(request):
 #         'total_classmates': classmates.count(),
 #     }
 #     return render(request, 'core/course_partners_list.html', context)
-
 
 @login_required
 def send_group_invite(request):
@@ -997,7 +935,149 @@ def auto_create_group(request, course_id):
     messages.error(request, 'Could not find suitable time for group creation.')
     return redirect('course_partners_list', course_id=course_id)
 
+@login_required
+def create_group_with_student(request, student_id):
+    """Create a new group and invite a student"""
+    if request.method == 'POST':
+        target_user = get_object_or_404(User, id=student_id)
+        target_profile = target_user.studentprofile
+        viewer_profile = request.user.studentprofile
 
+        # Get form data
+        group_name = request.POST.get('group_name')
+        group_description = request.POST.get('group_description')
+        group_type = request.POST.get('group_type')
+        invite_message = request.POST.get('invite_message', '')
+
+        # Validate
+        if not group_name or not group_description:
+            messages.error(request, 'Group name and description are required.')
+            return redirect('student_profile', user_id=student_id)
+
+        # Create the group
+        group = StudyGroup.objects.create(
+            name=group_name,
+            description=group_description,
+            group_type=group_type,
+            study_day=viewer_profile.preferred_study_days,
+            start_time=viewer_profile.preferred_study_start,
+            end_time=viewer_profile.preferred_study_end,
+            creator=viewer_profile,
+            max_members=20  # Default size
+        )
+
+        # Add creator as admin
+        GroupMembership.objects.create(
+            group=group,
+            student=viewer_profile,
+            role='admin'
+        )
+
+        # Create invitation
+        invitation = GroupInvitation.objects.create(
+            group=group,
+            invited_by=viewer_profile,
+            invited_student=target_profile,
+            message=invite_message,
+            expires_at=timezone.now() + timedelta(days=7)
+        )
+
+        messages.success(request,
+                         f'Group "{group.name}" created successfully and invitation sent to {target_user.username}!')
+        return redirect('group_detail', group_id=group.id)
+
+    return redirect('student_profile', user_id=student_id)
+
+@login_required
+def invite_to_existing_group(request, student_id):
+    """Invite student to an existing group"""
+    if request.method == 'POST':
+        target_user = get_object_or_404(User, id=student_id)
+        target_profile = target_user.studentprofile
+        viewer_profile = request.user.studentprofile
+        group_id = request.POST.get('group_id')
+        invite_message = request.POST.get('invite_message', '')
+
+        try:
+            group = StudyGroup.objects.get(id=group_id)
+
+            # Check if user is admin of the group
+            if not group.is_admin(request.user):
+                messages.error(request, 'You need to be an admin to invite members.')
+                return redirect('student_profile', user_id=student_id)
+
+            # Check if student is already a member
+            if group.memberships.filter(student=target_profile).exists():
+                messages.warning(request, f'{target_user.username} is already a member of this group.')
+                return redirect('student_profile', user_id=student_id)
+
+            # Check if invitation already exists
+            if GroupInvitation.objects.filter(group=group, invited_student=target_profile, status='pending').exists():
+                messages.info(request, f'An invitation has already been sent to {target_user.username}.')
+                return redirect('student_profile', user_id=student_id)
+
+            # Create invitation
+            invitation = GroupInvitation.objects.create(
+                group=group,
+                invited_by=viewer_profile,
+                invited_student=target_profile,
+                message=invite_message,
+                expires_at=timezone.now() + timedelta(days=7)
+            )
+
+            messages.success(request, f'Invitation sent to {target_user.username}!')
+
+        except StudyGroup.DoesNotExist:
+            messages.error(request, 'Group not found.')
+
+        return redirect('student_profile', user_id=student_id)
+
+    return redirect('student_profile', user_id=student_id)
+
+@login_required
+def accept_invitation(request, invitation_id):
+    """Accept a group invitation"""
+    invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
+
+    if invitation.status == 'pending' and not invitation.is_expired():
+        invitation.accept()
+        messages.success(request, f'You have joined "{invitation.group.name}"!')
+    elif invitation.is_expired():
+        messages.error(request, 'This invitation has expired.')
+    else:
+        messages.error(request, 'This invitation is no longer valid.')
+
+    return redirect('group_detail', group_id=invitation.group.id)
+
+@login_required
+def decline_invitation(request, invitation_id):
+    """Decline a group invitation"""
+    invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
+
+    if invitation.status == 'pending':
+        invitation.decline()
+        messages.info(request, f'You have declined the invitation to "{invitation.group.name}".')
+
+    return redirect('dashboard')
+
+@login_required
+def invitation_list(request):
+    """View all pending invitations"""
+    profile = request.user.studentprofile
+    pending_invitations = profile.groupinvitation_set.filter(status='pending')
+
+    # Mark expired invitations
+    for invitation in pending_invitations:
+        if invitation.is_expired():
+            invitation.status = 'expired'
+            invitation.save()
+
+    context = {
+        'pending_invitations': pending_invitations,
+        'expired_invitations': profile.groupinvitation_set.filter(status='expired'),
+        'responded_invitations': profile.groupinvitation_set.exclude(status='pending').exclude(status='expired'),
+    }
+    return render(request, 'core/invitation_list.html', context)
 @login_required
 def pending_invites(request):
     """View and manage pending group invitations"""

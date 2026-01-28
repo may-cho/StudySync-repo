@@ -2,7 +2,7 @@ import json
 import os
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from core.models import Course
+from core.models import Course,Major
 
 class Command(BaseCommand):
     help = 'Converts raw JSON and imports courses directly into the database'
@@ -27,6 +27,8 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
 
+        all_majors = Major.objects.all()
+
         for item in data:
             
             obj, created = Course.objects.update_or_create(
@@ -37,6 +39,7 @@ class Command(BaseCommand):
                     'credits' : item.get('credits')
                 }
             )
+            obj.major.add(*all_majors)
             if created:
                 created_count += 1
             else:
