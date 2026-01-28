@@ -402,7 +402,52 @@ class StudyGroup(models.Model):
             return self.memberships.filter(student=profile).exists()
         except:
             return False
-   
+
+
+# Add this to your core/models.py
+
+class GroupInvitation(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+        ('expired', 'Expired'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name='invitations')
+    invited_by = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='sent_invitations')
+    invited_student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='received_invitations')
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['group', 'invited_student']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invitation to {self.group.name} for {self.invited_student.user.username}"
+
+    def is_expired(self):
+        if self.expires_at:
+            return timezone.now() > self.expires_at
+        return False
+
+    def accept(self):
+        self.status = 'accepted'
+        self.save()
+        # Add student to group
+        GroupMembership.objects.get_or_create(
+            group=self.group,
+            student=self.invited_student,
+            defaults={'role': 'member'}
+        )
+
+    def decline(self):
+        self.status = 'declined'
+        self.save()
 
 
 class GroupMembership(models.Model):

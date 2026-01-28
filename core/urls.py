@@ -13,7 +13,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/', views.profile_view, name='profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
-
+    path('profile/<int:user_id>/', views.student_profile, name='student_profile'),
     # Timetable
     path('timetable/', views.timetable_view, name='timetable_view'),
     path('timetable/save-timeslot', views.save_timetable_slot,name="save_timetable_slot"),
@@ -42,6 +42,12 @@ urlpatterns = [
     path('groups/<uuid:group_id>/manage/', views.group_manage, name='group_manage'),
     path('ajax/load-group-fields/', views.load_group_fields, name='ajax_load_group_fields'),
     path('ajax/load-courses/',views.load_courses,name="ajax_load_courses"),
+
+    # Group invitation URLs
+    path('student/<int:student_id>/create-group/', views.create_group_with_student, name='create_group_with_student'),
+    path('student/<int:student_id>/invite-to-group/', views.invite_to_existing_group, name='invite_to_existing_group'),
+    path('invitations/<uuid:invitation_id>/accept/', views.accept_invitation, name='accept_invitation'),
+    path('invitations/<uuid:invitation_id>/decline/', views.decline_invitation, name='decline_invitation'),
 
     # Project Admin
     path('project-admin/', views.project_admin_dashboard, name='project_admin_dashboard'),

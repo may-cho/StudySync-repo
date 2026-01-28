@@ -81,51 +81,79 @@
                 </ul>
 
                 <!-- Notifications -->
+                <!-- Notifications -->
                 <ul class="navbar-nav me-3">
                     <li class="nav-item dropdown">
                         <a class="nav-link position-relative" href="#" id="notificationsDropdown"
                            role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-bell"></i>
-                            {% if request.user.studentprofile.received_invitations.count > 0 %}
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                {{ request.user.studentprofile.received_invitations.count }}
-                            </span>
-                            {% endif %}
+                            {% with invitation_count=request.user.studentprofile.received_invitations.count %}
+                                {% if invitation_count > 0 %}
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    {{ invitation_count }}
+                                </span>
+                                {% endif %}
+                            {% endwith %}
                         </a>
-                        <div class="dropdown-menu dropdown-menu-end p-0" style="min-width: 300px;">
+                        <div class="dropdown-menu dropdown-menu-end p-0" style="min-width: 350px;">
                             <div class="p-2 border-bottom">
-                                <h6 class="mb-0">Notifications</h6>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Notifications</h6>
+                                    {% with invitation_count=request.user.studentprofile.received_invitations.count %}
+                                        {% if invitation_count > 0 %}
+                                        <span class="badge bg-primary">{{ invitation_count }} new</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
                             </div>
-                            <div style="max-height: 300px; overflow-y: auto;">
-                                {% if request.user.studentprofile.received_invitations.count > 0 %}
-                                    {% for invitation in request.user.studentprofile.received_invitations.all|slice:":5" %}
-                                    <div class="dropdown-item">
-                                        <div class="d-flex">
-                                            <div class="flex-shrink-0">
-                                                <i class="fas fa-user-plus text-primary"></i>
-                                            </div>
-                                            <div class="flex-grow-1 ms-3">
-                                                <small class="text-muted">{{ invitation.created_at|timesince }} ago</small>
-                                                <p class="mb-0 small">Invited to join <strong>{{ invitation.group.name }}</strong></p>
-                                                <div class="mt-1">
-                                                    <a href="{% url 'accept_invitation' invitation.id %}"
-                                                       class="btn btn-sm btn-success btn-sm">Accept</a>
-                                                    <a href="{% url 'reject_invitation' invitation.id %}"
-                                                       class="btn btn-sm btn-outline-secondary btn-sm">Reject</a>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                {% with invitations=request.user.studentprofile.received_invitations.all|slice:":3" %}
+                                    {% if invitations %}
+                                        {% for invitation in invitations %}
+                                            {% if invitation.status == 'pending' %}
+                                            <div class="dropdown-item border-bottom">
+                                                <div class="d-flex">
+                                                    <div class="flex-shrink-0">
+                                                        <i class="fas fa-users text-primary fa-lg"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1 ms-3">
+                                                        <small class="text-muted">{{ invitation.created_at|timesince }} ago</small>
+                                                        <p class="mb-1">
+                                                            <strong>{{ invitation.invited_by.user.username }}</strong> invited you to join
+                                                            <strong>{{ invitation.group.name }}</strong>
+                                                        </p>
+                                                        {% if invitation.message %}
+                                                        <p class="mb-2 small text-muted">"{{ invitation.message|truncatechars:50 }}"</p>
+                                                        {% endif %}
+                                                        <div class="btn-group btn-group-sm">
+                                                            <a href="{% url 'accept_invitation' invitation.id %}"
+                                                               class="btn btn-success btn-sm">
+                                                                <i class="fas fa-check me-1"></i> Accept
+                                                            </a>
+                                                            <a href="{% url 'decline_invitation' invitation.id %}"
+                                                               class="btn btn-outline-secondary btn-sm">
+                                                                <i class="fas fa-times me-1"></i> Decline
+                                                            </a>
+                                                            <a href="{% url 'group_detail' invitation.group.id %}"
+                                                               class="btn btn-outline-primary btn-sm">
+                                                                <i class="fas fa-eye me-1"></i> View
+                                                            </a>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                    <div class="dropdown-item text-center py-4">
+                                        <i class="fas fa-bell-slash text-muted fa-2x mb-2"></i>
+                                        <p class="text-muted mb-0">No new invitations</p>
                                     </div>
-                                    {% endfor %}
-                                {% else %}
-                                <div class="dropdown-item text-center py-3">
-                                    <i class="fas fa-bell-slash text-muted fa-2x mb-2"></i>
-                                    <p class="text-muted mb-0">No notifications</p>
-                                </div>
-                                {% endif %}
+                                    {% endif %}
+                                {% endwith %}
                             </div>
                             <div class="p-2 border-top">
-                                <a href="#" class="btn btn-sm btn-outline-primary w-100">View All</a>
+                                <a href="#" class="btn btn-sm btn-outline-primary w-100">View All Notifications</a>
                             </div>
                         </div>
                     </li>
