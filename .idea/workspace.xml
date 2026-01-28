@@ -5,34 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5ce9893c-7d9d-4c03-b8b2-b3302399372e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/static/css/timetable.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/chat/migrations/0001_initial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/migrations/0002_grouppost_postcomment.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/migrations/0003_grouppost_updated_at.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/migrations/0004_alter_sharedfile_file_size.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/migrations/0005_reaction.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/migrations/0006_grouppost_image_grouppost_likes_postcomment_likes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/migrations/0001_initial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0002_remove_major_university_and_more.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0003_studentprofileform_alter_freetimematch_student1_and_more.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0004_studentprofile_alter_freetimematch_student1_and_more.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0005_alter_studentprofile_major.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0006_coursegroupmatch_sessionattendance_studysession_and_more.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0007_timetableslot_slot_type.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0008_remove_studygroup_preferred_day_and_more.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0009_alter_course_unique_together_course_semester_and_more.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0010_alter_course_unique_together_and_more.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/myproject/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/myproject/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/myproject/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/myproject/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/static/js/timetable.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/timetable.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/base.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/base.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/dashboard.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/timetable.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/timetable.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/chat/migrations/0001_initial.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/migrations/0001_initial.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,7 +50,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "Merging group__posts"
+    "git-widget-placeholder": "group__posts"
   }
 }]]></component>
   <component name="RecentsManager">
