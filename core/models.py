@@ -284,18 +284,30 @@ class TimetableSlot(models.Model):
     def get_styles(self):
         total_height = 1200 
         start_mins = self.start_time.hour * 60 + self.start_time.minute
-        end_mins = self.end_time.hour * 60 + self.end_time.minute
+        
+        end_hour = self.end_time.hour
+        end_minute = self.end_time.minute
+        
+        if end_hour == 0 and end_minute == 0:
+            end_mins = 1440
+        else:
+            end_mins = end_hour * 60 + end_minute
 
         try:
             day_idx = int(self.day) 
-            print(f"try {day_idx}")
         except (ValueError, TypeError):
             days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
             day_idx = days.index(self.day) if self.day in days else 0
-                  
+                
         left_percent = day_idx * (100 / 7)
+        
         top = (start_mins / 1440) * total_height
-        height = ((end_mins - start_mins) / 1440) * total_height
+        duration_mins = end_mins - start_mins
+        
+        if duration_mins < 0:
+            duration_mins = 1440 - start_mins
+
+        height = (duration_mins / 1440) * total_height
         width = 100 / 7
 
         return f"top: {top}px; left: {left_percent}%; height: {height}px; width: {width}%; position: absolute;"

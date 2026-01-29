@@ -1174,6 +1174,7 @@ def save_timetable_slot(request):
             day_idx = max(0, min(6, day_idx))
             day_str = days_map[day_idx] 
             slot_type = data.get("slot_type", "class")
+            print(data.get('end_time'))
 
             if slot_id:
                try:
