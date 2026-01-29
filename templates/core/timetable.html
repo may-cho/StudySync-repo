@@ -71,13 +71,14 @@
                     data-end="{{slot.end_time|time:'H:i'}}"
                     data-title="{{slot.custom_name}}"
                     data-slot-type="{{slot.slot_type}}"
-                    data-day_index="{{slot.day_index}}"
+                    data-day-index="{{slot.day_index}}"
                     style="{{ slot.get_styles }}; background-color: {{ slot.get_color }}20;"
                     >
+                   
                     <p class="time-block-label">{{ slot.custom_name }}</p>
                     
-                    <p class="time-block-time">{{ slot.start_time|time:'g:iA'|lower }}-{{ slot.end_time|time:'g:iA'|lower }}</p>
-                    
+                    <p class="time-block-time">{{ slot.start_time|time:'g:iA'|lower }} - {{ slot.end_time|time:'g:iA'|lower }}</p>
+                   
                 </div>
             {% endfor %}
 
