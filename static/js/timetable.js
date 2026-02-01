@@ -5,7 +5,11 @@ window.onload = () => {
   const modalStart = document.getElementById("modal-start");
   const modalEnd = document.getElementById("modal-end");
   const inputTitle = document.getElementById("event-title");
+  const inputTitleContainer = document.getElementById("event-title-container");
   const slotTypeSelect = document.getElementById("slot-type");
+  const course = document.getElementById("course");
+  const courseSelectContainer =
+    document.getElementsByClassName("course-select-form")[0];
 
   let originalState = null;
   let startY = 0;
@@ -145,7 +149,6 @@ window.onload = () => {
         (dragMode === "MOVE" || dragMode === "RESIZE") &&
         activeElement.dataset.id
       ) {
-        console.log("Auto-saving move/resize...");
         saveEvent();
       }
     }
@@ -156,26 +159,6 @@ window.onload = () => {
     ghost.querySelector(".time-block-label").innerHTML = "";
   });
 
-  function detectResizing(e) {
-    if (isDragging) return;
-    const block =
-      e.target.closest(".time-block") || e.target.closest(".ghost-slot");
-    if (!block) return false;
-
-    const blockRect = block.getBoundingClientRect();
-    const mouseY = e.clientY;
-
-    const BUFFER = 20;
-    const isNearBottom = Math.abs(mouseY - blockRect.bottom) <= BUFFER;
-
-    if (isNearBottom) {
-      block.style.cursor = "ns-resize";
-      block.dataset.atEdge = "true";
-    } else {
-      block.style.cursor = "pointer";
-      delete block.dataset.atEdge;
-    }
-  }
   window.addEventListener("mousemove", (e) => {
     detectResizing(e);
     if (mouseUp) return;
@@ -210,6 +193,27 @@ window.onload = () => {
       handleResize(e, rect, pixelsPerBlock);
     }
   });
+
+  function detectResizing(e) {
+    if (isDragging) return;
+    const block =
+      e.target.closest(".time-block") || e.target.closest(".ghost-slot");
+    if (!block) return false;
+
+    const blockRect = block.getBoundingClientRect();
+    const mouseY = e.clientY;
+
+    const BUFFER = 10;
+    const isNearBottom = Math.abs(mouseY - blockRect.bottom) <= BUFFER;
+
+    if (isNearBottom) {
+      block.style.cursor = "ns-resize";
+      block.dataset.atEdge = "true";
+    } else {
+      block.style.cursor = "pointer";
+      delete block.dataset.atEdge;
+    }
+  }
   function handleResize(e, rect, pixelsPerBlock) {
     if (!activeElement) return;
 
@@ -303,7 +307,14 @@ window.onload = () => {
     // 1. Restore the Category/Type and Color data
     const savedType = activeElement.dataset.slotType;
     if (savedType) {
-      document.getElementById("slot-type").value = savedType;
+      slotTypeSelect.value = savedType;
+    }
+    if (slotTypeSelect.value === "class") {
+      inputTitleContainer.style.display = "none";
+      courseSelectContainer.style.display = "block";
+    } else {
+      inputTitleContainer.style.display = "block";
+      courseSelectContainer.style.display = "none";
     }
 
     // 2. Handle Delete Button Visibility
@@ -464,8 +475,12 @@ window.onload = () => {
   }
   async function saveEvent() {
     if (!activeElement) return;
-
-    const title = inputTitle.value.trim() || activeElement.dataset.title;
+    let title;
+    if (slotTypeSelect.value !== "class") {
+      title = inputTitle.value.trim() || activeElement.dataset.title;
+    } else {
+      title = course.value;
+    }
     if (!title && dragMode !== "RESIZE" && dragMode !== "MOVE") {
       inputTitle.style.border = "2px solid #ef4444";
       inputTitle.placeholder = "Title is required!";
@@ -619,6 +634,14 @@ window.onload = () => {
   slotTypeSelect.addEventListener("change", (e) => {
     const selectedType = e.target.value;
     const activeColor = typeColorMap[selectedType];
+
+    if (selectedType === "class") {
+      inputTitleContainer.style.display = "none";
+      courseSelectContainer.style.display = "block";
+    } else {
+      inputTitleContainer.style.display = "block";
+      courseSelectContainer.style.display = "none";
+    }
 
     if (activeColor && activeElement) {
       activeElement.style.backgroundColor = activeColor + "40";

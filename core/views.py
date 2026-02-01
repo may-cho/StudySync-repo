@@ -92,11 +92,8 @@ def find_study_partners(request):
     """Find classmates for group study"""
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Get user's courses
-    user_courses = Course.objects.filter(
-        studentcourse__student=profile
-    ).order_by('semester', 'code')
-
+    
+    user_courses = profile.get_courses();
     # Get recent classmates (simple version)
     recent_classmates = StudentProfile.objects.filter(
         studentcourse__course__in=user_courses
@@ -194,14 +191,15 @@ def register(request):
 
 @login_required
 def timetable_view(request):
-    
+    profile = get_object_or_404(StudentProfile,user=request.user);
     slots = TimetableSlot.objects.filter(student=request.user.studentprofile)
-
+    courses = profile.get_courses();
     day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
     for slot in slots:
         slot.day_index = day_map.get(slot.day, 0)
     context = {
-        'timetable_slots': slots
+        'timetable_slots': slots,
+        'courses' : courses
     }
     return render(request, 'core/timetable.html', context)
 
@@ -668,15 +666,16 @@ def student_profile(request, user_id):
 @login_required
 def add_course(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
-
     if request.method == 'POST':
-        course_id = request.POST.get('course')
+       
+        course_ids= request.POST.getlist('course_ids')
         try:
-            course = Course.objects.get(id=course_id)
-            StudentCourse.objects.get_or_create(
-                student=profile,
-                course=course
-            )
+            for course_id in course_ids:
+                course = Course.objects.get(id=course_id)
+                StudentCourse.objects.get_or_create(
+                    student=profile,
+                    course=course
+                )
             messages.success(request, f'Added {course.code} to your courses')
             return redirect('profile')
         except Course.DoesNotExist:
@@ -1238,65 +1237,79 @@ def edit_group(request,group_id) :
     
 @login_required
 def save_timetable_slot(request):
-    
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        
+        # 1. Extract and Clean Inputs
+        title = data.get("title", "").strip()
+        slot_type = data.get("slot_type", "free")
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        
+        # 2. Validation
+        if not title and slot_type != 'class':
+            return JsonResponse({'status': 'error', 'message': 'Title cannot be empty.'}, status=400)
+
+        # 3. Handle Course logic vs Custom Name
+        course_obj = None
+        final_custom_name = title
+        
+        if slot_type == 'class':
+            # Look for the specific course in the student's semester
+            course_obj = Course.objects.filter(code=title, semester=profile.semester).first()
+            # If it's a class, we usually leave custom_name empty to use the Course name instead
+            if course_obj:
+                final_custom_name = ""
+
+        # 4. Parse Day Index
+        days_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         try:
-            data = json.loads(request.body)
-            profile = get_object_or_404(StudentProfile, user=request.user)
-            
-            raw_id = data.get('event_id')
-            title = data.get('title', '').strip()
-            if not title:
-                return JsonResponse({
-                    'status': 'error', 
-                    'message': 'Title cannot be empty.'
-                }, status=400)
-            
-            slot_id = None
-            if raw_id and raw_id not in ["null", "undefined", "None", ""]:
-                try:
-                    slot_id = uuid.UUID(str(raw_id))
-                except (ValueError, TypeError):
-                    slot_id = None
-
-            days_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
             day_idx = int(data.get('day_index', 0))
-            day_idx = max(0, min(6, day_idx))
-            day_str = days_map[day_idx] 
-            slot_type = data.get("slot_type", "class")
-            print(data.get('end_time'))
+            day_str = days_map[max(0, min(6, day_idx))]
+        except (ValueError, TypeError):
+            day_str = 'Mon'
 
-            if slot_id:
-               try:
-                    slot = TimetableSlot.objects.get(id=slot_id, student=profile)
-                    slot.day = day_str
-                    slot.start_time = data.get('start_time')
-                    slot.end_time = data.get('end_time')
-                    slot.custom_name = str(data.get('title', 'Untitled'))[:200]
-                    slot.slot_type = slot_type
-                    slot.save()
-               except TimetableSlot.DoesNotExist:
-                    slot = TimetableSlot.objects.create(
-                        student=profile, day=day_str, 
-                        start_time=data.get('start_time'), 
-                        end_time=data.get('end_time'),
-                        custom_name=data.get('title'), 
-                        slot_type=slot_type
-                        )
-            else:
-                slot = TimetableSlot.objects.create(
-                    student=profile, day=day_str, 
-                    start_time=data.get('start_time'), 
-                    end_time=data.get('end_time'),
-                    custom_name=data.get('title'), 
-                    slot_type=slot_type
-                )
-                        
-            return JsonResponse({'status': 'success', 'id': str(slot.id)})
-        except Exception as e:
-            import traceback
-            print(traceback.format_exc())
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        # 5. Handle the UUID (raw_id)
+        raw_id = data.get('event_id')
+        slot_id = None
+        if raw_id not in [None, "null", "undefined", "None", ""]:
+            try:
+                slot_id = uuid.UUID(str(raw_id))
+            except (ValueError, TypeError):
+                pass
+
+        # 6. The "Single Save" Logic (Refactored)
+        # We define what to save in a dictionary to avoid repeating ourselves
+        defaults = {
+            'day': day_str,
+            'start_time': start_time,
+            'end_time': end_time,
+            'slot_type': slot_type,
+            'course': course_obj,
+            'custom_name': final_custom_name[:200],
+        }
+
+        # update_or_create handles both "Save" and "Update" in one line
+        slot, created = TimetableSlot.objects.update_or_create(
+            id=slot_id, 
+            student=profile,
+            defaults=defaults
+        )
+
+        return JsonResponse({
+            'status': 'success', 
+            'id': str(slot.id), 
+            'action': 'created' if created else 'updated'
+        })
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
 @require_http_methods(["DELETE"])

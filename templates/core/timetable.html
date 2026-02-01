@@ -1,145 +1,175 @@
-{% extends 'base.html' %}
-{% load static %}{% load custom_filters %}  <!-- ADD THIS LINE -->
+{% extends 'base.html' %} {% load static %}{% load custom_filters %}
+<!-- ADD THIS LINE -->
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'css/timetable.css' %}">
+<link rel="stylesheet" href="{% static 'css/timetable.css' %}" />
 {% endblock %}
 {% block title %}Timetable - StudySync{% endblock %}
-
-{% block content %}
+  {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 p-2">
-    <div>
-        <h2 class="fw-bold mb-0" style="color: var(--text-main);">
-            <i class="fas fa-calendar-alt me-2 text-primary"></i>My Timetable
-        </h2>
-        <p class="text-muted small mb-0">Organize your weekly study sessions</p>
-    </div>
+  <div>
+    <h2 class="fw-bold mb-0" style="color: var(--text-main)">
+      <i class="fas fa-calendar-alt me-2 text-primary"></i>My Timetable
+    </h2>
+    <p class="text-muted small mb-0">Organize your weekly study sessions</p>
+  </div>
 </div>
 
 <div class="calendar-container">
-    <div class="calendar-header">
-        <div class="spacer"></div> <div class="days-row">
-            <div class="day-label">Mon</div>
-            <div class="day-label">Tue</div>
-            <div class="day-label">Wed</div>
-            <div class="day-label">Thu</div>
-            <div class="day-label">Fri</div>
-            <div class="day-label">Sat</div>
-            <div class="day-label">Sun</div>
-        </div>
+  <div class="calendar-header">
+    <div class="spacer"></div>
+    <div class="days-row">
+      <div class="day-label">Mon</div>
+      <div class="day-label">Tue</div>
+      <div class="day-label">Wed</div>
+      <div class="day-label">Thu</div>
+      <div class="day-label">Fri</div>
+      <div class="day-label">Sat</div>
+      <div class="day-label">Sun</div>
+    </div>
+  </div>
+
+  <div class="calendar-wrapper">
+    <div class="time-gutter">
+      {% for i in "x"|rjust:"25" %}
+      <div class="time-label-container">
+        <span class="time-label">
+          {% with hour=forloop.counter0 %} {% if hour == 0 or hour == 24 %} 12
+          am {% elif hour < 12 %} {{ hour }} am {% elif hour == 12 %} 12 pm {%
+          else %} {{ hour|add:"-12" }} pm {% endif %} {% endwith %}
+        </span>
+      </div>
+      {% endfor %}
     </div>
 
-    <div class="calendar-wrapper">
-        <div class="time-gutter">
-    {% for i in "x"|rjust:"25" %}
-        <div class="time-label-container">
-            <span class="time-label">
-                {% with hour=forloop.counter0 %}
-                   {% if hour == 0 or hour == 24 %}
-                        12 am
-                    {% elif hour < 12 %}
-                        {{ hour }} am
-                    {% elif hour == 12 %}
-                        12 pm
-                    {% else %}
-                        {{ hour|add:"-12" }} pm
-                    {% endif %}
-                {% endwith %}
-            </span>
-        </div>
-    {% endfor %}
-</div>
+    <div id="calendar-grid" class="calendar-grid">
+      <div class="grid-lines-horizontal">
+        {% for i in "x"|rjust:"25" %}
+        <div class="hour-line"></div>
+        {% endfor %}
+      </div>
 
-        <div id="calendar-grid" class="calendar-grid">
-        
-            <div class="grid-lines-horizontal">
-                {% for i in "x"|rjust:"25" %}<div class="hour-line"></div>{% endfor %}
-            </div>
+      <div class="grid-lines-vertical">
+        {% for i in "x"|rjust:"7" %}
+        <div class="day-column"></div>
+        {% endfor %}
+      </div>
+      <div id="ghost-slot" class="ghost-slot" style="display: none">
+        <p class="time-block-label"></p>
+        <p class="time-block-time"></p>
+      </div>
 
-            <div class="grid-lines-vertical">
-                {% for i in "x"|rjust:"7" %}<div class="day-column"></div>{% endfor %}
-            </div>
-            <div id="ghost-slot" class="ghost-slot" style="display: none;">
-                <p class="time-block-label"></p>
-                <p class="time-block-time"></p>
-            </div>
+      {% for slot in timetable_slots %}
+      <div
+        class="time-block"
+        data-id="{{slot.id}}"
+        data-start="{{slot.start_time|time:'H:i'}}"
+        data-end="{{slot.end_time|time:'H:i'}}"
+        data-title="{{slot.custom_name}}"
+        data-slot-type="{{slot.slot_type}}"
+        data-day-index="{{slot.day_index}}"
+        style="{{ slot.get_styles }}; background-color: {{ slot.get_color }}20;"
+      >
+        {%if slot.slot_type == 'class'%} 
+        <p class="time-block-label">{{ slot.course.code }}</p>
+        {%else%}
+        <p class="time-block-label">{{ slot.custom_name }}</p>
+        {%endif%}
+        <p class="time-block-time">
+          {{ slot.start_time|time:'g:iA'|lower }} - {{slot.end_time|time:'g:iA'|lower }}
+        </p>
+      </div>
+      {% endfor %} {% csrf_token %}
+      <div id="floating-menu" class="floating-popover" style="display: none">
+       <div id="event-title-container" class="mb-3">
+          <label for='event-title' class="small text-muted d-block mb-2">Event Name</label>
+          <input type="text" id="event-title" class="form-control" />
+      </div>
 
-            {% for slot in timetable_slots %}
-                <div class="time-block"
-                    data-id="{{slot.id}}"
-                    data-start="{{slot.start_time|time:'H:i'}}"
-                    data-end="{{slot.end_time|time:'H:i'}}"
-                    data-title="{{slot.custom_name}}"
-                    data-slot-type="{{slot.slot_type}}"
-                    data-day-index="{{slot.day_index}}"
-                    style="{{ slot.get_styles }}; background-color: {{ slot.get_color }}20;"
-                    >
-                   
-                    <p class="time-block-label">{{ slot.custom_name }}</p>
-                    
-                    <p class="time-block-time">{{ slot.start_time|time:'g:iA'|lower }} - {{ slot.end_time|time:'g:iA'|lower }}</p>
-                   
-                </div>
-            {% endfor %}
 
-        {% csrf_token %}
-      <div id="floating-menu" class="floating-popover" style="display: none;">
-    <input type="text" id="event-title" placeholder="Event Name..." class="form-control mb-3">
-    <div class="mb-3">
-        <label class="small text-muted d-block mb-2">Slot Category</label>
-        <div class="custom-select-wrapper">
-            <select id="slot-type" class="form-select custom-select">
-                <option value="class">🏛️ Class</option>
-                <option value="self_study">📖 Self Study</option>
-                <option value="break">☕ Break</option>
-                <option value="activity">🏀 Activity</option>
-                <option value="free">☁️ Free Time</option>
+        <div class="mb-3 course-select-form">
+          <label for="course" class="small text-muted d-block mb-2">Select Course</label>
+          <div class="custom-select-wrapper">
+            <select id="course" class="form-select custom-select">
+               {% for course in courses%}
+                <option value="{{course.code}}">{{course.code}}</option>
+               {%endfor%}
             </select>
+          </div>
         </div>
-    </div>
+        <div class="mb-3">
+          <label class="small text-muted d-block mb-2">Slot Category</label>
+          <div class="custom-select-wrapper">
+            <select id="slot-type" class="form-select custom-select">
+              <option value="class">🏛️ Class</option>
+              <option value="self_study">📖 Self Study</option>
+              <option value="break">☕ Break</option>
+              <option value="activity">🏀 Activity</option>
+              <option value="free">☁️ Free Time</option>
+            </select>
+          </div>
+        </div>
 
-    <div class="row g-2 mb-3">
-        <div class="col-6">
+        <div class="row g-2 mb-3">
+          <div class="col-6">
             <label class="small text-muted">Start</label>
-            <input type="time" id="modal-start" class="form-control form-control-sm">
-        </div>
-        <div class="col-6">
+            <input
+              type="time"
+              id="modal-start"
+              class="form-control form-control-sm"
+            />
+          </div>
+          <div class="col-6">
             <label class="small text-muted">End</label>
-            <input type="time" id="modal-end" class="form-control form-control-sm">
+            <input
+              type="time"
+              id="modal-end"
+              class="form-control form-control-sm"
+            />
+          </div>
         </div>
-    </div>
 
-    <div class="popover-footer">
-        <button class="btn-icon btn-delete" onclick="deleteEvent()" title="Delete">
+        <div class="popover-footer">
+          <button
+            class="btn-icon btn-delete"
+            onclick="deleteEvent()"
+            title="Delete"
+          >
             <i class="fas fa-trash"></i>
-        </button>
-        <div class="d-flex gap-2">
-            <button class="btn-text btn-cancel" onclick="closeMenu()">Cancel</button>
-            <button class="btn-text btn-save" onclick="saveEvent()">Save</button>
+          </button>
+          <div class="d-flex gap-2">
+            <button class="btn-text btn-cancel" onclick="closeMenu()">
+              Cancel
+            </button>
+            <button class="btn-text btn-save" onclick="saveEvent()">
+              Save
+            </button>
+          </div>
         </div>
+      </div>
     </div>
-</div>
-    </div>
-</div>
+  </div>
 
-<div id="delete-confirm-modal" class="custom-modal-overlay" style="display: none;">
+  <div
+    id="delete-confirm-modal"
+    class="custom-modal-overlay"
+    style="display: none"
+  >
     <div class="mini-modal">
-        <div class="mini-modal-header">
-            <span class="warning-dot"></span>
-            <p>Remove Session?</p>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-cancel-mini" onclick="hideDeleteModal()">Cancel</button>
-            <button class="btn-delete-mini" id="confirm-delete-btn">Remove</button>
-        </div>
+      <div class="mini-modal-header">
+        <span class="warning-dot"></span>
+        <p>Remove Session?</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel-mini" onclick="hideDeleteModal()">
+          Cancel
+        </button>
+        <button class="btn-delete-mini" id="confirm-delete-btn">Remove</button>
+      </div>
     </div>
+  </div>
+
+  <style></style>
+  <script src="{% static 'js/timetable.js' %}"></script>
+  {% endblock %}
 </div>
-
-
-<style>
-
-</style>
-<script src="{% static 'js/timetable.js' %}"></script>
-
-
-{% endblock %}
