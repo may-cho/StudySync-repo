@@ -1,7 +1,6 @@
 window.onload = () => {
   const grid = document.getElementById("calendar-grid");
   const ghost = document.getElementById("ghost-slot");
-  const output = document.getElementById("time-output");
   const floatingMenu = document.getElementById("floating-menu");
   const modalStart = document.getElementById("modal-start");
   const modalEnd = document.getElementById("modal-end");
@@ -11,49 +10,277 @@ window.onload = () => {
   let originalState = null;
   let startY = 0;
   let startX = 0;
+  let dragMode = null;
+  let offsetTop = 0; //to prevent block from jumping when grabbed
+  let offsetLeft = 0;
   let isDragging = false;
   let mouseUp = true;
-  const DRAG_THRESHOLD = 5;
   let activeElement = null;
+  const DRAG_THRESHOLD = 5;
 
   grid.addEventListener("mousedown", (e) => {
     const isMenu = floatingMenu.contains(e.target);
+    if (isMenu) return;
+
     const clickedBlock = e.target.closest(".time-block");
-    if (isMenu) {
-      return;
+    const clickedGhost =
+      ghost.contains(e.target) && ghost.style.display !== "none";
+
+    if (clickedBlock || clickedGhost) {
+      activeElement = clickedBlock || ghost;
+      const rect = activeElement.getBoundingClientRect();
+      if (activeElement.dataset.atEdge === "true") {
+        dragMode = "RESIZE";
+      } else {
+        dragMode = "MOVE";
+        offsetTop = e.clientY - rect.top;
+        offsetLeft = e.clientX - rect.left;
+      }
+    } else {
+      dragMode = "CREATE";
+      startX = e.clientX;
+      startY = e.clientY;
+      activeElement = ghost;
+      ghost.style.display = "block";
+      delete ghost.dataset.id;
     }
-    if (clickedBlock) {
-      mouseUp = true;
-      isDragging = false;
-      ghost.style.display = "none";
-
-      activeElement = clickedBlock;
-      activeElement.dataset.eventId = clickedBlock.getAttribute("data-id");
-
-      const blockRect = clickedBlock.getBoundingClientRect();
-      const gridRect = grid.getBoundingClientRect();
-
-      const relativeTop = blockRect.top - gridRect.top;
-      const relativeLeft = blockRect.left - gridRect.left;
-
-      showMenuAt(relativeTop, relativeLeft, blockRect.width, blockRect.height);
-
-      const startTime = clickedBlock.dataset.start;
-      const endTime = clickedBlock.dataset.end;
-      const [startH, startM] = startTime.trim().split(":");
-      const [endH, endM] = endTime.trim().split(":");
-      const cleanedStartTime = `${startH.padStart(2, "0")}:${startM.padStart(2, "0")}`;
-      const cleanedEndTime = `${endH.padStart(2, "0")}:${endM.padStart(2, "0")}`;
-      modalStart.value = cleanedStartTime;
-      modalEnd.value = cleanedEndTime;
-      inputTitle.value = clickedBlock.dataset.title;
-      return;
-    }
-    startX = e.clientX;
-    startY = e.clientY;
-    isDragging = false;
     mouseUp = false;
   });
+
+  window.addEventListener("mouseup", (e) => {
+    mouseUp = true;
+    const rect = grid.getBoundingClientRect();
+    const gridWidth = rect.width;
+    const gridHeight = rect.height;
+    const pixelsPerBlock = gridHeight / 96;
+    const dayWidth = gridWidth / 7;
+    const wasDragging = isDragging;
+    const currentDragMode = dragMode;
+
+    //updating position of time block after dragging
+    if (
+      activeElement &&
+      wasDragging &&
+      (currentDragMode === "MOVE" || currentDragMode === "RESIZE")
+    ) {
+      let dayIndex;
+      const currentLeft = activeElement.style.left;
+      if (currentLeft.includes("%")) {
+        dayIndex = Math.round(parseFloat(currentLeft) / (100 / 7));
+      } else if (currentLeft.includes("px")) {
+        dayIndex = Math.round(parseFloat(currentLeft) / dayWidth);
+      } else {
+        dayIndex = parseInt(activeElement.dataset.dayIndex || 0);
+      }
+
+      activeElement.classList.remove("dragging");
+      activeElement.style.left = `${dayIndex * dayWidth}px`;
+      activeElement.dataset.day_index = dayIndex;
+      activeElement.style.cursor = "pointer";
+    }
+
+    if (!isDragging) {
+      const isMenu = floatingMenu.contains(e.target);
+      const isTimeBlock = e.target.closest(".time-block");
+      const isGhostBlock = ghost.contains(e.target);
+      /* 
+        if we click anything inside pop-up menu,return early to prevent creating time block 
+        when we want to type into the pop-up menu form
+      */
+      if (isMenu) return;
+
+      //if clicking non-existing block, we create 1-hour time block
+      if (!isTimeBlock && !isGhostBlock) {
+        if (!isMouseInsideGrid(e.clientX, e.clientY)) return;
+        const mousePosY = e.clientY - rect.top;
+        const mousePosX = e.clientX - rect.left;
+
+        const clickBlock = Math.floor(mousePosY / (pixelsPerBlock * 4)) * 4;
+        const dayIndex = Math.floor(mousePosX / dayWidth);
+
+        ghost.style.display = "block";
+        ghost.style.top = `${clickBlock * pixelsPerBlock}px`;
+        ghost.style.left = `${dayIndex * dayWidth}px`;
+        ghost.style.width = `${dayWidth}px`;
+        ghost.style.height = `${pixelsPerBlock * 4}px`;
+
+        inputTitle.value = "";
+        updateTimeFromBlocks(clickBlock, 4);
+      }
+    }
+
+    //update menu position,start-time and end-time after dragging
+    if (activeElement) {
+      if (activeElement.classList.contains("time-block")) {
+        activeElement.classList.remove("dragging");
+        ghost.style.display = "none";
+      }
+
+      const top = parseFloat(activeElement.style.top);
+      let currentLeft = activeElement.style.left;
+      let dayIndex = 0;
+      if (currentLeft.includes("%")) {
+        dayIndex = Math.round(parseFloat(currentLeft) / (100 / 7));
+      } else if (currentLeft.includes("px")) {
+        dayIndex = Math.round(parseFloat(currentLeft) / dayWidth);
+      }
+      const left = dayIndex * dayWidth;
+
+      let finalWidth = activeElement.style.width.includes("%")
+        ? (rect.width * parseFloat(activeElement.style.width)) / 100
+        : parseFloat(activeElement.style.width);
+      const height = parseFloat(activeElement.style.height);
+
+      showMenuAt(top, left, finalWidth || dayWidth, height);
+
+      const startBlock = Math.round(top / pixelsPerBlock);
+      const blockCount = Math.round(parseFloat(height) / pixelsPerBlock);
+      inputTitle.value = activeElement.dataset.title
+        ? activeElement.dataset.title
+        : "";
+
+      updateTimeFromBlocks(startBlock, blockCount);
+      if (
+        wasDragging &&
+        (dragMode === "MOVE" || dragMode === "RESIZE") &&
+        activeElement.dataset.id
+      ) {
+        console.log("Auto-saving move/resize...");
+        saveEvent();
+      }
+    }
+
+    //resetting the state
+    isDragging = false;
+    dragMode = null;
+    ghost.querySelector(".time-block-label").innerHTML = "";
+  });
+
+  function detectResizing(e) {
+    if (isDragging) return;
+    const block =
+      e.target.closest(".time-block") || e.target.closest(".ghost-slot");
+    if (!block) return false;
+
+    const blockRect = block.getBoundingClientRect();
+    const mouseY = e.clientY;
+
+    const BUFFER = 20;
+    const isNearBottom = Math.abs(mouseY - blockRect.bottom) <= BUFFER;
+
+    if (isNearBottom) {
+      block.style.cursor = "ns-resize";
+      block.dataset.atEdge = "true";
+    } else {
+      block.style.cursor = "pointer";
+      delete block.dataset.atEdge;
+    }
+  }
+  window.addEventListener("mousemove", (e) => {
+    detectResizing(e);
+    if (mouseUp) return;
+    /*
+     *  e.clientY: the coordinate y of mouse from the browser
+     *  rect.top: the distance from the browswer to the grid view
+     *  currentY: the coordinate y of mouse from the grid view
+     */
+    const rect = grid.getBoundingClientRect();
+    const TOTAL_BLOCK = 96;
+    const pixelsPerBlock = rect.height / TOTAL_BLOCK;
+
+    //tracking if user is dragging or not
+    if (!isDragging) {
+      const moveX = Math.abs(e.clientX - startX);
+      const moveY = Math.abs(e.clientY - startY);
+
+      if (moveX > DRAG_THRESHOLD || moveY > DRAG_THRESHOLD) {
+        isDragging = true;
+        floatingMenu.style.display = "none";
+      } else {
+        return;
+      }
+    }
+
+    if (isDragging && dragMode === "MOVE") {
+      handleMoveDrag(e, rect, pixelsPerBlock);
+    } else if (isDragging && dragMode === "CREATE") {
+      ghost.style.display = "block";
+      handleCreateDrag(e, rect, pixelsPerBlock);
+    } else if (isDragging && dragMode === "RESIZE") {
+      handleResize(e, rect, pixelsPerBlock);
+    }
+  });
+  function handleResize(e, rect, pixelsPerBlock) {
+    if (!activeElement) return;
+
+    const mouseYInGrid = e.clientY - rect.top;
+
+    const blockTop = parseFloat(activeElement.style.top) || 0;
+    const startBlock = Math.round(blockTop / pixelsPerBlock);
+
+    let newHeight = mouseYInGrid - blockTop;
+    const maxHeight = (96 - startBlock) * pixelsPerBlock;
+    newHeight = Math.min(newHeight, maxHeight);
+
+    const snappedHeight = Math.max(
+      pixelsPerBlock,
+      Math.round(newHeight / pixelsPerBlock) * pixelsPerBlock,
+    );
+
+    activeElement.style.height = `${snappedHeight}px`;
+
+    const blockCount = Math.round(snappedHeight / pixelsPerBlock);
+    updateTimeFromBlocks(startBlock, blockCount);
+  }
+  function handleCreateDrag(e, rect, pixelsPerBlock) {
+    if (isDragging) {
+      const currentY = e.clientY - rect.top;
+      const initialY = startY - rect.top;
+
+      // Snap selection to the nearest 15-minute interval (96 blocks per 24h)
+      const startBlock = Math.round(initialY / pixelsPerBlock);
+      let currentBlock = Math.round(currentY / pixelsPerBlock);
+      currentBlock = Math.max(0, Math.min(96, currentBlock));
+
+      //Horizontal Positioning
+      const dayWidth = rect.width / 7;
+      const dayIndex = Math.floor((startX - rect.left) / dayWidth);
+
+      const topBlock = Math.min(startBlock, currentBlock);
+      const blockCount = Math.abs(currentBlock - startBlock);
+
+      ghost.style.left = `${dayIndex * dayWidth}px`;
+      ghost.style.width = `${dayWidth}px`;
+      ghost.style.top = `${topBlock * pixelsPerBlock}px`;
+      ghost.style.height = `${blockCount * pixelsPerBlock}px`;
+
+      updateTimeFromBlocks(topBlock, blockCount);
+
+      inputTitle.value = "";
+    }
+  }
+
+  function handleMoveDrag(e, rect, pixelsPerBlock) {
+    activeElement.style.cursor = "grabbing";
+
+    const currentY = e.clientY - rect.top - offsetTop;
+    const snappedY = Math.round(currentY / pixelsPerBlock);
+
+    const finalTop = Math.max(
+      0,
+      Math.min(
+        96 - Math.round(activeElement.offsetHeight / pixelsPerBlock),
+        snappedY,
+      ),
+    );
+    activeElement.style.top = `${finalTop * pixelsPerBlock}px`;
+
+    const currentX = e.clientX - rect.left - offsetLeft;
+    const maxLeft = rect.width - activeElement.offsetWidth;
+    const smoothLeft = Math.max(0, Math.min(maxLeft, currentX));
+
+    activeElement.style.left = `${smoothLeft}px`;
+  }
 
   function showMenuAt(top, left, width, height) {
     const gridWidth = grid.offsetWidth;
@@ -81,7 +308,7 @@ window.onload = () => {
 
     // 2. Handle Delete Button Visibility
     const deleteBtn = document.querySelector(".btn-delete");
-    if (!activeElement.dataset.id && !activeElement.dataset.eventId) {
+    if (!activeElement.dataset.id) {
       deleteBtn.style.visibility = "hidden";
     } else {
       deleteBtn.style.visibility = "visible";
@@ -117,177 +344,46 @@ window.onload = () => {
       y <= gridRect.bottom
     );
   }
-  window.addEventListener("mousemove", (e) => {
-    const isMenu = floatingMenu.contains(e.target);
-    const isTimeBlock = e.target.closest(".time-block");
-    if (isMenu || isTimeBlock) return;
-    if (mouseUp) return;
-    /*
-     *  e.clientY: the coordinate y of mouse from the browser
-     *  rect.top: the distance from the browswer to the grid view
-     *  currentY: the coordinate y of mouse from the grid view
-     */
-    const rect = grid.getBoundingClientRect(); // get area of grid view
-    const TOTAL_BLOCK = 96;
-    const pixelsPerBlock = rect.height / TOTAL_BLOCK;
 
-    if (!isDragging) {
-      const moveX = Math.abs(e.clientX - startX);
-      const moveY = Math.abs(e.clientY - startY);
-
-      if (moveX > DRAG_THRESHOLD || moveY > DRAG_THRESHOLD) {
-        isDragging = true;
-        dragStarted = true;
-        ghost.style.display = "block";
-      }
-    }
-
-    if (isDragging) {
-      const currentY = e.clientY - rect.top;
-      const initialY = startY - rect.top;
-
-      // Snap selection to the nearest 15-minute interval (96 blocks per 24h)
-      const startBlock = Math.round(initialY / pixelsPerBlock);
-      let currentBlock = Math.round(currentY / pixelsPerBlock);
-      currentBlock = Math.max(0, Math.min(96, currentBlock));
-
-      //Horizontal Positioning
-      const dayWidth = rect.width / 7;
-      const dayIndex = Math.floor((startX - rect.left) / dayWidth);
-
-      const topBlock = Math.min(startBlock, currentBlock);
-      const blockCount = Math.abs(currentBlock - startBlock);
-
-      ghost.style.left = `${dayIndex * dayWidth}px`;
-      ghost.style.width = `${dayWidth}px`;
-      ghost.style.top = `${topBlock * pixelsPerBlock}px`;
-      ghost.style.height = `${blockCount * pixelsPerBlock}px`;
-
-      updateTimeFromBlocks(topBlock, blockCount);
-
-      inputTitle.value = "";
-    }
-  });
-
-  window.addEventListener("mouseup", (e) => {
-    const rect = grid.getBoundingClientRect();
-    const gridWidth = rect.width;
-    const gridHeight = rect.height;
-    const pixelsPerBlock = gridHeight / 96;
-    const dayWidth = gridWidth / 7;
-
-    if (!isDragging) {
-      const isMenu = floatingMenu.contains(e.target);
-      const isTimeBlock = e.target.closest(".time-block");
-      if (isMenu || isTimeBlock) return;
-      if (!isMouseInsideGrid(e.clientX, e.clientY)) return;
-      const mousePosY = e.clientY - rect.top;
-      const mousePosX = e.clientX - rect.left;
-
-      const clickBlock = Math.floor(mousePosY / (pixelsPerBlock * 4)) * 4;
-      const dayIndex = Math.floor(mousePosX / dayWidth);
-
-      ghost.style.display = "block";
-      ghost.style.top = `${clickBlock * pixelsPerBlock}px`;
-      ghost.style.left = `${dayIndex * dayWidth}px`;
-      ghost.style.width = `${dayWidth}px`;
-      ghost.style.height = `${pixelsPerBlock * 4}px`;
-
-      inputTitle.value = "";
-      updateTimeFromBlocks(clickBlock, 4);
-    }
-
-    activeElement = ghost;
-    delete activeElement.dataset.eventId;
-    const ghostTop = parseFloat(ghost.style.top);
-    const ghostLeft = parseFloat(ghost.style.left);
-    const ghostWidth = parseFloat(ghost.style.width);
-    const ghostHeight = parseFloat(ghost.style.height);
-
-    showMenuAt(ghostTop, ghostLeft, ghostWidth, ghostHeight);
-
-    const startBlock = Math.round(ghostTop / pixelsPerBlock);
-    const blockCount = Math.round(parseFloat(ghostHeight) / pixelsPerBlock);
-
-    updateTimeFromBlocks(startBlock, blockCount);
-
-    isDragging = false;
-    dragStarted = false;
-    mouseUp = true;
-    ghost.querySelector(".time-block-label").innerHTML = "";
-  });
   function updateTimeFromBlocks(topBlock, numOfBlocks) {
     const MINUTES_PER_BLOCK = 15;
 
     const startMins = topBlock * MINUTES_PER_BLOCK;
-    const endMins = startMins + numOfBlocks * MINUTES_PER_BLOCK;
+    const endMins = Math.min(1440, startMins + numOfBlocks * MINUTES_PER_BLOCK);
 
-    modalStart.value = formatTime(startMins);
-    modalEnd.value = formatTime(endMins);
+    const startTime = formatTime(startMins);
+    const endTime = formatTime(endMins);
 
-    if (output) {
-      output.innerText = `${formatTime(startMins)} - ${formatTime(endMins)}`;
+    modalStart.value = startTime === "24:00" ? "00:00" : startTime;
+    modalEnd.value = endTime === "24:00" ? "00:00" : endTime;
+
+    if (activeElement && activeElement !== ghost) {
+      activeElement.querySelector(".time-block-time").innerHTML =
+        `${getTimeFormat(startTime)} - ${getTimeFormat(endTime)}`;
     }
+  }
+  function getTimeFormat(time) {
+    if (!time || !time.includes(":")) return "12:00am";
+    let [HH, MM] = time.split(":").map(Number);
+    if (HH >= 24) {
+      return `12:${MM.toString().padStart(2, "0")}am`;
+    }
+
+    const period = HH >= 12 ? "pm" : "am";
+    let displayHour = HH % 12;
+    if (displayHour === 0) displayHour = 12;
+
+    const displayMin = MM.toString().padStart(2, "0");
+    return `${displayHour}:${displayMin}${period}`;
   }
 
   function formatTime(totalMinutes) {
     const total = Math.round(totalMinutes);
     let hour = Math.floor(total / 60);
     const m = total % 60;
-
-    if (hour >= 24) hour = 0;
     const hh = hour.toString().padStart(2, "0");
     const mm = m.toString().padStart(2, "0");
     return `${hh}:${mm}`;
-  }
-
-  function createTimeBlock(startTime, endTime, dayIndex, title) {
-    const rect = grid.getBoundingClientRect();
-    const gridHeight = rect.height;
-    const pixelsPerMinute = gridHeight / 1440;
-
-    const [startH, startM] = startTime.split(":").map(Number);
-    const [endH, endM] = endTime.split(":").map(Number);
-    console.log(endH, endM, endTime);
-
-    const startTotalMinutes = startH * 60 + startM;
-    const endTotalMinutes = endH * 60 + endM;
-    const duration = endTotalMinutes - startTotalMinutes;
-
-    const topPx = startTotalMinutes * pixelsPerMinute;
-    const heightPx = duration * pixelsPerMinute;
-
-    const dayWidth = rect.width / 7;
-    const leftPx = dayIndex * dayWidth;
-
-    const div = document.createElement("div");
-    const p = document.createElement("p");
-    const p2 = document.createElement("p");
-
-    div.className = "time-block";
-
-    Object.assign(div.style, {
-      position: "absolute",
-      top: `${topPx}px`,
-      left: `${leftPx}px`,
-      width: `${dayWidth}px`,
-      height: `${heightPx}px`,
-    });
-
-    p.className = "time-block-label";
-    p.innerText = title;
-    Object.assign(p2.style, {
-      fontSize: "14px",
-    });
-    p2.className = "time-block-time";
-    p2.innerText = `${startTime}-${endTime}`;
-    div.dataset.start = startTime;
-    div.dataset.end = endTime;
-    div.dataset.title = title;
-
-    div.appendChild(p);
-    div.appendChild(p2);
-    grid.appendChild(div);
   }
 
   function syncVisualsToTime() {
@@ -297,10 +393,15 @@ window.onload = () => {
     if (!startVal || !endVal) return;
 
     const [startH, startM] = startVal.split(":").map(Number);
-    const [endH, endM] = endVal.split(":").map(Number);
+    let [endH, endM] = endVal.split(":").map(Number);
 
     const startMins = startH * 60 + startM;
-    const endMins = endH * 60 + endM;
+    let endMins = endH * 60 + endM;
+
+    if (endMins === 0 && startMins > 0) {
+      endMins = 1440;
+    }
+
     const duration = endMins - startMins;
 
     if (duration <= 0) return;
@@ -313,7 +414,11 @@ window.onload = () => {
 
     const timeLabel = activeElement.querySelector(".time-block-time");
     if (timeLabel) {
-      timeLabel.innerText = `${formatTime(startMins)}-${formatTime(endMins)}`;
+      const displayStart = getTimeFormat(formatTime(startMins));
+      const displayEnd = getTimeFormat(formatTime(endMins));
+
+      timeLabel.innerText = `${displayStart} - ${displayEnd}`;
+
       activeElement.dataset.start = startVal;
       activeElement.dataset.end = endVal;
     }
@@ -360,8 +465,8 @@ window.onload = () => {
   async function saveEvent() {
     if (!activeElement) return;
 
-    const title = inputTitle.value.trim();
-    if (!title) {
+    const title = inputTitle.value.trim() || activeElement.dataset.title;
+    if (!title && dragMode !== "RESIZE" && dragMode !== "MOVE") {
       inputTitle.style.border = "2px solid #ef4444";
       inputTitle.placeholder = "Title is required!";
       inputTitle.focus();
@@ -389,13 +494,12 @@ window.onload = () => {
     dayIndex = Math.max(0, Math.min(6, dayIndex));
 
     const eventData = {
-      title: inputTitle.value,
+      title: title,
       slot_type: document.getElementById("slot-type").value,
       start_time: modalStart.value,
       end_time: modalEnd.value,
       day_index: dayIndex,
-      event_id:
-        activeElement.dataset.id || activeElement.dataset.eventId || null,
+      event_id: activeElement.dataset.id || null,
     };
 
     try {

@@ -15,7 +15,7 @@
                             <h2 class="mb-1">Welcome, {{ profile.user.first_name|default:profile.user.username }}!</h2>
                             <p class="text-muted mb-0">
                                 <i class="fas fa-graduation-cap me-1"></i> {{ profile.get_major_display }} Year {{ profile.year }}
-                                <i class="fas fa-graduation-cap me-1"></i> {{ profile.get_semester_display }} Semester {{ profile.semester }}
+                                <i class="fas fa-graduation-cap me-1"></i> Semester {{ profile.semester }}
 
                             </p>
                         </div>
@@ -93,7 +93,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h3 class="mb-0">{{ free_time_matches.count|default:0 }}</h3>
+                            <h3 class="mb-0">{{ course_matches_count }}</h3>
                             <p class="mb-0">Available Partners</p>
                         </div>
                         <i class="fas fa-user-friends fa-3x opacity-50"></i>
@@ -162,7 +162,7 @@
                                 </span>
                             </div>
                         </div>
-                        {% endfor %}  <!-- THIS WAS MISSING -->
+                        {% endfor %}
                     </div>
                     {% else %}
                     <div class="text-center py-5">

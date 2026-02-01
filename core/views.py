@@ -10,6 +10,8 @@ from datetime import datetime, date, time, timedelta
 import json
 from .models import StudyGroup, StudentProfile, GroupMembership
 from .forms import StudyGroupForm
+from django.db.models import Prefetch
+
 from django.views.decorators.http import require_http_methods
 
 from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
@@ -59,7 +61,11 @@ def dashboard(request):
     course_matches = CourseGroupMatch.objects.filter(
         Q(initiator=profile) | Q(target_student=profile),
         status='pending'
-    ).order_by('-match_score')[:5]
+    ).order_by('-match_score')
+
+
+    # Get courses
+    courses = StudentCourse.objects.filter(student=profile)
 
     # Get upcoming study sessions
     upcoming_sessions = StudySession.objects.filter(
@@ -72,25 +78,12 @@ def dashboard(request):
         'today_slots': today_slots,
         'study_groups': study_groups,
         'course_matches': course_matches,
+        'course_matches_count': course_matches.count(),
+        'courses': courses,
         'upcoming_sessions': upcoming_sessions,
         'today': today,
     }
 
-    # # Get free time matches
-    # free_time_matches = FreeTimeMatch.objects.filter(
-    #     Q(student1=profile) | Q(student2=profile)
-    # ).order_by('-match_score')[:3]
-    #
-    # # Get courses
-    # courses = StudentCourse.objects.filter(student=profile)
-    #
-    # context = {
-    #     'profile': profile,
-    #     'today_slots': today_slots,
-    #     'study_groups': study_groups,
-    #     'free_time_matches': free_time_matches,
-    #     'courses': courses,
-    # }
 
     return render(request, 'core/dashboard.html', context)
 
@@ -118,12 +111,12 @@ def find_study_partners(request):
             # Run matching algorithm
             matches = find_course_study_partners(profile, course)
 
-            if matches:
+            if len(matches) > 0:
                 messages.success(request, f'Found {len(matches)} potential study partners for {course.code}!')
             else:
                 messages.info(request, f'No matching study partners found for {course.code}.')
 
-            return redirect('study_partners_list')
+            return redirect('study_partners_list', course_id=course.id)
         else:
             messages.error(request, 'Please select a course.')
             return redirect('find_study_partners')
@@ -135,22 +128,37 @@ def find_study_partners(request):
     }
     return render(request, 'core/find_study_partners.html', context)
 
-def study_partners_list(request):
-    # 1. Get the profile of the current user
+def study_partners_list(request, course_id=None):
     viewer_profile = request.user.studentprofile
 
-    # 2. Get IDs of all courses the current user is taking
+    # 1. Get the actual Course IDs for the viewer
+    # Make sure we are getting the ID of the Course, not the StudentCourse record
     user_course_ids = Course.objects.filter(
         studentcourse__student=viewer_profile
     ).values_list('id', flat=True)
 
-    # 3. Find other student profiles who are in those same courses
-    # We filter by course IDs AND exclude the current user at the same time
-    partners = StudentProfile.objects.filter(
-        studentcourse__course_id__in=user_course_ids
-    ).exclude(id=viewer_profile.id).distinct()
+    # 2. Base Filter
+    partners_filter = StudentProfile.objects.exclude(id=viewer_profile.id)
 
-    return render(request, 'core/study_partners_list.html', {'partners': partners})
+    if course_id:
+        partners = partners_filter.filter(studentcourse__course_id=course_id)
+    else:
+        partners = partners_filter.filter(studentcourse__course_id__in=user_course_ids)
+
+    # 3. The Prefetch Fix
+    # We must prefetch 'studentcourse_set' because that is the related_name
+    # from StudentCourse to StudentProfile
+    partners = partners.distinct().select_related('user').prefetch_related(
+        Prefetch(
+            'studentcourse_set',
+            queryset=StudentCourse.objects.filter(course_id__in=user_course_ids).select_related('course'),
+            to_attr='shared_courses'
+        )
+    )
+
+    return render(request, 'core/study_partners_list.html', {
+        'partners': partners,
+    })
 
 def register(request):
     if request.method == 'POST':
@@ -337,25 +345,28 @@ def group_detail(request, group_id):
         'profile': profile,
     }
     return render(request, 'core/group_detail.html', context)
-
-@login_required
 def group_list(request):
-    profile = get_object_or_404(StudentProfile, user=request.user)
+    # Use select_related to get the profile and user in one database hit
+    profile = get_object_or_404(StudentProfile.objects.select_related('user', 'major'), user=request.user)
 
-    # Get groups user is member of
+    # 1. Get IDs of all courses the user is currently taking
+    user_course_ids = StudentCourse.objects.filter(student=profile).values_list('course_id', flat=True)
+
+    # 2. Get groups user is already a member of
     my_groups = StudyGroup.objects.filter(
         memberships__student=profile
     ).order_by('-created_at')
 
-    # Get recommended groups based on major/courses
+    # 3. Get Recommended Groups
+    # We look for groups that match the user's courses OR their major
     recommended_groups = StudyGroup.objects.filter(
         is_active=True
     ).exclude(
-        memberships__student=profile
+        memberships__student=profile # Don't recommend groups they are already in
     ).filter(
-        Q(major__name=profile.major) |
-        Q(course__in=profile.studentcourse_set.values('course'))
-    ).order_by('-created_at')[:5]
+        Q(course_id__in=user_course_ids) | # Groups for the courses they are taking
+        Q(major=profile.major)             # Groups for their major
+    ).distinct().order_by('-created_at')[:5]
 
     context = {
         'my_groups': my_groups,
@@ -634,28 +645,23 @@ def student_profile(request, user_id):
     # 4. Find shared courses
     shared_courses = student_courses.filter(id__in=viewer_courses)
 
-    # Get groups where user is admin
+    # 2. USER'S GROUPS (All groups user joined)
     user_groups = StudyGroup.objects.filter(
-        memberships__student=viewer_profile,
-        memberships__role__in=['admin', 'project_admin']
+        memberships__student=viewer_profile
     ).distinct()
 
-    # # Get groups where user is admin - pre-filter in the view
-    # user_admin_groups = []
-    # all_user_groups = StudyGroup.objects.filter(
-    #     memberships__student=viewer_profile
-    # ).distinct()
-    #
-    # for group in all_user_groups:
-    #     if group.is_admin(request.user):
-    #         user_admin_groups.append(group)
+    # 3. TARGET USER'S ADMIN GROUPS
+    # Filter the groups where the user has an admin role
+    user_admin_groups = user_groups.filter(
+        memberships__role__in=['admin', 'project_admin']
+    ).distinct()
 
     context = {
         'student': target_user,
         'student_profile': target_profile,
         'shared_courses': shared_courses,
         'user_groups': user_groups,
-        # 'user_admin_groups': user_admin_groups,
+        'user_admin_groups': user_admin_groups,
     }
     return render(request, 'core/student_profile.html', context)
 
@@ -959,11 +965,11 @@ def create_group_with_student(request, student_id):
             name=group_name,
             description=group_description,
             group_type=group_type,
-            study_day=viewer_profile.preferred_study_days,
-            start_time=viewer_profile.preferred_study_start,
-            end_time=viewer_profile.preferred_study_end,
+            study_day=request.POST.get('study_day', viewer_profile.preferred_study_days),
+            start_time=request.POST.get('start_time') or viewer_profile.preferred_study_start,
+            end_time=request.POST.get('end_time') or viewer_profile.preferred_study_end,
+            max_members=request.POST.get('max_members', 20),
             creator=viewer_profile,
-            max_members=20  # Default size
         )
 
         # Add creator as admin
@@ -981,6 +987,10 @@ def create_group_with_student(request, student_id):
             message=invite_message,
             expires_at=timezone.now() + timedelta(days=7)
         )
+
+        # Create chat room
+        from chat.models import ChatRoom
+        ChatRoom.objects.create(group=group)
 
         messages.success(request,
                          f'Group "{group.name}" created successfully and invitation sent to {target_user.username}!')
@@ -1254,6 +1264,7 @@ def save_timetable_slot(request):
             day_idx = max(0, min(6, day_idx))
             day_str = days_map[day_idx] 
             slot_type = data.get("slot_type", "class")
+            print(data.get('end_time'))
 
             if slot_id:
                try:

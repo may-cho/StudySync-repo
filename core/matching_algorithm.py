@@ -5,31 +5,28 @@ from .models import *
 
 
 def find_course_study_partners(student, course):
-    """Find classmates for study groups"""
-    # Get all students in same course
+    # Use .filter() instead of set operations
     classmates = StudentProfile.objects.filter(
         studentcourse__course=course
-    ).exclude(
-        user=student.user
-    ).distinct()
+    ).exclude(user=student.user).distinct().select_related('user')
 
     matches = []
     for classmate in classmates:
-        # Calculate compatibility score
+        # Check inside calculate_compatibility!
+        # If it uses intersection(), rewrite it to use .filter()
         score = calculate_compatibility(student, classmate, course)
 
-        if score > 30:  # Minimum threshold
+        if score > 30:
             matches.append({
                 'student': classmate,
                 'score': score,
+                # Ensure get_common_courses returns a LIST or a standard QuerySet
                 'common_courses': get_common_courses(student, classmate),
                 'suggested_times': suggest_group_times(student, classmate),
             })
 
-    # Sort by score
     matches.sort(key=lambda x: x['score'], reverse=True)
     return matches
-
 
 def calculate_compatibility(student1, student2, course):
     """Calculate compatibility score between two students"""
@@ -68,7 +65,7 @@ def get_common_courses(student1, student2):
     """Get courses that both students are taking"""
     courses1 = Course.objects.filter(studentcourse__student=student1)
     courses2 = Course.objects.filter(studentcourse__student=student2)
-    return courses1.intersection(courses2)
+    return Course.objects.filter(studentcourse__student=student1).filter(studentcourse__student=student2)
 
 
 def suggest_group_times(student1, student2=None, course=None):

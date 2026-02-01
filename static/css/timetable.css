@@ -85,6 +85,15 @@
   position: relative;
   background-color: white;
   cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.floating-menu {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .grid-lines-horizontal {
@@ -124,25 +133,54 @@
   background-color: rgba(99, 102, 241, 0.1);
   border: 2px dashed #6366f1;
   border-radius: 6px;
-  pointer-events: none;
-  z-index: 10;
+  pointer-events: auto !important;
+  z-index: 100;
+  cursor: move;
+}
+.time-block::after,
+.ghost-slot::after {
+  content: "";
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  cursor: ns-resize;
 }
 
 .time-block {
+  position: absolute;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   z-index: 20;
   padding: 6px 10px;
   cursor: pointer;
+  overflow: hidden;
+
   transition:
+    top 0.2s ease-out,
+    left 0.2s ease-out,
+    height 0.2s ease-out,
+    width 0.2s ease-out,
     transform 0.1s,
     box-shadow 0.1s;
-  overflow: hidden;
 }
 
 .time-block:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  z-index: 21;
+}
+
+.time-block.dragging {
+  transition:
+    transform 0.1s,
+    box-shadow 0.1s !important;
+  opacity: 0.8;
+  z-index: 100;
+  cursor: grabbing;
+  transform: scale(1.02);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
 .time-block-label {
