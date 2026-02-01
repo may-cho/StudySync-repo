@@ -370,9 +370,9 @@
                                         <i class="fas fa-calendar me-1"></i>
                                         Semester {{ course.semester }}
                                     </small>
-                                    <a href="#" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-eye me-1"></i> View Details
-                                    </a>
+<!--                                    <a href="#" class="btn btn-sm btn-outline-primary">-->
+<!--                                        <i class="fas fa-eye me-1"></i> View Details-->
+<!--                                    </a>-->
                                 </div>
                             </div>
                         </div>
@@ -417,19 +417,40 @@
                                         <input type="text" class="form-control" id="group_name" name="group_name"
                                                placeholder="e.g., {{ student.username }} & {{ user.username }} Study Group" required>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-3">
                                         <label for="group_type" class="form-label">Group Type *</label>
                                         <select class="form-select" id="group_type" name="group_type" required>
-                                            <option value="">Select type...</option>
+                                            <option value="">Select...</option>
                                             <option value="major">Major-Based</option>
                                             <option value="course">Course-Based</option>
                                             <option value="general">General Study</option>
                                         </select>
                                     </div>
+                                    <div class="col-md-3">
+                                        <label for="max_members" class="form-label">Max Members</label>
+                                        <input type="number" class="form-control" id="max_members" name="max_members" value="20" min="2" max="50">
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label for="study_day" class="form-label">Study Day</label>
+                                        <input type="text" class="form-control" id="study_day" name="study_day"
+                                               value="{{ user.studentprofile.preferred_study_days }}" placeholder="e.g. Mon, Wed, Fri">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="start_time" class="form-label">Start Time</label>
+                                        <input type="time" class="form-control" id="start_time" name="start_time"
+                                               value="{{ user.studentprofile.preferred_study_start|time:'H:i' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="end_time" class="form-label">End Time</label>
+                                        <input type="time" class="form-control" id="end_time" name="end_time"
+                                               value="{{ user.studentprofile.preferred_study_end|time:'H:i' }}">
+                                    </div>
+
                                     <div class="col-12">
                                         <label for="group_description" class="form-label">Description *</label>
                                         <textarea class="form-control" id="group_description" name="group_description"
-                                                  rows="3" placeholder="Describe what this group will focus on..." required></textarea>
+                                                  rows="2" placeholder="Describe what this group will focus on..." required></textarea>
                                     </div>
                                     <div class="col-12">
                                         <label for="invite_message" class="form-label">Personal Message (Optional)</label>
@@ -461,10 +482,8 @@
                                         <label for="group_id" class="form-label">Select Group *</label>
                                         <select class="form-select" id="group_id" name="group_id" required>
                                             <option value="">Choose a group...</option>
-                                            {% for group in user_groups %}
-                                                {% if group.is_admin_user%}
+                                            {% for group in user_admin_groups %}
                                                 <option value="{{ group.id }}">{{ group.name }} ({{ group.member_count }} members)</option>
-                                                {% endif %}
                                             {% endfor %}
                                         </select>
                                         <small class="text-muted">Only groups where you are an admin are shown</small>
