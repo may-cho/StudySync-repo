@@ -61,7 +61,11 @@ def dashboard(request):
     course_matches = CourseGroupMatch.objects.filter(
         Q(initiator=profile) | Q(target_student=profile),
         status='pending'
-    ).order_by('-match_score')[:5]
+    ).order_by('-match_score')
+
+
+    # Get courses
+    courses = StudentCourse.objects.filter(student=profile)
 
     # Get upcoming study sessions
     upcoming_sessions = StudySession.objects.filter(
@@ -74,25 +78,12 @@ def dashboard(request):
         'today_slots': today_slots,
         'study_groups': study_groups,
         'course_matches': course_matches,
+        'course_matches_count': course_matches.count(),
+        'courses': courses,
         'upcoming_sessions': upcoming_sessions,
         'today': today,
     }
 
-    # # Get free time matches
-    # free_time_matches = FreeTimeMatch.objects.filter(
-    #     Q(student1=profile) | Q(student2=profile)
-    # ).order_by('-match_score')[:3]
-    #
-    # # Get courses
-    # courses = StudentCourse.objects.filter(student=profile)
-    #
-    # context = {
-    #     'profile': profile,
-    #     'today_slots': today_slots,
-    #     'study_groups': study_groups,
-    #     'free_time_matches': free_time_matches,
-    #     'courses': courses,
-    # }
 
     return render(request, 'core/dashboard.html', context)
 
