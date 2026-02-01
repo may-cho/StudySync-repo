@@ -345,25 +345,28 @@ def group_detail(request, group_id):
         'profile': profile,
     }
     return render(request, 'core/group_detail.html', context)
-
-@login_required
 def group_list(request):
-    profile = get_object_or_404(StudentProfile, user=request.user)
+    # Use select_related to get the profile and user in one database hit
+    profile = get_object_or_404(StudentProfile.objects.select_related('user', 'major'), user=request.user)
 
-    # Get groups user is member of
+    # 1. Get IDs of all courses the user is currently taking
+    user_course_ids = StudentCourse.objects.filter(student=profile).values_list('course_id', flat=True)
+
+    # 2. Get groups user is already a member of
     my_groups = StudyGroup.objects.filter(
         memberships__student=profile
     ).order_by('-created_at')
 
-    # Get recommended groups based on major/courses
+    # 3. Get Recommended Groups
+    # We look for groups that match the user's courses OR their major
     recommended_groups = StudyGroup.objects.filter(
         is_active=True
     ).exclude(
-        memberships__student=profile
+        memberships__student=profile # Don't recommend groups they are already in
     ).filter(
-        Q(major__name=profile.major) |
-        Q(course__in=profile.studentcourse_set.values('course'))
-    ).order_by('-created_at')[:5]
+        Q(course_id__in=user_course_ids) | # Groups for the courses they are taking
+        Q(major=profile.major)             # Groups for their major
+    ).distinct().order_by('-created_at')[:5]
 
     context = {
         'my_groups': my_groups,
