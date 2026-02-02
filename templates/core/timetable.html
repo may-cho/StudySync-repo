@@ -33,11 +33,19 @@
     <div class="time-gutter">
       {% for i in "x"|rjust:"25" %}
       <div class="time-label-container">
-        <span class="time-label">
-          {% with hour=forloop.counter0 %} {% if hour == 0 or hour == 24 %} 12
-          am {% elif hour < 12 %} {{ hour }} am {% elif hour == 12 %} 12 pm {%
-          else %} {{ hour|add:"-12" }} pm {% endif %} {% endwith %}
-        </span>
+       <span class="time-label">
+          {% with hour=forloop.counter0 %}
+            {% if hour == 0 or hour == 24 %}
+              12 am
+            {% elif hour < 12 %}
+              {{ hour }} am
+            {% elif hour == 12 %}
+              12 pm
+            {% else %}
+              {{ hour|add:"-12" }} pm
+            {% endif %}
+          {% endwith %}
+</span>
       </div>
       {% endfor %}
     </div>

@@ -191,9 +191,9 @@ def register(request):
 
 @login_required
 def timetable_view(request):
-    profile = get_object_or_404(StudentProfile,user=request.user);
+    profile = get_object_or_404(StudentProfile,user=request.user)
     slots = TimetableSlot.objects.filter(student=request.user.studentprofile)
-    courses = profile.get_courses();
+    courses = profile.get_courses()
     day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
     for slot in slots:
         slot.day_index = day_map.get(slot.day, 0)
@@ -261,9 +261,9 @@ def create_study_group(request):
 
     if request.method == 'POST':
         form = StudyGroupForm(request.POST)  
+    
        
         if form.is_valid():
-            print("Form is valid.Processing...")
             group = form.save(commit=False)
             group.creator = profile
 
@@ -272,7 +272,22 @@ def create_study_group(request):
                 group.project_admin_managed = True
 
             group.save()
-            print("Saved successfully for group")
+            
+            #Added to timeslot
+            days = group.study_day.split(",");
+            slots = [
+                TimetableSlot(
+                    day=d.strip(),
+                    start_time=group.start_time,
+                    end_time=group.end_time,
+                    student=profile,
+                    custom_name=group.name,
+                    slot_type="activity"
+                )
+                for d in days
+            ]
+            
+            TimetableSlot.objects.bulk_create(slots);
 
             # Add creator as admin
             role = 'project_admin' if profile.is_project_admin else 'admin'
@@ -948,7 +963,10 @@ def create_group_with_student(request, student_id):
         target_profile = target_user.studentprofile
         viewer_profile = request.user.studentprofile
 
-        # Get form data
+        print(viewer_profile.preferred_study_end,viewer_profile.preferred_study_days,viewer_profile.preferred_study_start)
+        study_day = request.POST.get("study_day",viewer_profile.preferred_study_days)
+
+        #Get form data
         group_name = request.POST.get('group_name')
         group_description = request.POST.get('group_description')
         group_type = request.POST.get('group_type')
@@ -964,12 +982,27 @@ def create_group_with_student(request, student_id):
             name=group_name,
             description=group_description,
             group_type=group_type,
-            study_day=request.POST.get('study_day', viewer_profile.preferred_study_days),
+            study_day=study_day,
             start_time=request.POST.get('start_time') or viewer_profile.preferred_study_start,
             end_time=request.POST.get('end_time') or viewer_profile.preferred_study_end,
             max_members=request.POST.get('max_members', 20),
             creator=viewer_profile,
         )
+
+        #Save timeslot
+        slots = []
+        for day in study_day.split(","):
+            #create a slot for the current viewer
+            slots.append(TimetableSlot(
+                student=viewer_profile,
+                day=day,
+                start_time=group.start_time,
+                end_time=group.end_time,
+                slot_type="activity",
+                custom_name=group_name
+            ))
+        TimetableSlot.objects.bulk_create(slots)
+
 
         # Add creator as admin
         GroupMembership.objects.create(
@@ -990,6 +1023,8 @@ def create_group_with_student(request, student_id):
         # Create chat room
         from chat.models import ChatRoom
         ChatRoom.objects.create(group=group)
+
+
 
         messages.success(request,
                          f'Group "{group.name}" created successfully and invitation sent to {target_user.username}!')
@@ -1050,6 +1085,23 @@ def accept_invitation(request, invitation_id):
 
     if invitation.status == 'pending' and not invitation.is_expired():
         invitation.accept()
+        group = invitation.group;
+        days = group.study_day.split(",")
+        slots = [
+            TimetableSlot(
+                student = request.user.studentprofile,
+                slot_type = "activity",
+                day= d.strip(),
+                start_time=group.start_time,
+                end_time = group.end_time,
+                custom_name = group.name
+            )
+            for d in days
+        ]
+        
+        TimetableSlot.objects.bulk_create(slots)
+        
+        
         messages.success(request, f'You have joined "{invitation.group.name}"!')
     elif invitation.is_expired():
         messages.error(request, 'This invitation has expired.')
