@@ -125,6 +125,7 @@ class Major(models.Model):
         ('6', 'Embedded Systems'),
         ('7', 'Computer Communication and Networks')
     ]
+
     name = models.CharField(max_length=50, choices=MAJOR_CHOICES)
     code = models.CharField(max_length=20)
 
@@ -180,7 +181,7 @@ class StudentProfile(models.Model):
 
     def get_courses(self):
         """Get all courses this student is taking"""
-        return self.studentcourse_set.all()
+        return Course.objects.filter(studentcourse__student=self).distinct()
 
 
 class Course(models.Model):

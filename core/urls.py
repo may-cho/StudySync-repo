@@ -25,7 +25,7 @@ urlpatterns = [
 
     # Courses
     path('courses/add/', views.add_course, name='add_course'),
-    path('courses/remove/<int:course_id>/', views.remove_course, name='remove_course'),
+    path('courses/remove/<uuid:course_id>/', views.remove_course, name='remove_course'),
 
     # Study Partners
     path('partners/find/', views.find_study_partners, name='find_study_partners_view'),
