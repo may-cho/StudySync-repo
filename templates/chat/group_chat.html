@@ -2,76 +2,119 @@
 {% load static %}
 
 {% block content %}
-<input type="hidden" id="group-id" value="{{ group.id }}">
+{% csrf_token %}
 
 <div class="container mt-4" style="max-width: 1100px;">
     <div class="row g-4">
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm rounded-4 d-flex flex-column" style="height: 80vh;">
+
                 <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center flex-grow-1">
-                        <a href="{% url 'group_detail' group.id %}" class="btn btn-sm btn-light rounded-circle me-3">
+                    <div class="d-flex align-items-center">
+                        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-light rounded-circle me-3">
                             <i class="bi bi-chevron-left"></i>
                         </a>
-                        <h5 class="fw-bold mb-0 me-3">{{ group.name }} Chat</h5>
-                        <div class="input-group input-group-sm w-50">
-                            <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
-                            <input type="text" id="chat-search" class="form-control border-0 bg-light" placeholder="Search messages...">
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">{{ group.name }}</h5>
+                            <small class="text-success" style="font-size: 0.7rem;">
+                                <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i> Live Chat
+                            </small>
                         </div>
                     </div>
                 </div>
 
-                <div class="card-body overflow-auto p-4" id="chat-messages" style="background-color: #f0f2f5;">
+                <div class="card-body overflow-auto p-4" id="chat-messages" style="background-color: #f8f9fa;">
                     {% for msg in chat_messages %}
-                        <div id="msg-container-{{ msg.id }}" class="mb-3 d-flex {% if msg.sender == request.user %}justify-content-end{% endif %}">
-                            <div class="message-wrapper position-relative" style="max-width: 75%;">
+                        <div id="msg-container-{{ msg.id }}" class="mb-4 d-flex {% if msg.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}">
 
-                                <div class="message-actions position-absolute top-0 {% if msg.sender == request.user %}start-0{% else %}start-100{% endif %} translate-middle-y d-none shadow-sm bg-white rounded-pill px-2 py-1"
-                                     style="z-index: 10; margin-left: -15px;">
-                                    <button class="btn btn-link btn-sm p-0 me-2 text-warning" onclick="toggleReaction('{{ msg.id }}', '👍')">
-                                        <i class="bi bi-hand-thumbs-up"></i>
-                                    </button>
-                                    {% if msg.sender == request.user %}
-                                    <button class="btn btn-link btn-sm p-0 me-2 text-primary" onclick="startInlineEdit('{{ msg.id }}')">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
-                                    <button class="btn btn-link btn-sm p-0 text-danger" onclick="deleteMessage('{{ msg.id }}')">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                    {% endif %}
-                                </div>
-
-                                <div id="bubble-{{ msg.id }}" class="p-3 shadow-sm"
-                                     style="border-radius: 15px; {% if msg.sender == request.user %}background-color: #0088cc; color: white; border-bottom-right-radius: 2px;{% else %}background-color: white; color: #333; border-bottom-left-radius: 2px;{% endif %}">
-
-                                    {% if msg.sender != request.user %}
-                                        <small class="fw-bold d-block mb-1 text-primary" style="font-size: 0.75rem;">{{ msg.sender.username }}</small>
-                                    {% endif %}
-
-                                    <span class="d-block content-text" id="text-{{ msg.id }}">{{ msg.content }}</span>
-
-                                    <div id="reactions-{{ msg.id }}" class="mt-1 d-flex flex-wrap gap-1">
-                                        {% for react in msg.reaction_counts %}
-                                            <span class="badge rounded-pill bg-light text-dark border me-1 p-2"
-                                                  data-emoji="{{ react.emoji }}"
-                                                  style="cursor: pointer;"
-                                                  onclick="toggleReaction('{{ msg.id }}', '{{ react.emoji }}')">
-                                                {{ react.emoji }} {{ react.total }}
-                                            </span>
-                                        {% endfor %}
-                                    </div>
-
-                                    <div id="edit-form-{{ msg.id }}" class="d-none mt-2">
-                                        <textarea class="form-control form-control-sm mb-2" id="input-{{ msg.id }}" rows="2">{{ msg.content }}</textarea>
-                                        <div class="d-flex gap-1 justify-content-end">
-                                            <button class="btn btn-sm btn-light py-0" onclick="cancelEdit('{{ msg.id }}')" style="font-size: 0.7rem;">Cancel</button>
-                                            <button class="btn btn-sm btn-warning py-0" onclick="saveInlineEdit('{{ msg.id }}')" style="font-size: 0.7rem;">Save</button>
+                            {% if msg.sender != request.user %}
+                            <div class="avatar-container me-2 mt-auto" style="position: relative;">
+                                <div class="user-hover-card shadow-lg border-0">
+                                    <div class="card-header-gradient"></div>
+                                    <div class="p-3 text-center" style="position: relative; z-index: 1;">
+                                        {% if msg.sender.studentprofile.profile_picture %}
+                                            <img src="{{ msg.sender.studentprofile.profile_picture.url }}" class="hover-card-img rounded-circle border border-3 border-white shadow-sm">
+                                        {% else %}
+                                            <div class="hover-card-img rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto border border-3 border-white shadow-sm">
+                                                {{ msg.sender.username|slice:":1"|upper }}
+                                            </div>
+                                        {% endif %}
+                                        <h6 class="fw-bold mb-0 mt-2 text-dark">{{ msg.sender.username }}</h6>
+                                        <div class="text-start bg-light p-2 px-3 rounded-3 mt-2">
+                                            <p class="mb-1 text-dark" style="font-size: 0.75rem;">
+                                                <strong>Major:</strong> {{ msg.sender.studentprofile.major|default:"General" }}
+                                            </p>
+                                            <p class="mb-0 text-dark" style="font-size: 0.75rem;">
+                                                <strong>Semester:</strong> {{ msg.sender.studentprofile.semester|default:"N/A" }}
+                                            </p>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <small class="d-block text-end mt-1 {% if msg.sender == request.user %}text-white-50{% else %}text-muted{% endif %}" style="font-size: 0.65rem;">
-                                        {{ msg.timestamp|date:"H:i" }}
-                                    </small>
+                                {% if msg.sender.studentprofile.profile_picture %}
+                                    <img src="{{ msg.sender.studentprofile.profile_picture.url }}" class="rounded-circle shadow-sm avatar-trigger" style="width: 32px; height: 32px; object-fit: cover; cursor: pointer;">
+                                {% else %}
+                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white shadow-sm avatar-trigger" style="width: 32px; height: 32px; font-size: 0.8rem; cursor: pointer;">
+                                        {{ msg.sender.username|slice:":1"|upper }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <div class="message-wrapper position-relative" style="max-width: 75%;">
+                                {% if msg.sender == request.user %}
+                                <div class="message-actions position-absolute border shadow-sm rounded-pill px-2 bg-white"
+                                     style="top: -25px; right: 0; z-index: 10; display: none; white-space: nowrap;">
+                                    <button class="btn btn-link btn-sm p-1 text-primary border-0" onclick="startInlineEdit('{{ msg.id }}')" title="Edit">
+                                        <i class="bi bi-pencil" style="font-size: 0.8rem;"></i>
+                                    </button>
+                                    <span class="text-muted" style="font-size: 0.8rem;">|</span>
+                                    <button class="btn btn-link btn-sm p-1 text-danger border-0" onclick="deleteMessage('{{ msg.id }}')" title="Delete">
+                                        <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+
+                                <div
+                                    id="bubble-{{ msg.id }}"
+                                    class="p-3 shadow-sm message-bubble"
+                                    style="border-radius: 18px; user-select: none; cursor: pointer; {% if msg.sender == request.user %}background-color: #0d6efd; color: white; border-bottom-right-radius: 4px;{% else %}background-color: white; color: #333; border-bottom-left-radius: 4px;{% endif %}"
+                                    ondblclick="toggleReaction('{{ msg.id }}', '👍')"
+                                >
+                                    {% if "|" in msg.content and "Shared a file:" in msg.content %}
+                                        <div class="file-display">
+                                            <span class="d-block mb-2" style="font-size: 0.9rem;">
+                                                {{ msg.content|slice:":-1"|truncatechars:999 }}
+                                            </span>
+                                            <a href="#" id="file-link-{{ msg.id }}" class="btn btn-sm btn-light w-100 rounded-pill shadow-sm py-1" style="font-size: 0.75rem;" download>
+                                                <i class="bi bi-download me-1"></i> Download File
+                                            </a>
+                                            <script>
+                                                (function() {
+                                                    const content = "{{ msg.content|escapejs }}";
+                                                    const parts = content.split('|');
+                                                    const link = document.getElementById('file-link-{{ msg.id }}');
+                                                    if(parts.length > 1) {
+                                                        link.href = parts[1];
+                                                        link.previousElementSibling.innerText = parts[0];
+                                                    }
+                                                })();
+                                            </script>
+                                        </div>
+                                    {% else %}
+                                        <span class="d-block" id="text-{{ msg.id }}">{{ msg.content }}</span>
+                                    {% endif %}
+
+                                    <div class="d-flex align-items-center justify-content-between mt-1">
+                                        <div id="reactions-{{ msg.id }}" class="d-flex gap-1">
+                                            {% for reaction in msg.reaction_counts %}
+                                                <span class="badge bg-white text-dark rounded-pill border shadow-sm" style="font-size: 0.65rem; padding: 2px 8px; margin-top: 4px;">
+                                                    {{ reaction.emoji }} {{ reaction.total }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                        <small style="font-size: 0.6rem; opacity: 0.7;">{{ msg.timestamp|date:"H:i" }}</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -82,13 +125,11 @@
                     <form id="chat-form" method="POST" action="." class="d-flex align-items-center gap-2">
                         {% csrf_token %}
                         <input type="file" id="file-upload" class="d-none" data-upload-url="{% url 'upload_file' group.id %}" onchange="handleFileUpload(this)">
-                        <button type="button" id="paperclip-btn" class="btn btn-light rounded-circle text-muted shadow-sm" onclick="document.getElementById('file-upload').click();">
-                            <i class="bi bi-paperclip fs-5" id="paperclip-icon"></i>
-                            <div class="spinner-border spinner-border-sm text-primary d-none" id="upload-spinner" role="status"></div>
+                        <button type="button" class="btn btn-light rounded-circle" onclick="document.getElementById('file-upload').click();">
+                            <i class="bi bi-paperclip fs-5 text-secondary"></i>
                         </button>
-
                         <div class="input-group">
-                            <input type="text" id="message-input" name="content" class="form-control border-0 bg-light rounded-pill px-4" placeholder="Message" autocomplete="off" required>
+                            <input type="text" id="message-input" name="content" class="form-control border-0 bg-light rounded-pill px-4" placeholder="Type a message..." autocomplete="off" required>
                             <button class="btn btn-primary rounded-pill ms-2 px-4 shadow-sm" type="submit">
                                 <i class="bi bi-send-fill"></i>
                             </button>
@@ -100,29 +141,22 @@
 
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="height: 80vh;">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h6 class="fw-bold mb-0">Shared Resources</h6>
+                <div class="card-header bg-white py-3 border-bottom d-flex align-items-center">
+                    <i class="bi bi-folder2-open me-2 text-primary"></i>
+                    <h6 class="fw-bold mb-0">Resources</h6>
                 </div>
                 <div class="card-body p-0 overflow-auto">
-                    <div class="list-group list-group-flush" id="resource-list">
+                    <div class="list-group list-group-flush">
                         {% for file in files %}
-                            <div class="list-group-item border-0 border-bottom p-3 d-flex align-items-center justify-content-between">
-                                <div class="d-flex align-items-center overflow-hidden me-2">
-                                    <i class="bi bi-file-earmark-arrow-up fs-4 text-primary me-3"></i>
-                                    <div class="text-truncate">
-                                        <h6 class="mb-0 text-truncate small fw-bold">{{ file.filename }}</h6>
-                                        <small class="text-muted" style="font-size: 0.7rem;">{{ file.uploader.username }}</small>
-                                    </div>
-                                </div>
-                                <a href="{{ file.file.url }}" class="btn btn-sm btn-outline-primary rounded-circle" download>
-                                    <i class="bi bi-download"></i>
-                                </a>
+                        <div class="list-group-item border-0 border-bottom p-3 d-flex align-items-center justify-content-between">
+                            <div class="text-truncate" style="max-width: 70%;">
+                                <h6 class="mb-0 text-truncate small fw-bold">{{ file.filename }}</h6>
+                                <small class="text-muted" style="font-size: 0.7rem;">By {{ file.uploader.username }}</small>
                             </div>
-                        {% empty %}
-                            <div class="p-5 text-center text-muted">
-                                <i class="bi bi-cloud-slash display-6 d-block mb-2"></i>
-                                <p class="small">No files shared yet.</p>
-                            </div>
+                            <a href="{{ file.file.url }}" class="btn btn-sm btn-outline-primary rounded-circle" download>
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -132,12 +166,127 @@
 </div>
 
 <style>
-    .message-wrapper:hover .message-actions { display: block !important; }
-    .message-actions { transition: opacity 0.2s ease; border: 1px solid #eee; }
-    .content-text { white-space: pre-wrap; word-wrap: break-word; }
-    #chat-messages::-webkit-scrollbar { width: 6px; }
-    #chat-messages::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.1); border-radius: 10px; }
+    .message-bubble { transition: all 0.1s ease; }
+    .message-wrapper:hover .message-actions { display: flex !important; }
+
+    /* Hover Card Styling */
+    .user-hover-card {
+        position: absolute;
+        top: -20px; /* Align near top of avatar */
+        left: 45px; /* Slide out to the right */
+        width: 220px;
+        background: white;
+        border-radius: 15px;
+        display: none;
+        z-index: 1000;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+        animation: fadeInRight 0.2s ease-out;
+        pointer-events: none; /* Ignore mouse so it doesn't flicker */
+    }
+
+    .avatar-container:hover .user-hover-card {
+        display: block;
+    }
+
+    .card-header-gradient {
+        height: 50px;
+        background: linear-gradient(135deg, #0d6efd 0%, #00d4ff 100%);
+        border-radius: 15px 15px 0 0;
+    }
+
+    .hover-card-img {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        margin-top: -30px;
+        background: white;
+    }
+
+    @keyframes fadeInRight {
+        from { opacity: 0; transform: translateX(-10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    #chat-messages::-webkit-scrollbar { width: 5px; }
+    #chat-messages::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
 </style>
 
-<script src="{% static 'js/chat.js' %}"></script>
+<script>
+    function getCSRF() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+
+    // Scroll to bottom on load
+    const chatBody = document.getElementById('chat-messages');
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    async function handleFileUpload(input) {
+        if (!input.files[0]) return;
+        const file = input.files[0];
+        const uploadUrl = input.getAttribute('data-upload-url');
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('csrfmiddlewaretoken', getCSRF());
+
+        try {
+            const response = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCSRF() },
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) { location.reload(); }
+        } catch (error) {
+            console.error("Upload Error:", error);
+        }
+    }
+
+    function toggleReaction(messageId, emoji) {
+        fetch(`/chat/message/${messageId}/react/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+            body: JSON.stringify({ emoji: emoji })
+        })
+        .then(res => res.json())
+        .then(data => { if (data.success) location.reload(); });
+    }
+
+    function startInlineEdit(messageId) {
+        const textSpan = document.getElementById(`text-${messageId}`);
+        if(!textSpan) return;
+
+        const bubble = document.getElementById(`bubble-${messageId}`);
+        const originalContent = textSpan.innerText;
+
+        bubble.innerHTML = `
+            <textarea id="edit-input-${messageId}" class="form-control form-control-sm mb-2 border-0 shadow-none" style="background: rgba(255,255,255,0.9); min-height: 80px;">${originalContent}</textarea>
+            <div class="d-flex justify-content-end gap-2">
+                <button onclick="location.reload()" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;">Cancel</button>
+                <button onclick="saveEdit('${messageId}')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 0.7rem;">Save</button>
+            </div>
+        `;
+    }
+
+    function saveEdit(messageId) {
+        const newContent = document.getElementById(`edit-input-${messageId}`).value;
+        fetch(`/chat/message/${messageId}/edit/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+            body: JSON.stringify({ content: newContent })
+        })
+        .then(res => res.json())
+        .then(data => { if (data.success) location.reload(); });
+    }
+
+    function deleteMessage(messageId) {
+        if(confirm("Delete this message?")) {
+            fetch(`/chat/message/${messageId}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCSRF() }
+            })
+            .then(res => res.json())
+            .then(data => { if (data.success) location.reload(); });
+        }
+    }
+</script>
 {% endblock %}

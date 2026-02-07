@@ -5,18 +5,19 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import os
 from core.models import StudyGroup, GroupMembership
-from .models import ChatRoom, Message, SharedFile,GroupPost,PostComment
+from .models import ChatRoom, Message, SharedFile,GroupPost,PostComment, Reaction
 import json
 from django.http import JsonResponse
 from django.db.models import Count
 from django.http import HttpResponseForbidden
+from django.contrib.auth.models import User
 
 
 @login_required
 def group_chat(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
-
     is_member = GroupMembership.objects.filter(group=group, student__user=request.user).exists()
+
     if not is_member:
         return redirect('dashboard')
 
@@ -25,17 +26,11 @@ def group_chat(request, group_id):
     if request.method == 'POST' and 'content' in request.POST:
         content = request.POST.get('content')
         if content:
-            Message.objects.create(
-                room=chat_room,
-                sender=request.user,
-                content=content
-            )
+            Message.objects.create(room=chat_room, sender=request.user, content=content)
         return redirect(request.path_info)
 
-    # UPDATED: Fetch messages with reactions attached
+    # Fetch messages and count reactions
     chat_messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
-
-    # Process reaction counts for the template
     for message in chat_messages:
         message.reaction_counts = (
             message.reactions.values('emoji')
@@ -53,17 +48,14 @@ def group_chat(request, group_id):
 
 
 @login_required
-def edit_message(request, message_id): # message_id will now be a UUID object
+def edit_message(request, message_id):
+    message = get_object_or_404(Message, id=message_id, sender=request.user)
     if request.method == 'POST':
-        # Use get_object_or_404 with the UUID
-        message = get_object_or_404(Message, id=message_id, sender=request.user)
         try:
             data = json.loads(request.body)
-            new_content = data.get('content')
-            if new_content:
-                message.content = new_content
-                message.save()
-                return JsonResponse({'success': True})
+            message.content = data.get('content')
+            message.save()
+            return JsonResponse({'success': True})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False})
@@ -71,63 +63,67 @@ def edit_message(request, message_id): # message_id will now be a UUID object
 
 @login_required
 def delete_message(request, message_id):
-    if request.method == 'POST':
-        # 1. Get the message (ensuring the user owns it)
-        message = get_object_or_404(Message, id=message_id, sender=request.user)
+    message = get_object_or_404(Message, id=message_id)
 
-        # 2. Check if this message represents a file upload
-        # We look for the "📎 Shared a file: " prefix we created in the upload view
-        if "📎 Shared a file: " in message.content:
-            filename = message.content.replace("📎 Shared a file: ", "").strip()
+    # Security: Only sender can delete
+    if message.sender != request.user:
+        return HttpResponseForbidden("You cannot delete this message")
 
-            # Find the file in this room with this filename uploaded by this user
-            file_to_delete = SharedFile.objects.filter(
+    # --- NEW: Logic to also delete the associated file ---
+    # We check if the message is a file notification by looking for the pipe symbol
+    if "📎 Shared a file:" in message.content and "|" in message.content:
+        try:
+            # Extract the URL part from "Filename | URL"
+            file_url = message.content.split('|')[1].strip()
+
+            # Find the SharedFile object where the file field matches the URL path
+            # We use __icontains to match the file path stored in the database
+            filename_part = file_url.split('/')[-1]
+            shared_file = SharedFile.objects.filter(
                 room=message.room,
-                uploader=request.user,
-                filename=filename
+                file__icontains=filename_part
             ).first()
 
-            if file_to_delete:
-                file_to_delete.delete()  # This removes the database record and file
+            if shared_file:
+                # Use your existing deletion logic: delete from storage first
+                if shared_file.file and os.path.isfile(shared_file.file.path):
+                    os.remove(shared_file.file.path)
+                # Then delete the record (removes it from Resources sidebar)
+                shared_file.delete()
+        except Exception as e:
+            print(f"Error deleting associated file: {e}")
 
-        # 3. Delete the chat message itself
-        message.delete()
-
-        return JsonResponse({'success': True})
-
-    return JsonResponse({'success': False})
+    # Delete the message (removes it from Chatroom)
+    message.delete()
+    return JsonResponse({'success': True})
 
 
 @login_required
-def upload_file(request, room_id):  # Changed from group_id to room_id
+def upload_file(request, room_id):
     if request.method == 'POST' and request.FILES.get('file'):
-        # Use the ID coming from the URL to find the group
         group = get_object_or_404(StudyGroup, id=room_id)
-
-        # Get the chat room associated with this group
         chat_room, _ = ChatRoom.objects.get_or_create(group=group)
-
         uploaded_file = request.FILES['file']
 
         # 1. Create the SharedFile record
-        SharedFile.objects.create(
+        shared_instance = SharedFile.objects.create(
             room=chat_room,
             uploader=request.user,
             file=uploaded_file,
             filename=uploaded_file.name
         )
 
-        # 2. Create a notification message in the chat history
+        # 2. Create a notification message that includes the URL
+        # Format: 📎 Shared a file: FILENAME | FILE_URL
         Message.objects.create(
             room=chat_room,
             sender=request.user,
-            content=f"📎 Shared a file: {uploaded_file.name}"
+            content=f"📎 Shared a file: {uploaded_file.name}|{shared_instance.file.url}"
         )
 
         return JsonResponse({'success': True})
 
     return JsonResponse({'success': False, 'error': 'Invalid request'})
-
 
 @login_required
 def get_messages(request, room_id):
@@ -157,7 +153,6 @@ def get_messages(request, room_id):
 def delete_file(request, file_id):
     shared_file = get_object_or_404(SharedFile, id=file_id)
 
-    # Only uploader or group admin can delete
     if shared_file.uploader != request.user:
         group_admin = GroupMembership.objects.filter(
             group=shared_file.room.group,
@@ -167,12 +162,47 @@ def delete_file(request, file_id):
         if not group_admin:
             return HttpResponseForbidden("You cannot delete this file")
 
-    # Delete file from storage
-    if os.path.isfile(shared_file.file.path):
+    if shared_file.file and os.path.isfile(shared_file.file.path):
         os.remove(shared_file.file.path)
 
     shared_file.delete()
     return JsonResponse({'success': True})
+
+
+@login_required
+def toggle_reaction(request, message_id):
+    if request.method == 'POST':
+        # Use UUID or ID as appropriate
+        message = get_object_or_404(Message, id=message_id)
+        try:
+            data = json.loads(request.body)
+            emoji = data.get('emoji', '👍').strip()  # .strip() ensures no hidden spaces
+
+            # Check if this exact reaction already exists
+            existing_reaction = Reaction.objects.filter(
+                message=message,
+                user=request.user,
+                emoji=emoji
+            )
+
+            if existing_reaction.exists():
+                # If found, delete it (this is the "Unlike" action)
+                existing_reaction.delete()
+                return JsonResponse({'success': True, 'action': 'removed'})
+            else:
+                # If not found, create it (this is the "Like" action)
+                Reaction.objects.create(
+                    message=message,
+                    user=request.user,
+                    emoji=emoji
+                )
+                return JsonResponse({'success': True, 'action': 'added'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False})
+
+
+
 
 @login_required
 def group_posts(request, group_id):
