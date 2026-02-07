@@ -1378,4 +1378,64 @@ def delete_timetable_slot(request, slot_id):
             
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-    
+
+@login_required
+def all_notifications(request):
+    profile = request.user.studentprofile
+
+    # Get both types of notifications
+    invites = profile.received_invitations.all()
+    matches = profile.received_matches.all()
+
+    # Combine and sort by date
+    notifications = sorted(
+        list(invites) + list(matches),
+        key=lambda x: x.created_at,
+        reverse=True
+    )
+
+    # Mark all as read when they view this page
+    invites.filter(is_read=False).update(is_read=True)
+    matches.filter(is_read=False).update(is_read=True)
+
+    return render(request, 'core/all_notifications.html', {
+        'notifications': notifications
+    })
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from .models import GroupInvitation, CourseGroupMatch
+
+
+@login_required
+@require_POST  # Ensures this only works with POST requests (security best practice)
+def mark_notifications_read(request):
+    """
+    Marks all unread notifications for the current user as read.
+    Triggered when clicking the notification bell icon.
+    """
+    try:
+        profile = request.user.studentprofile
+
+        # 1. Update Group Invitations
+        invitations_updated = GroupInvitation.objects.filter(
+            invited_student=profile,
+            is_read=False
+        ).update(is_read=True)
+
+        # 2. Update Course Matches
+        matches_updated = CourseGroupMatch.objects.filter(
+            target_student=profile,
+            is_read=False
+        ).update(is_read=True)
+
+        return JsonResponse({
+            'status': 'success',
+            'updated_count': invitations_updated + matches_updated
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

@@ -73,32 +73,28 @@
                     {% endif %}
                 </ul>
 
+<<<<<<< HEAD
 
+=======
+                <!-- Notifications -->
+>>>>>>> origin/master
                 <ul class="navbar-nav me-3">
                     <li class="nav-item dropdown">
                         <a class="nav-link position-relative" href="#" id="notificationsDropdown"
-                           role="button" data-bs-toggle="dropdown">
+                           role="button" data-bs-toggle="dropdown" onclick="markAsRead()">
                             <i class="fas fa-bell"></i>
-                            {% with invitation_count=request.user.studentprofile.received_invitations.count %}
-                                {% if invitation_count > 0 %}
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                    {{ invitation_count }}
-                                </span>
-                                {% endif %}
-                            {% endwith %}
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-end p-0" style="min-width: 350px;">
+
+                            {# Use the clean variable from our context processor #}
+                            <span id="unread-count-badge"
+                                  class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                  {% if unread_notifications_count == 0 %}style="display: none;"{% endif %}>
+                                {{ unread_notifications_count }}
+                            </span>
+                        </a>                        <div class="dropdown-menu dropdown-menu-end p-0" style="min-width: 350px;">
                             <div class="p-2 border-bottom">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">Notifications</h6>
-                                    {% with invitation_count=request.user.studentprofile.received_invitations.count %}
-                                        {% if invitation_count > 0 %}
-                                        <span class="badge bg-primary">{{ invitation_count }} new</span>
-                                        {% endif %}
-                                    {% endwith %}
-                                </div>
+                                <h6 class="mb-0">Notifications</h6>
                             </div>
-                            <div style="max-height: 400px; overflow-y: auto;">
+                            <div id="notification-items-container" style="max-height: 400px; overflow-y: auto;">
                                 {% with invitations=request.user.studentprofile.received_invitations.all|slice:":3" %}
                                     {% if invitations %}
                                         {% for invitation in invitations %}
@@ -126,7 +122,7 @@
                                                                class="btn btn-outline-secondary btn-sm">
                                                                 <i class="fas fa-times me-1"></i> Decline
                                                             </a>
-                                                            <a href="{% url 'group_detail' invitation.group.id %}"
+                                                            <a href="{% url 'all_notifications' %}"
                                                                class="btn btn-outline-primary btn-sm">
                                                                 <i class="fas fa-eye me-1"></i> View
                                                             </a>
@@ -145,7 +141,7 @@
                                 {% endwith %}
                             </div>
                             <div class="p-2 border-top">
-                                <a href="#" class="btn btn-sm btn-outline-primary w-100">View All Notifications</a>
+                                <a href="{% url 'all_notifications' %}" class="btn btn-sm btn-outline-primary w-100">View All Notifications</a>
                             </div>
                         </div>
                     </li>
