@@ -2,6 +2,10 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from datetime import date, timedelta
 import uuid
 
@@ -416,9 +420,6 @@ class StudyGroup(models.Model):
         except:
             return False
 
-
-# Add this to your core/models.py
-
 class GroupInvitation(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -433,6 +434,7 @@ class GroupInvitation(models.Model):
     invited_student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='received_invitations')
     message = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
@@ -517,6 +519,7 @@ class CourseGroupMatch(models.Model):
     # common_free_times = models.TextField(blank=True)  # JSON string of common times
     match_score = models.IntegerField(default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -566,3 +569,30 @@ class SessionAttendance(models.Model):
 
     def __str__(self):
         return f"{self.student.user.username} - {self.session}"
+
+
+@receiver(post_save, sender=GroupInvitation)
+def notify_invitation(sender, instance, created, **kwargs):
+    if created:
+        channel_layer = get_channel_layer()
+        target_id = instance.invited_student.user.id
+
+        # Calculate total unread count
+        profile = instance.invited_student
+        unread_count = (
+                profile.received_invitations.filter(is_read=False).count() +
+                profile.received_matches.filter(is_read=False).count()
+        )
+
+        async_to_sync(channel_layer.group_send)(
+            f"user_notifications_{target_id}",
+            {
+                "type": "send_notification",
+                "count": unread_count,
+                "invitation_id": str(instance.id),
+                "group_name": instance.group.name,
+                "sender_name": instance.invited_by.user.username,
+                "message": f"New invite for {instance.group.name}"
+            }
+        )
+
