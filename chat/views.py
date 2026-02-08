@@ -17,19 +17,11 @@ from django.contrib.auth.models import User
 def group_chat(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     is_member = GroupMembership.objects.filter(group=group, student__user=request.user).exists()
-
-    if not is_member:
-        return redirect('dashboard')
+    if not is_member: return redirect('dashboard')
 
     chat_room, created = ChatRoom.objects.get_or_create(group=group)
 
-    if request.method == 'POST' and 'content' in request.POST:
-        content = request.POST.get('content')
-        if content:
-            Message.objects.create(room=chat_room, sender=request.user, content=content)
-        return redirect(request.path_info)
-
-    # Fetch messages and count reactions
+    # Fetching messages (POST logic removed as it's now in Consumers)
     chat_messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
     for message in chat_messages:
         message.reaction_counts = (
@@ -105,25 +97,16 @@ def upload_file(request, room_id):
         chat_room, _ = ChatRoom.objects.get_or_create(group=group)
         uploaded_file = request.FILES['file']
 
-        # 1. Create the SharedFile record
         shared_instance = SharedFile.objects.create(
-            room=chat_room,
-            uploader=request.user,
-            file=uploaded_file,
-            filename=uploaded_file.name
+            room=chat_room, uploader=request.user, file=uploaded_file, filename=uploaded_file.name
         )
-
-        # 2. Create a notification message that includes the URL
-        # Format: 📎 Shared a file: FILENAME | FILE_URL
+        # Create notification message
         Message.objects.create(
-            room=chat_room,
-            sender=request.user,
+            room=chat_room, sender=request.user,
             content=f"📎 Shared a file: {uploaded_file.name}|{shared_instance.file.url}"
         )
-
         return JsonResponse({'success': True})
-
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+    return JsonResponse({'success': False})
 
 @login_required
 def get_messages(request, room_id):

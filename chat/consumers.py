@@ -3,10 +3,17 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatRoom, Message, SharedFile, Reaction
 
+import json
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+from .models import ChatRoom, Message, Reaction
+from django.db.models import Count
+
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'chat_{self.room_id}'
+
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
@@ -18,29 +25,46 @@ class ChatConsumer(AsyncWebsocketConsumer):
         action = data.get('action')
         user = self.scope['user']
 
-        if action == 'edit':
+        if action == 'send':
+            content = data.get('content')
+            # If it's a real message, save it.
+            # If it's just our upload trigger, we still broadcast to refresh the UI.
+            if content != 'file_uploaded_refresh_trigger':
+                await self.db_create_message(content)
+
+            # This 'refresh' action in the broadcast is what triggers location.reload()
+            # in everyone's browser via the onmessage handler.
+            await self.broadcast({'action': 'refresh'})
+        elif action == 'edit':
             msg_id = data.get('msgId')
             content = data.get('content')
             if await self.db_edit_message(msg_id, user, content):
-                await self.broadcast({'action': 'edit', 'msgId': msg_id, 'content': content})
+                await self.broadcast({'action': 'edit', 'msgId': str(msg_id), 'content': content})
 
         elif action == 'delete':
             msg_id = data.get('msgId')
-            res = await self.db_delete_message(msg_id, user)
-            if res['success']:
-                await self.broadcast({'action': 'delete', 'msgId': msg_id, 'is_file': res['is_file']})
+            if await self.db_delete_message(msg_id, user):
+                await self.broadcast({'action': 'delete', 'msgId': str(msg_id)})
 
         elif action == 'react':
             msg_id = data.get('msgId')
             emoji = data.get('emoji')
-            count = await self.db_toggle_reaction(msg_id, user, emoji)
-            await self.broadcast({'action': 'react', 'msgId': msg_id, 'emoji': emoji, 'count': count})
+            await self.db_toggle_reaction(msg_id, user, emoji)
+            await self.broadcast({'action': 'refresh'})
 
     async def broadcast(self, data):
-        await self.channel_layer.group_send(self.room_group_name, {'type': 'chat_message', 'data': data})
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'chat_message', 'data': data}
+        )
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps(event['data']))
+
+    @database_sync_to_async
+    def db_create_message(self, content):
+        room = ChatRoom.objects.get(id=self.room_id)
+        return Message.objects.create(room=room, sender=self.scope['user'], content=content)
 
     @database_sync_to_async
     def db_edit_message(self, msg_id, user, content):
@@ -49,23 +73,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def db_delete_message(self, msg_id, user):
         try:
+            import os
             msg = Message.objects.get(id=msg_id, sender=user)
-            is_file = "📎 Shared a file: " in msg.content
-            if is_file:
-                filename = msg.content.replace("📎 Shared a file: ", "").strip()
-                SharedFile.objects.filter(room=msg.room, uploader=user, filename=filename).delete()
+
+            # Logic to delete associated file from Resources sidebar
+            if "📎 Shared a file:" in msg.content and "|" in msg.content:
+                try:
+                    file_url = msg.content.split('|')[1].strip()
+                    filename_part = file_url.split('/')[-1]
+                    shared_file = SharedFile.objects.filter(
+                        room=msg.room,
+                        file__icontains=filename_part
+                    ).first()
+
+                    if shared_file:
+                        if shared_file.file and os.path.isfile(shared_file.file.path):
+                            os.remove(shared_file.file.path)
+                        shared_file.delete()
+                except Exception as e:
+                    print(f"File deletion error: {e}")
+
             msg.delete()
-            return {'success': True, 'is_file': is_file}
-        except: return {'success': False}
+            return True
+        except Exception as e:
+            print(f"Delete error: {e}")
+            return False
 
     @database_sync_to_async
     def db_toggle_reaction(self, msg_id, user, emoji):
-        from .models import Reaction, Message
         msg = Message.objects.get(id=msg_id)
-        # This toggles: if exists -> delete, if not -> create
         react, created = Reaction.objects.get_or_create(message=msg, user=user, emoji=emoji)
-        if not created:
-            react.delete()
-
-        # Return the new total count for this specific emoji
-        return {'count': Reaction.objects.filter(message=msg, emoji=emoji).count()}
+        if not created: react.delete()

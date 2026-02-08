@@ -216,45 +216,103 @@
         return document.querySelector('[name=csrfmiddlewaretoken]').value;
     }
 
-    // Scroll to bottom on load
+    // Connect to WebSocket
+    const roomId = "{{ chat_room.id }}";
+    const chatSocket = new WebSocket(
+        (window.location.protocol === 'https:' ? 'wss://' : 'ws://')
+        + window.location.host
+        + '/ws/chat/' + roomId + '/'
+    );
+
     const chatBody = document.getElementById('chat-messages');
+    const messageInput = document.getElementById('message-input');
+    const chatForm = document.getElementById('chat-form');
+
     chatBody.scrollTop = chatBody.scrollHeight;
 
-    async function handleFileUpload(input) {
-        if (!input.files[0]) return;
-        const file = input.files[0];
-        const uploadUrl = input.getAttribute('data-upload-url');
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('csrfmiddlewaretoken', getCSRF());
+    // Handle incoming real-time updates
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
 
-        try {
-            const response = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCSRF() },
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success) { location.reload(); }
-        } catch (error) {
-            console.error("Upload Error:", error);
+        if (data.action === 'refresh') {
+            location.reload();
+        }
+        else if (data.action === 'edit') {
+            const textSpan = document.getElementById(`text-${data.msgId}`);
+            if (textSpan) textSpan.innerText = data.content;
+
+            // FIX: If this specific message is currently being edited, reload to reset the UI
+            if (document.getElementById(`edit-input-${data.msgId}`)) {
+                location.reload();
+            }
+        }
+        else if (data.action === 'delete') {
+            const container = document.getElementById(`msg-container-${data.msgId}`);
+            if (container) container.remove();
+            // Optional: reload if you want the Resources sidebar to sync immediately
+            location.reload();
+        }
+    };
+    // Send actions through WebSocket
+    chatForm.onsubmit = function(e) {
+        e.preventDefault();
+        const content = messageInput.value;
+        if (content.trim()) {
+            chatSocket.send(JSON.stringify({ 'action': 'send', 'content': content }));
+            messageInput.value = '';
+        }
+    };
+
+    function saveEdit(messageId) {
+        const newContent = document.getElementById(`edit-input-${messageId}`).value;
+        chatSocket.send(JSON.stringify({ 'action': 'edit', 'msgId': messageId, 'content': newContent }));
+    }
+
+    function deleteMessage(messageId) {
+        if(confirm("Delete this message?")) {
+            chatSocket.send(JSON.stringify({ 'action': 'delete', 'msgId': messageId }));
         }
     }
 
     function toggleReaction(messageId, emoji) {
-        fetch(`/chat/message/${messageId}/react/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-            body: JSON.stringify({ emoji: emoji })
-        })
-        .then(res => res.json())
-        .then(data => { if (data.success) location.reload(); });
+        chatSocket.send(JSON.stringify({ 'action': 'react', 'msgId': messageId, 'emoji': emoji }));
     }
+
+    async function handleFileUpload(input) {
+    if (!input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+    formData.append('csrfmiddlewaretoken', getCSRF());
+
+    try {
+        const response = await fetch(input.getAttribute('data-upload-url'), {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // FIX: This triggers the broadcast to EVERYONE (including you)
+            // to reload and show the new file message.
+            chatSocket.send(JSON.stringify({
+                'action': 'send',
+                'content': 'file_uploaded_refresh_trigger'
+            }));
+
+            // Clear the input so the same file can be uploaded again if needed
+            input.value = '';
+        } else {
+            alert("Upload failed: " + (data.error || "Unknown error"));
+        }
+    } catch (error) {
+        console.error("Upload Error:", error);
+    }
+}
 
     function startInlineEdit(messageId) {
         const textSpan = document.getElementById(`text-${messageId}`);
-        if(!textSpan) return;
-
         const bubble = document.getElementById(`bubble-${messageId}`);
         const originalContent = textSpan.innerText;
 
@@ -265,28 +323,6 @@
                 <button onclick="saveEdit('${messageId}')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 0.7rem;">Save</button>
             </div>
         `;
-    }
-
-    function saveEdit(messageId) {
-        const newContent = document.getElementById(`edit-input-${messageId}`).value;
-        fetch(`/chat/message/${messageId}/edit/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-            body: JSON.stringify({ content: newContent })
-        })
-        .then(res => res.json())
-        .then(data => { if (data.success) location.reload(); });
-    }
-
-    function deleteMessage(messageId) {
-        if(confirm("Delete this message?")) {
-            fetch(`/chat/message/${messageId}/delete/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCSRF() }
-            })
-            .then(res => res.json())
-            .then(data => { if (data.success) location.reload(); });
-        }
     }
 </script>
 {% endblock %}
