@@ -3,31 +3,111 @@
 {% block title %}Edit {{ group.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-5" style="max-width: 700px;">
+<style>
+    /* Fix for the overlapping/vertical checkboxes */
+    .day-selector ul {
+        display: flex;
+        flex-wrap: wrap;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        gap: 15px; /* Spacing between days */
+    }
+
+    .day-selector li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+    }
+
+    /* Style the checkboxes to be neat */
+    .day-selector input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .day-selector label {
+        margin-bottom: 0;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
+    /* Fix for generic field spacing */
+    .form-control, .form-select {
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+    }
+</style>
+
+<div class="container mt-5" style="max-width: 800px;">
     <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body p-4">
-            <h3 class="fw-bold mb-4 text-dark">Edit Group Details</h3>
+        <div class="card-body p-4 p-md-5">
+            <div class="d-flex align-items-center mb-4">
+                <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
+                    <i class="fas fa-edit text-primary fs-4"></i>
+                </div>
+                <h3 class="fw-bold mb-0 text-dark">Edit Group Details</h3>
+            </div>
 
             <form method="post">
                 {% csrf_token %}
 
-                {% for field in form %}
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">{{ field.label|upper }}</label>
+                <div class="mb-4">
+                    <label class="form-label fw-bold small text-muted">GROUP NAME</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+                </div>
 
-                        {% if field.name == 'study_day' %}
-                            <div class="p-3 bg-light rounded-3 border">
-                                {{ field }}
-                            </div>
-                        {% else %}
-                            {{ field }}
-                        {% endif %}
+                <div class="mb-4">
+                    <label class="form-label fw-bold small text-muted">DESCRIPTION</label>
+                    {{ form.description }}
+                    {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
+                </div>
 
-                        {% if field.errors %}
-                            <div class="text-danger small mt-1">{{ field.errors }}</div>
-                        {% endif %}
+                <hr class="my-4 opacity-50">
+
+                <div class="row g-3">
+                    <div class="col-12 mb-2">
+                        <label class="form-label fw-bold small text-muted">STUDY DAYS</label>
+                        <div class="p-3 bg-light rounded-3 border day-selector">
+                            {{ form.study_day }}
+                        </div>
+                        {% if form.study_day.errors %}<div class="text-danger small">{{ form.study_day.errors }}</div>{% endif %}
                     </div>
-                {% endfor %}
+
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-muted">START TIME</label>
+                        {{ form.start_time }}
+                        {% if form.start_time.errors %}<div class="text-danger small">{{ form.start_time.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-muted">END TIME</label>
+                        {{ form.end_time }}
+                        {% if form.end_time.errors %}<div class="text-danger small">{{ form.end_time.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-muted">MAX MEMBERS</label>
+                        {{ form.max_members }}
+                        {% if form.max_members.errors %}<div class="text-danger small">{{ form.max_members.errors }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    {% for field in form %}
+                        {% if field.name not in "name,description,study_day,start_time,end_time,max_members" %}
+                            <div class="col-md-6 mt-4">
+                                <label class="form-label fw-bold small text-muted">{{ field.label|upper }}</label>
+                                {{ field }}
+                                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-5">
                     <a href="{% url 'group_detail' group.id %}" class="btn btn-light rounded-pill px-4">Cancel</a>
