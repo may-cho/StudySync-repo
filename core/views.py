@@ -1282,10 +1282,6 @@ def create_study_session(request, group_id):
     }
     return render(request, 'core/create_study_session.html', context)
 
-
-@login_required
-def edit_group(request,group_id) :
-    print(group_id)
     
 @login_required
 def save_timetable_slot(request):
