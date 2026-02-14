@@ -90,3 +90,19 @@ function markAsRead() {
         }
     });
 }
+socket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    if (data.type === 'new_message' && data.group_id === "{{ group.id }}") {
+        const badge = document.getElementById('chat-badge');
+        if (badge) {
+            let count = parseInt(badge.innerText.replace('+', '')) || 0;
+            count++;
+            badge.innerText = count > 99 ? '99+' : count;
+            badge.style.display = 'block';
+        } else {
+            // If badge didn't exist, reload or inject the HTML for a badge starting at 1
+            location.reload();
+        }
+    }
+};

@@ -25,6 +25,10 @@ from .models import *
 from .forms import *
 from .matching_algorithm import find_course_study_partners, suggest_group_times
 
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+# from .models import GroupInvitation, CourseGroupMatch
+
 def home(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -332,32 +336,47 @@ def load_courses(request):
     courses = Course.objects.filter(semester=semester_id).order_by('name')
     return render(request,'core/partials/course_dropdown_list_options.html',{'courses': courses})
 
+from django.utils import timezone
+
+from django.utils import timezone
+
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Explicit checks
-    is_member = GroupMembership.objects.filter(group=group, student=profile).exists()
-    is_admin = group.is_admin(request.user)
+    # 1. Get the SINGLE membership for the logged-in user
+    user_mem = GroupMembership.objects.filter(group=group, student=profile).first()
 
-    # This is the key variable for the Leave button
-    is_creator = (group.creator == profile)
-
-    if not is_member and not is_admin:
+    if not user_mem:
         messages.error(request, 'You are not a member of this group')
         return redirect('group_list')
 
-    memberships = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
+    # 2. Get counts based on the user's last view timestamps
+    chat_room = getattr(group, 'chat_room', None)
+    new_messages_count = 0
+    if chat_room:
+        new_messages_count = chat_room.messages.filter(
+            timestamp__gt=user_mem.last_chat_view
+        ).count()
+
+    new_posts_count = group.posts.filter(
+        created_at__gt=user_mem.last_feed_view
+    ).count()
+
+    # 3. Fetch ALL memberships for the members list card
+    all_memberships = group.memberships.all().select_related('student__user')
 
     context = {
         'group': group,
-        'memberships': memberships,
-        'is_admin': is_admin,
-        'is_creator': is_creator,
-        'profile': profile,
+        'memberships': all_memberships, # Used for the loop in HTML
+        'is_admin': group.is_admin(request.user),
+        'is_creator': (group.creator == profile),
+        'new_messages_count': new_messages_count,
+        'new_posts_count': new_posts_count,
     }
     return render(request, 'core/group_detail.html', context)
+
 def group_list(request):
     # Use select_related to get the profile and user in one database hit
     profile = get_object_or_404(StudentProfile.objects.select_related('user', 'major'), user=request.user)
@@ -513,90 +532,90 @@ def edit_group(request, group_id):
         'group': group
     })
 
-@user_passes_test(lambda u: u.is_superuser)
-def project_admin_dashboard(request):
-    # For superuser, get or create profile
-    try:
-        profile = StudentProfile.objects.get(user=request.user)
-    except StudentProfile.DoesNotExist:
-        # Create a profile for superuser
-        profile = StudentProfile.objects.create(
-            user=request.user,
-            major='SE',
-            year=1,
-            is_project_admin=True
-        )
+# @user_passes_test(lambda u: u.is_superuser)
+# def project_admin_dashboard(request):
+#     # For superuser, get or create profile
+#     try:
+#         profile = StudentProfile.objects.get(user=request.user)
+#     except StudentProfile.DoesNotExist:
+#         # Create a profile for superuser
+#         profile = StudentProfile.objects.create(
+#             user=request.user,
+#             major='SE',
+#             year=1,
+#             is_project_admin=True
+#         )
+#
+#     # Get statistics
+#     total_groups = StudyGroup.objects.count()
+#     total_students = StudentProfile.objects.count()
+#     total_members = GroupMembership.objects.count()
+#     active_groups = StudyGroup.objects.filter(is_active=True).count()
+#
+#     # Get recent groups
+#     recent_groups = StudyGroup.objects.all().order_by('-created_at')[:10]
+#
+#     # Get groups needing attention
+#     inactive_groups = StudyGroup.objects.filter(is_active=False)[:5]
+#
+#     context = {
+#         'profile': profile,
+#         'total_groups': total_groups,
+#         'total_students': total_students,
+#         'total_members': total_members,
+#         'active_groups': active_groups,
+#         'recent_groups': recent_groups,
+#         'inactive_groups': inactive_groups,
+#     }
+#     return render(request, 'core/project_admin_dashboard.html', context)
 
-    # Get statistics
-    total_groups = StudyGroup.objects.count()
-    total_students = StudentProfile.objects.count()
-    total_members = GroupMembership.objects.count()
-    active_groups = StudyGroup.objects.filter(is_active=True).count()
 
-    # Get recent groups
-    recent_groups = StudyGroup.objects.all().order_by('-created_at')[:10]
-
-    # Get groups needing attention
-    inactive_groups = StudyGroup.objects.filter(is_active=False)[:5]
-
-    context = {
-        'profile': profile,
-        'total_groups': total_groups,
-        'total_students': total_students,
-        'total_members': total_members,
-        'active_groups': active_groups,
-        'recent_groups': recent_groups,
-        'inactive_groups': inactive_groups,
-    }
-    return render(request, 'core/project_admin_dashboard.html', context)
-
-
-@user_passes_test(lambda u: u.is_superuser)
-def project_admin_groups(request):
-    groups = StudyGroup.objects.all().order_by('-created_at')
-
-    if request.method == 'POST':
-        group_id = request.POST.get('group_id')
-        action = request.POST.get('action')
-
-        try:
-            group = StudyGroup.objects.get(id=group_id)
-
-            if action == 'toggle_active':
-                group.is_active = not group.is_active
-                group.save()
-                messages.success(request, f'Group {"activated" if group.is_active else "deactivated"}')
-
-            elif action == 'add_as_admin':
-                # Get or create profile for superuser
-                profile, created = StudentProfile.objects.get_or_create(
-                    user=request.user,
-                    defaults={'major': 'SE', 'year': 1, 'is_project_admin': True}
-                )
-                membership, created = GroupMembership.objects.get_or_create(
-                    group=group,
-                    student=profile,
-                    defaults={'role': 'project_admin'}
-                )
-                if not created:
-                    membership.role = 'project_admin'
-                    membership.save()
-                messages.success(request, f'Added as admin to {group.name}')
-
-            elif action == 'delete_group':
-                group_name = group.name
-                group.delete()
-                messages.success(request, f'Group "{group_name}" deleted')
-
-        except StudyGroup.DoesNotExist:
-            messages.error(request, 'Group not found')
-
-        return redirect('project_admin_groups')
-
-    context = {
-        'groups': groups,
-    }
-    return render(request, 'core/project_admin_groups.html', context)
+# @user_passes_test(lambda u: u.is_superuser)
+# def project_admin_groups(request):
+#     groups = StudyGroup.objects.all().order_by('-created_at')
+#
+#     if request.method == 'POST':
+#         group_id = request.POST.get('group_id')
+#         action = request.POST.get('action')
+#
+#         try:
+#             group = StudyGroup.objects.get(id=group_id)
+#
+#             if action == 'toggle_active':
+#                 group.is_active = not group.is_active
+#                 group.save()
+#                 messages.success(request, f'Group {"activated" if group.is_active else "deactivated"}')
+#
+#             elif action == 'add_as_admin':
+#                 # Get or create profile for superuser
+#                 profile, created = StudentProfile.objects.get_or_create(
+#                     user=request.user,
+#                     defaults={'major': 'SE', 'year': 1, 'is_project_admin': True}
+#                 )
+#                 membership, created = GroupMembership.objects.get_or_create(
+#                     group=group,
+#                     student=profile,
+#                     defaults={'role': 'project_admin'}
+#                 )
+#                 if not created:
+#                     membership.role = 'project_admin'
+#                     membership.save()
+#                 messages.success(request, f'Added as admin to {group.name}')
+#
+#             elif action == 'delete_group':
+#                 group_name = group.name
+#                 group.delete()
+#                 messages.success(request, f'Group "{group_name}" deleted')
+#
+#         except StudyGroup.DoesNotExist:
+#             messages.error(request, 'Group not found')
+#
+#         return redirect('project_admin_groups')
+#
+#     context = {
+#         'groups': groups,
+#     }
+#     return render(request, 'core/project_admin_groups.html', context)
 
 
 @login_required
@@ -874,86 +893,86 @@ def create_course_group(request, course_id):
     return render(request, 'core/create_course_group.html', context)
 
 
-@login_required
-def auto_create_group(request, course_id):
-    """Automatically create group with best matching times"""
-    profile = get_object_or_404(StudentProfile, user=request.user)
-    course = get_object_or_404(Course, id=course_id)
-
-    # Get all classmates
-    classmates = StudentProfile.objects.filter(
-        studentcourse__course=course
-    ).exclude(
-        user=request.user
-    )
-
-    if not classmates.exists():
-        messages.error(request, 'No classmates found for this course.')
-        return redirect('course_partners_list', course_id=course_id)
-
-    # Find best common time
-    best_time = None
-    max_members = 0
-
-    for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']:
-        # Check weekday restrictions
-        if day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']:
-            start_time = time(16, 0)  # 4 PM
-            end_time = time(20, 0)  # 8 PM
-        else:
-            start_time = time(9, 0)  # 9 AM
-            end_time = time(20, 0)  # 8 PM
-
-        # Count available members
-        available_members = classmates.filter(
-            preferred_study_days__contains=day
-        ).count() + 1  # +1 for current user
-
-        if available_members > max_members:
-            max_members = available_members
-            best_time = {
-                'day': day,
-                'start_time': start_time,
-                'end_time': end_time,
-            }
-
-    if best_time:
-        # Create group
-        group = StudyGroup.objects.create(
-            name=f"{course.code} Auto-Group - {best_time['day']}s",
-            description=f"Automatically created study group for {course.code}. Meeting every {best_time['day']} from {best_time['start_time']} to {best_time['end_time']}.",
-            course=course,
-            semester=course.semester,
-            group_type='course',
-            study_day=best_time['day'],
-            study_start_time=best_time['start_time'],
-            study_end_time=best_time['end_time'],
-            creator=profile,
-            auto_created=True,
-        )
-
-        # Add creator
-        GroupMembership.objects.create(
-            group=group,
-            student=profile,
-            role='admin'
-        )
-
-        # Add classmates who are available
-        for classmate in classmates.filter(
-                preferred_study_days__contains=best_time['day']
-        )[:9]:  # Max 10 members including creator
-            GroupMembership.objects.create(
-                group=group,
-                student=classmate,
-                role='member'
-            )
-
-        messages.success(request, f'Auto-created group with {group.member_count} members!')
-        return redirect('group_detail', group_id=group.id)
-
-    messages.error(request, 'Could not find suitable time for group creation.')
-    return redirect('course_partners_list', course_id=course_id)
+# @login_required
+# def auto_create_group(request, course_id):
+#     """Automatically create group with best matching times"""
+#     profile = get_object_or_404(StudentProfile, user=request.user)
+#     course = get_object_or_404(Course, id=course_id)
+#
+#     # Get all classmates
+#     classmates = StudentProfile.objects.filter(
+#         studentcourse__course=course
+#     ).exclude(
+#         user=request.user
+#     )
+#
+#     if not classmates.exists():
+#         messages.error(request, 'No classmates found for this course.')
+#         return redirect('course_partners_list', course_id=course_id)
+#
+#     # Find best common time
+#     best_time = None
+#     max_members = 0
+#
+#     for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']:
+#         # Check weekday restrictions
+#         if day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']:
+#             start_time = time(16, 0)  # 4 PM
+#             end_time = time(20, 0)  # 8 PM
+#         else:
+#             start_time = time(9, 0)  # 9 AM
+#             end_time = time(20, 0)  # 8 PM
+#
+#         # Count available members
+#         available_members = classmates.filter(
+#             preferred_study_days__contains=day
+#         ).count() + 1  # +1 for current user
+#
+#         if available_members > max_members:
+#             max_members = available_members
+#             best_time = {
+#                 'day': day,
+#                 'start_time': start_time,
+#                 'end_time': end_time,
+#             }
+#
+#     if best_time:
+#         # Create group
+#         group = StudyGroup.objects.create(
+#             name=f"{course.code} Auto-Group - {best_time['day']}s",
+#             description=f"Automatically created study group for {course.code}. Meeting every {best_time['day']} from {best_time['start_time']} to {best_time['end_time']}.",
+#             course=course,
+#             semester=course.semester,
+#             group_type='course',
+#             study_day=best_time['day'],
+#             study_start_time=best_time['start_time'],
+#             study_end_time=best_time['end_time'],
+#             creator=profile,
+#             auto_created=True,
+#         )
+#
+#         # Add creator
+#         GroupMembership.objects.create(
+#             group=group,
+#             student=profile,
+#             role='admin'
+#         )
+#
+#         # Add classmates who are available
+#         for classmate in classmates.filter(
+#                 preferred_study_days__contains=best_time['day']
+#         )[:9]:  # Max 10 members including creator
+#             GroupMembership.objects.create(
+#                 group=group,
+#                 student=classmate,
+#                 role='member'
+#             )
+#
+#         messages.success(request, f'Auto-created group with {group.member_count} members!')
+#         return redirect('group_detail', group_id=group.id)
+#
+#     messages.error(request, 'Could not find suitable time for group creation.')
+#     return redirect('course_partners_list', course_id=course_id)
 
 @login_required
 def create_group_with_student(request, student_id):
@@ -1397,12 +1416,6 @@ def all_notifications(request):
     return render(request, 'core/all_notifications.html', {
         'notifications': notifications
     })
-
-
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from .models import GroupInvitation, CourseGroupMatch
-
 
 @login_required
 @require_POST  # Ensures this only works with POST requests (security best practice)
