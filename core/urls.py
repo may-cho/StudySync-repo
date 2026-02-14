@@ -51,8 +51,8 @@ path('notifications/', views.all_notifications, name='all_notifications'),
     path('invitations/<uuid:invitation_id>/accept/', views.accept_invitation, name='accept_invitation'),
     path('invitations/<uuid:invitation_id>/decline/', views.decline_invitation, name='decline_invitation'),
 
-    # Project Admin
-    path('project-admin/', views.project_admin_dashboard, name='project_admin_dashboard'),
-    path('project-admin/groups/', views.project_admin_groups, name='project_admin_groups'),
+    # # Project Admin
+    # path('project-admin/', views.project_admin_dashboard, name='project_admin_dashboard'),
+    # path('project-admin/groups/', views.project_admin_groups, name='project_admin_groups'),
 
 ]
