@@ -336,57 +336,47 @@ def load_courses(request):
     courses = Course.objects.filter(semester=semester_id).order_by('name')
     return render(request,'core/partials/course_dropdown_list_options.html',{'courses': courses})
 
+from django.utils import timezone
+
+from django.utils import timezone
+
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Explicit checks
-    is_member = GroupMembership.objects.filter(group=group, student=profile).exists()
-    is_admin = group.is_admin(request.user)
+    # 1. Get the SINGLE membership for the logged-in user
+    user_mem = GroupMembership.objects.filter(group=group, student=profile).first()
 
-    # This is the key variable for the Leave button
-    is_creator = (group.creator == profile)
-
-    if not is_member and not is_admin:
+    if not user_mem:
         messages.error(request, 'You are not a member of this group')
         return redirect('group_list')
 
-    # 1. Get the membership for the current user
-    memberships = GroupMembership.objects.filter(group=group).select_related('student', 'student__user').first()
-
-    if not memberships:
-        # Handle case where user isn't a member
-        return redirect('dashboard')
-
-    # This is the LIST for the "Group Members" section in the HTML
-    all_memberships = group.memberships.all()
-
-    # 2. Get the ChatRoom (use the related_name='chat_room' from your model)
+    # 2. Get counts based on the user's last view timestamps
     chat_room = getattr(group, 'chat_room', None)
-
     new_messages_count = 0
     if chat_room:
-        # Access messages via the ChatRoom's related_name='messages'
         new_messages_count = chat_room.messages.filter(
-            timestamp__gt=memberships.last_chat_view
+            timestamp__gt=user_mem.last_chat_view
         ).count()
 
-    # 3. Access posts via the StudyGroup's related_name='posts'
     new_posts_count = group.posts.filter(
-        created_at__gt=memberships.last_feed_view
+        created_at__gt=user_mem.last_feed_view
     ).count()
+
+    # 3. Fetch ALL memberships for the members list card
+    all_memberships = group.memberships.all().select_related('student__user')
 
     context = {
         'group': group,
-        'memberships': all_memberships,
-        'is_admin': is_admin,
-        'is_creator': is_creator,
-        'profile': profile,
+        'memberships': all_memberships, # Used for the loop in HTML
+        'is_admin': group.is_admin(request.user),
+        'is_creator': (group.creator == profile),
         'new_messages_count': new_messages_count,
         'new_posts_count': new_posts_count,
     }
     return render(request, 'core/group_detail.html', context)
+
 def group_list(request):
     # Use select_related to get the profile and user in one database hit
     profile = get_object_or_404(StudentProfile.objects.select_related('user', 'major'), user=request.user)

@@ -14,6 +14,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 
+
 from django.utils import timezone
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -222,9 +223,6 @@ def toggle_reaction(request, message_id):
     return JsonResponse({'success': False})
 
 
-from django.utils import timezone
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 
 
 @login_required
