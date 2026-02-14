@@ -20,13 +20,40 @@
                                 <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i> Live Chat
                             </small>
                         </div>
+
+                        <div id="video-btn-container" class="d-flex gap-2 ms-3">
+                            {% if is_timetable_active %}
+                                <button id="video-call-btn" class="btn btn-sm btn-outline-primary rounded-pill border-0 shadow-sm">
+                                    <i class="bi bi-camera-video-fill me-1"></i> Join Video
+                                </button>
+                                <button id="screen-share-btn" class="btn btn-sm btn-outline-secondary rounded-pill border-0 shadow-sm d-none">
+                                    <i class="bi bi-display me-1"></i> Share Screen
+                                </button>
+                            {% else %}
+                                <div class="p-1 px-3 bg-light rounded-pill border shadow-sm">
+                                    <small class="text-muted" style="font-size: 0.7rem;">
+                                        <i class="bi bi-clock me-1"></i> Video active: {{ group.study_day }} {{ group.start_time|time:"H:i" }}-{{ group.end_time|time:"H:i" }}
+                                    </small>
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 
                 <div class="card-body overflow-auto p-4" id="chat-messages" style="background-color: #f8f9fa;">
+
+                    <div id="video-grid" class="d-none row g-2 mb-4">
+                        <div class="video-item col-6 col-md-4 position-relative">
+                            <video id="local-video" autoplay muted playsinline class="w-100 rounded-3 shadow-sm bg-dark" style="aspect-ratio: 16/9; object-fit: cover;"></video>
+                            <span class="badge bg-dark position-absolute bottom-0 start-0 m-2 opacity-75">You</span>
+                            <button class="btn btn-sm btn-light position-absolute top-0 end-0 m-2 opacity-75 rounded-circle" onclick="document.getElementById('file-upload').click()" title="Quick Share File">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
                     {% for msg in chat_messages %}
                         <div id="msg-container-{{ msg.id }}" class="mb-4 d-flex {% if msg.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}">
-
                             {% if msg.sender != request.user %}
                             <div class="avatar-container me-2 mt-auto" style="position: relative;">
                                 <div class="user-hover-card shadow-lg border-0">
@@ -75,42 +102,43 @@
                                 </div>
                                 {% endif %}
 
-                                <div
-                                    id="bubble-{{ msg.id }}"
-                                    class="p-3 shadow-sm message-bubble"
-                                    style="border-radius: 18px; user-select: none; cursor: pointer; {% if msg.sender == request.user %}background-color: #0d6efd; color: white; border-bottom-right-radius: 4px;{% else %}background-color: white; color: #333; border-bottom-left-radius: 4px;{% endif %}"
-                                    ondblclick="toggleReaction('{{ msg.id }}', '👍')"
-                                >
-                                    {% if "|" in msg.content and "Shared a file:" in msg.content %}
-                                        <div class="file-display">
-                                            <span class="d-block mb-2" style="font-size: 0.9rem;">
-                                                {{ msg.content|slice:":-1"|truncatechars:999 }}
-                                            </span>
-                                            <a href="#" id="file-link-{{ msg.id }}" class="btn btn-sm btn-light w-100 rounded-pill shadow-sm py-1" style="font-size: 0.75rem;" download>
-                                                <i class="bi bi-download me-1"></i> Download File
-                                            </a>
-                                            <script>
-                                                (function() {
-                                                    const content = "{{ msg.content|escapejs }}";
-                                                    const parts = content.split('|');
-                                                    const link = document.getElementById('file-link-{{ msg.id }}');
-                                                    if(parts.length > 1) {
-                                                        link.href = parts[1];
-                                                        link.previousElementSibling.innerText = parts[0];
-                                                    }
-                                                })();
-                                            </script>
+                                <div id="bubble-{{ msg.id }}" class="p-3 shadow-sm message-bubble" style="border-radius: 18px; user-select: none; cursor: pointer; {% if msg.sender == request.user %}background-color: #0d6efd; color: white; border-bottom-right-radius: 4px;{% else %}background-color: white; color: #333; border-bottom-left-radius: 4px;{% endif %}" ondblclick="toggleReaction('{{ msg.id }}', '👍')">
+                                    <div id="display-content-{{ msg.id }}">
+                                        {% if "|" in msg.content and "Shared a file:" in msg.content %}
+                                            <div class="file-display">
+                                                <span class="d-block mb-2" style="font-size: 0.9rem;">{{ msg.content|slice:":-1"|truncatechars:999 }}</span>
+                                                <a href="#" id="file-link-{{ msg.id }}" class="btn btn-sm btn-light w-100 rounded-pill shadow-sm py-1" style="font-size: 0.75rem;" download>
+                                                    <i class="bi bi-download me-1"></i> Download File
+                                                </a>
+                                                <script>
+                                                    (function() {
+                                                        const content = "{{ msg.content|escapejs }}";
+                                                        const parts = content.split('|');
+                                                        const link = document.getElementById('file-link-{{ msg.id }}');
+                                                        if(parts.length > 1) {
+                                                            link.href = parts[1];
+                                                            link.previousElementSibling.innerText = parts[0];
+                                                        }
+                                                    })();
+                                                </script>
+                                            </div>
+                                        {% else %}
+                                            <span class="d-block" id="text-{{ msg.id }}">{{ msg.content }}</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div id="editor-container-{{ msg.id }}" class="d-none">
+                                        <textarea id="edit-input-{{ msg.id }}" class="form-control form-control-sm mb-2 border-0 shadow-none" style="background: rgba(255,255,255,0.9); min-height: 80px;"></textarea>
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <button onclick="cancelEdit('{{ msg.id }}')" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.7rem; color: inherit;">Cancel</button>
+                                            <button onclick="saveEdit('{{ msg.id }}')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 0.7rem;">Save</button>
                                         </div>
-                                    {% else %}
-                                        <span class="d-block" id="text-{{ msg.id }}">{{ msg.content }}</span>
-                                    {% endif %}
+                                    </div>
 
                                     <div class="d-flex align-items-center justify-content-between mt-1">
                                         <div id="reactions-{{ msg.id }}" class="d-flex gap-1">
                                             {% for reaction in msg.reaction_counts %}
-                                                <span class="badge bg-white text-dark rounded-pill border shadow-sm" style="font-size: 0.65rem; padding: 2px 8px; margin-top: 4px;">
-                                                    {{ reaction.emoji }} {{ reaction.total }}
-                                                </span>
+                                                <span class="badge bg-white text-dark rounded-pill border shadow-sm" style="font-size: 0.65rem; padding: 2px 8px; margin-top: 4px;">{{ reaction.emoji }} {{ reaction.total }}</span>
                                             {% endfor %}
                                         </div>
                                         <small style="font-size: 0.6rem; opacity: 0.7;">{{ msg.timestamp|date:"H:i" }}</small>
@@ -146,7 +174,7 @@
                     <h6 class="fw-bold mb-0">Resources</h6>
                 </div>
                 <div class="card-body p-0 overflow-auto">
-                    <div class="list-group list-group-flush">
+                    <div id="resource-list" class="list-group list-group-flush">
                         {% for file in files %}
                         <div class="list-group-item border-0 border-bottom p-3 d-flex align-items-center justify-content-between">
                             <div class="text-truncate" style="max-width: 70%;">
@@ -168,161 +196,197 @@
 <style>
     .message-bubble { transition: all 0.1s ease; }
     .message-wrapper:hover .message-actions { display: flex !important; }
-
-    /* Hover Card Styling */
-    .user-hover-card {
-        position: absolute;
-        top: -20px; /* Align near top of avatar */
-        left: 45px; /* Slide out to the right */
-        width: 220px;
-        background: white;
-        border-radius: 15px;
-        display: none;
-        z-index: 1000;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
-        animation: fadeInRight 0.2s ease-out;
-        pointer-events: none; /* Ignore mouse so it doesn't flicker */
-    }
-
-    .avatar-container:hover .user-hover-card {
-        display: block;
-    }
-
-    .card-header-gradient {
-        height: 50px;
-        background: linear-gradient(135deg, #0d6efd 0%, #00d4ff 100%);
-        border-radius: 15px 15px 0 0;
-    }
-
-    .hover-card-img {
-        width: 60px;
-        height: 60px;
-        object-fit: cover;
-        margin-top: -30px;
-        background: white;
-    }
-
-    @keyframes fadeInRight {
-        from { opacity: 0; transform: translateX(-10px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-
+    .user-hover-card { position: absolute; top: -20px; left: 45px; width: 220px; background: white; border-radius: 15px; display: none; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; animation: fadeInRight 0.2s ease-out; pointer-events: none; }
+    .avatar-container:hover .user-hover-card { display: block; }
+    .card-header-gradient { height: 50px; background: linear-gradient(135deg, #0d6efd 0%, #00d4ff 100%); border-radius: 15px 15px 0 0; }
+    .hover-card-img { width: 60px; height: 60px; object-fit: cover; margin-top: -30px; background: white; }
+    @keyframes fadeInRight { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
     #chat-messages::-webkit-scrollbar { width: 5px; }
     #chat-messages::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
+    .btn-xs { padding: 1px 5px; font-size: 0.7rem; line-height: 1.5; border-radius: 3px; }
 </style>
 
 <script>
-    function getCSRF() {
-        return document.querySelector('[name=csrfmiddlewaretoken]').value;
-    }
+    function getCSRF() { return document.querySelector('[name=csrfmiddlewaretoken]').value; }
 
-    // Connect to WebSocket
     const roomId = "{{ chat_room.id }}";
-    const chatSocket = new WebSocket(
-        (window.location.protocol === 'https:' ? 'wss://' : 'ws://')
-        + window.location.host
-        + '/ws/chat/' + roomId + '/'
-    );
-
+    const chatSocket = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/chat/' + roomId + '/');
     const chatBody = document.getElementById('chat-messages');
     const messageInput = document.getElementById('message-input');
     const chatForm = document.getElementById('chat-form');
 
     chatBody.scrollTop = chatBody.scrollHeight;
 
-    // Handle incoming real-time updates
-    chatSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
+    // --- VIDEO & SCREEN SHARE LOGIC ---
+    let localStream;
+    let screenStream;
+    let peerConnections = {};
+    const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const screenBtn = document.getElementById('screen-share-btn');
 
-        if (data.action === 'refresh') {
-            location.reload();
+    chatSocket.onmessage = async function(e) {
+        const data = JSON.parse(e.data);
+        if (data.action === 'call') {
+            if (data.sender === "{{ request.user.username }}") return;
+            const signal = data.data;
+            if (signal.type === 'ready') { initPeerConnection(data.sender, true); }
+            else if (signal.type === 'offer') {
+                await initPeerConnection(data.sender, false);
+                await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(signal.offer));
+                const answer = await peerConnections[data.sender].createAnswer();
+                await peerConnections[data.sender].setLocalDescription(answer);
+                chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'answer', 'answer': answer, 'to': data.sender}}));
+            }
+            else if (signal.type === 'answer') { await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(signal.answer)); }
+            else if (signal.type === 'candidate') { await peerConnections[data.sender].addIceCandidate(new RTCIceCandidate(signal.candidate)); }
         }
+        else if (data.action === 'refresh') { location.reload(); }
         else if (data.action === 'edit') {
             const textSpan = document.getElementById(`text-${data.msgId}`);
-            if (textSpan) textSpan.innerText = data.content;
+            if (textSpan) { textSpan.innerText = data.content; cancelEdit(data.msgId); }
+        }
+        else if (data.action === 'delete') { location.reload(); }
+    };
 
-            // FIX: If this specific message is currently being edited, reload to reset the UI
-            if (document.getElementById(`edit-input-${data.msgId}`)) {
-                location.reload();
+    async function initPeerConnection(remoteUser, isOffer) {
+        if (peerConnections[remoteUser]) return;
+        const pc = new RTCPeerConnection(iceConfig);
+        peerConnections[remoteUser] = pc;
+
+        const streamToSend = screenStream || localStream;
+        if (streamToSend) { streamToSend.getTracks().forEach(track => pc.addTrack(track, streamToSend)); }
+
+        pc.onicecandidate = (e) => {
+            if (e.candidate) { chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'candidate', 'candidate': e.candidate, 'to': remoteUser}})); }
+        };
+        pc.ontrack = (e) => {
+            if (!document.getElementById(`video-${remoteUser}`)) {
+                const col = document.createElement('div');
+                col.className = 'video-item col-6 col-md-4 position-relative';
+                col.id = `container-${remoteUser}`;
+                col.innerHTML = `<video id="video-${remoteUser}" autoplay playsinline class="w-100 rounded-3 shadow-sm bg-dark" style="aspect-ratio: 16/9; object-fit: cover;"></video><span class="badge bg-dark position-absolute bottom-0 start-0 m-2 opacity-75">${remoteUser}</span>`;
+                document.getElementById('video-grid').appendChild(col);
+                document.getElementById(`video-${remoteUser}`).srcObject = e.streams[0];
+            }
+        };
+        if (isOffer) {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'offer', 'offer': offer, 'to': remoteUser}}));
+        }
+    }
+
+    const videoBtn = document.getElementById('video-call-btn');
+    if (videoBtn) {
+        videoBtn.onclick = async () => {
+            if (!localStream) {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    document.getElementById('local-video').srcObject = localStream;
+                    document.getElementById('video-grid').classList.remove('d-none');
+                    videoBtn.classList.replace('btn-outline-primary', 'btn-danger');
+                    videoBtn.innerHTML = '<i class="bi bi-camera-video-off-fill me-1"></i> Leave';
+                    screenBtn.classList.remove('d-none');
+                    chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'ready'}}));
+                } catch (err) { alert("Camera access denied."); }
+            } else { location.reload(); }
+        };
+    }
+
+    // --- SCREEN SHARING LOGIC ---
+    if (screenBtn) {
+        screenBtn.onclick = async () => {
+            if (!screenStream) {
+                try {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    const videoTrack = screenStream.getVideoTracks()[0];
+
+                    document.getElementById('local-video').srcObject = screenStream;
+                    screenBtn.classList.replace('btn-outline-secondary', 'btn-success');
+                    screenBtn.innerHTML = '<i class="bi bi-stop-circle me-1"></i> Stop Sharing';
+
+                    // Replace track in all peer connections
+                    for (let user in peerConnections) {
+                        const sender = peerConnections[user].getSenders().find(s => s.track.kind === 'video');
+                        if (sender) sender.replaceTrack(videoTrack);
+                    }
+
+                    videoTrack.onended = () => stopScreenShare();
+                } catch (err) { console.error("Screen share error:", err); }
+            } else { stopScreenShare(); }
+        };
+    }
+
+    function stopScreenShare() {
+        if (screenStream) {
+            screenStream.getTracks().forEach(t => t.stop());
+            screenStream = null;
+            document.getElementById('local-video').srcObject = localStream;
+            screenBtn.classList.replace('btn-success', 'btn-outline-secondary');
+            screenBtn.innerHTML = '<i class="bi bi-display me-1"></i> Share Screen';
+
+            const videoTrack = localStream.getVideoTracks()[0];
+            for (let user in peerConnections) {
+                const sender = peerConnections[user].getSenders().find(s => s.track.kind === 'video');
+                if (sender) sender.replaceTrack(videoTrack);
             }
         }
-        else if (data.action === 'delete') {
-            const container = document.getElementById(`msg-container-${data.msgId}`);
-            if (container) container.remove();
-            // Optional: reload if you want the Resources sidebar to sync immediately
-            location.reload();
-        }
-    };
-    // Send actions through WebSocket
+    }
+
+    // --- CHAT LOGIC ---
     chatForm.onsubmit = function(e) {
         e.preventDefault();
         const content = messageInput.value;
         if (content.trim()) {
-            chatSocket.send(JSON.stringify({ 'action': 'send', 'content': content }));
+            chatSocket.send(JSON.stringify({'action': 'send', 'content': content}));
             messageInput.value = '';
         }
     };
 
+    function startInlineEdit(messageId) {
+        const display = document.getElementById(`display-content-${messageId}`);
+        const editor = document.getElementById(`editor-container-${messageId}`);
+        const input = document.getElementById(`edit-input-${messageId}`);
+        const textSpan = document.getElementById(`text-${messageId}`);
+        if (display && editor && textSpan) {
+            input.value = textSpan.innerText;
+            display.classList.add('d-none');
+            editor.classList.remove('d-none');
+        }
+    }
+
+    function cancelEdit(messageId) {
+        const display = document.getElementById(`display-content-${messageId}`);
+        const editor = document.getElementById(`editor-container-${messageId}`);
+        if (display && editor) { display.classList.remove('d-none'); editor.classList.add('d-none'); }
+    }
+
     function saveEdit(messageId) {
         const newContent = document.getElementById(`edit-input-${messageId}`).value;
-        chatSocket.send(JSON.stringify({ 'action': 'edit', 'msgId': messageId, 'content': newContent }));
+        if (newContent.trim()) { chatSocket.send(JSON.stringify({'action': 'edit', 'msgId': messageId, 'content': newContent})); }
     }
 
     function deleteMessage(messageId) {
-        if(confirm("Delete this message?")) {
-            chatSocket.send(JSON.stringify({ 'action': 'delete', 'msgId': messageId }));
-        }
+        if(confirm("Delete this message?")) { chatSocket.send(JSON.stringify({'action': 'delete', 'msgId': messageId})); }
     }
 
     function toggleReaction(messageId, emoji) {
-        chatSocket.send(JSON.stringify({ 'action': 'react', 'msgId': messageId, 'emoji': emoji }));
+        chatSocket.send(JSON.stringify({'action': 'react', 'msgId': messageId, 'emoji': emoji}));
     }
 
     async function handleFileUpload(input) {
-    if (!input.files[0]) return;
-
-    const formData = new FormData();
-    formData.append('file', input.files[0]);
-    formData.append('csrfmiddlewaretoken', getCSRF());
-
-    try {
-        const response = await fetch(input.getAttribute('data-upload-url'), {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            // FIX: This triggers the broadcast to EVERYONE (including you)
-            // to reload and show the new file message.
-            chatSocket.send(JSON.stringify({
-                'action': 'send',
-                'content': 'file_uploaded_refresh_trigger'
-            }));
-
-            // Clear the input so the same file can be uploaded again if needed
-            input.value = '';
-        } else {
-            alert("Upload failed: " + (data.error || "Unknown error"));
-        }
-    } catch (error) {
-        console.error("Upload Error:", error);
-    }
-}
-
-    function startInlineEdit(messageId) {
-        const textSpan = document.getElementById(`text-${messageId}`);
-        const bubble = document.getElementById(`bubble-${messageId}`);
-        const originalContent = textSpan.innerText;
-
-        bubble.innerHTML = `
-            <textarea id="edit-input-${messageId}" class="form-control form-control-sm mb-2 border-0 shadow-none" style="background: rgba(255,255,255,0.9); min-height: 80px;">${originalContent}</textarea>
-            <div class="d-flex justify-content-end gap-2">
-                <button onclick="location.reload()" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;">Cancel</button>
-                <button onclick="saveEdit('${messageId}')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 0.7rem;">Save</button>
-            </div>
-        `;
+        if (!input.files[0]) return;
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+        formData.append('csrfmiddlewaretoken', getCSRF());
+        try {
+            const response = await fetch(input.getAttribute('data-upload-url'), {method: 'POST', body: formData});
+            const data = await response.json();
+            if (data.success) {
+                chatSocket.send(JSON.stringify({'action': 'send', 'content': 'file_uploaded_refresh_trigger'}));
+                input.value = '';
+            }
+        } catch (error) { console.error("Upload Error:", error); }
     }
 </script>
 {% endblock %}

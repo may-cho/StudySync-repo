@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.db.models import Count
 from django.http import HttpResponseForbidden
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 @login_required
@@ -21,7 +22,19 @@ def group_chat(request, group_id):
 
     chat_room, created = ChatRoom.objects.get_or_create(group=group)
 
-    # Fetching messages (POST logic removed as it's now in Consumers)
+    # --- TIME RESTRICTION LOGIC ---
+    now = timezone.localtime(timezone.now())
+    # Mapping study_day string (e.g., "Sat") to Python's weekday integer (5)
+    day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+    group_weekday = day_map.get(group.study_day)
+
+    is_timetable_active = False
+    if now.weekday() == group_weekday:
+        if group.start_time and group.end_time:
+            if group.start_time <= now.time() <= group.end_time:
+                is_timetable_active = True
+    # ------------------------------
+
     chat_messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
     for message in chat_messages:
         message.reaction_counts = (
@@ -36,6 +49,7 @@ def group_chat(request, group_id):
         'chat_room': chat_room,
         'chat_messages': chat_messages,
         'files': files,
+        'is_timetable_active': is_timetable_active,
     })
 
 

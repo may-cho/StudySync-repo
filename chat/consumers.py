@@ -52,6 +52,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.db_toggle_reaction(msg_id, user, emoji)
             await self.broadcast({'action': 'refresh'})
 
+
+        elif action == 'call':
+
+            if await self.is_call_allowed():
+                await self.broadcast({
+
+                    'action': 'call',
+
+                    'sender': user.username,
+
+                    'data': data.get('data')
+
+                })
+
     async def broadcast(self, data):
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -60,6 +74,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps(event['data']))
+
+    @database_sync_to_async
+    def is_call_allowed(self):
+        from core.models import StudyGroup
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+            group = room.group
+            now = timezone.localtime(timezone.now())
+
+            # Map day names to Python weekdays (0=Mon, 5=Sat, etc.)
+            day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+            allowed_weekday = day_map.get(group.study_day)
+
+            if now.weekday() == allowed_weekday:
+                if group.start_time <= now.time() <= group.end_time:
+                    return True
+            return False
+        except:
+            return False
 
     @database_sync_to_async
     def db_create_message(self, content):
