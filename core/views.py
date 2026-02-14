@@ -348,14 +348,39 @@ def group_detail(request, group_id):
         messages.error(request, 'You are not a member of this group')
         return redirect('group_list')
 
-    memberships = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
+    # 1. Get the membership for the current user
+    memberships = GroupMembership.objects.filter(group=group).select_related('student', 'student__user').first()
+
+    if not memberships:
+        # Handle case where user isn't a member
+        return redirect('dashboard')
+
+    # This is the LIST for the "Group Members" section in the HTML
+    all_memberships = group.memberships.all()
+
+    # 2. Get the ChatRoom (use the related_name='chat_room' from your model)
+    chat_room = getattr(group, 'chat_room', None)
+
+    new_messages_count = 0
+    if chat_room:
+        # Access messages via the ChatRoom's related_name='messages'
+        new_messages_count = chat_room.messages.filter(
+            timestamp__gt=memberships.last_chat_view
+        ).count()
+
+    # 3. Access posts via the StudyGroup's related_name='posts'
+    new_posts_count = group.posts.filter(
+        created_at__gt=memberships.last_feed_view
+    ).count()
 
     context = {
         'group': group,
-        'memberships': memberships,
+        'memberships': all_memberships,
         'is_admin': is_admin,
         'is_creator': is_creator,
         'profile': profile,
+        'new_messages_count': new_messages_count,
+        'new_posts_count': new_posts_count,
     }
     return render(request, 'core/group_detail.html', context)
 def group_list(request):

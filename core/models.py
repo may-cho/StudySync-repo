@@ -477,6 +477,8 @@ class GroupMembership(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='group_memberships')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
     joined_at = models.DateTimeField(auto_now_add=True)
+    last_chat_view = models.DateTimeField(auto_now_add=True)
+    last_feed_view = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ['group', 'student']

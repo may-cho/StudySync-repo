@@ -11,25 +11,44 @@ from django.http import JsonResponse
 from django.db.models import Count
 from django.http import HttpResponseForbidden
 from django.contrib.auth.models import User
+from django.utils import timezone
 
+
+from django.utils import timezone
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count
+from core.models import StudyGroup, GroupMembership
+from .models import ChatRoom, Message, SharedFile
 
 @login_required
 def group_chat(request, group_id):
+    # 1. Fetch the group and the specific membership record
     group = get_object_or_404(StudyGroup, id=group_id)
-    is_member = GroupMembership.objects.filter(group=group, student__user=request.user).exists()
+    membership = GroupMembership.objects.filter(
+        group=group,
+        student__user=request.user
+    ).first()
 
-    if not is_member:
+    # 2. Security Check: Redirect if not a member
+    if not membership:
         return redirect('dashboard')
 
+    # 3. Reset Unread Count: Update the last_chat_view timestamp
+    membership.last_chat_view = timezone.now()
+    membership.save()
+
+    # 4. Get or Create the ChatRoom
     chat_room, created = ChatRoom.objects.get_or_create(group=group)
 
+    # 5. Handle New Message Submission (POST)
     if request.method == 'POST' and 'content' in request.POST:
         content = request.POST.get('content')
         if content:
             Message.objects.create(room=chat_room, sender=request.user, content=content)
         return redirect(request.path_info)
 
-    # Fetch messages and count reactions
+    # 6. Fetch messages and calculate reaction counts
     chat_messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
     for message in chat_messages:
         message.reaction_counts = (
@@ -37,6 +56,7 @@ def group_chat(request, group_id):
             .annotate(total=Count('id'))
         )
 
+    # 7. Fetch shared files for the sidebar
     files = SharedFile.objects.filter(room=chat_room).order_by('-uploaded_at')
 
     return render(request, 'chat/group_chat.html', {
@@ -202,24 +222,35 @@ def toggle_reaction(request, message_id):
     return JsonResponse({'success': False})
 
 
+from django.utils import timezone
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
 
 
 @login_required
 def group_posts(request, group_id):
+    # 1. Fetch the group and verify the user is a member
     group = get_object_or_404(StudyGroup, id=group_id)
 
-    # Updated membership check based on your core models (StudentProfile relationship)
-    is_member = GroupMembership.objects.filter(
+    # Using your specific model structure for membership check
+    membership = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
-    ).exists()
+    ).first()
 
-    if not is_member:
+    if not membership:
         return redirect('group_detail', group_id=group.id)
 
+    # 2. Update the 'last_feed_view' timestamp
+    # This ensures that next time 'group_detail' is loaded,
+    # the unread count for posts will be 0
+    membership.last_feed_view = timezone.now()
+    membership.save()
+
+    # 3. Handle New Post Creation (POST request)
     if request.method == 'POST':
         content = request.POST.get('content')
-        image = request.FILES.get('image') # Handle the image file
+        image = request.FILES.get('image')  # Handle the image file
 
         if content or image:
             GroupPost.objects.create(
@@ -230,7 +261,10 @@ def group_posts(request, group_id):
             )
         return redirect('group_posts', group_id=group.id)
 
-    posts = GroupPost.objects.filter(group=group).order_by('-created_at')
+    # 4. Fetch existing posts for the feed
+    # Access posts via the StudyGroup's related_name='posts'
+    posts = group.posts.all().order_by('-created_at')
+
     return render(request, 'chat/group_posts.html', {
         'group': group,
         'posts': posts,
