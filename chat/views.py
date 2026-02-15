@@ -24,7 +24,7 @@ from .models import ChatRoom, Message, SharedFile
 
 @login_required
 def group_chat(request, group_id):
-    # 1. Fetch the group and the specific membership record
+
     group = get_object_or_404(StudyGroup, id=group_id)
 
     is_member = GroupMembership.objects.filter(group=group, student__user=request.user).exists()
@@ -35,22 +35,22 @@ def group_chat(request, group_id):
         student__user=request.user
     ).first()
 
-    # 2. Security Check: Redirect if not a member
+
     if not membership:
         return redirect('dashboard')
 
 
-    # 3. Reset Unread Count: Update the last_chat_view timestamp
+
     membership.last_chat_view = timezone.now()
     membership.save()
 
-    # 4. Get or Create the ChatRoom
+
     chat_room, created = ChatRoom.objects.get_or_create(group=group)
 
 
-    # --- TIME RESTRICTION LOGIC ---
+
     now = timezone.localtime(timezone.now())
-    # Mapping study_day string (e.g., "Sat") to Python's weekday integer (5)
+
     day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
     group_weekday = day_map.get(group.study_day)
 
@@ -59,17 +59,14 @@ def group_chat(request, group_id):
         if group.start_time and group.end_time:
             if group.start_time <= now.time() <= group.end_time:
                 is_timetable_active = True
-    # ------------------------------
 
-
-    # 5. Handle New Message Submission (POST)
     if request.method == 'POST' and 'content' in request.POST:
         content = request.POST.get('content')
         if content:
             Message.objects.create(room=chat_room, sender=request.user, content=content)
         return redirect(request.path_info)
 
-    # 6. Fetch messages and calculate reaction counts
+
 
     chat_messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
     for message in chat_messages:
@@ -78,7 +75,7 @@ def group_chat(request, group_id):
             .annotate(total=Count('id'))
         )
 
-    # 7. Fetch shared files for the sidebar
+
     files = SharedFile.objects.filter(room=chat_room).order_by('-uploaded_at')
 
     return render(request, 'chat/group_chat.html', {

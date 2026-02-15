@@ -53,9 +53,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.broadcast({'action': 'refresh'})
 
 
+
         elif action == 'call':
 
-            if await self.is_call_allowed():
+            # Check if call is allowed by timetable
+
+            allowed = await self.is_call_allowed()
+
+            if allowed:
+
                 await self.broadcast({
 
                     'action': 'call',
@@ -65,6 +71,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'data': data.get('data')
 
                 })
+
+            else:
+
+                # Optional: notify only sender that call is not allowed
+
+                await self.send(text_data=json.dumps({
+
+                    'action': 'call_denied',
+
+                    'message': 'Video call is only allowed during scheduled study time.'
+
+                }))
 
     async def broadcast(self, data):
         await self.channel_layer.group_send(
@@ -77,21 +95,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def is_call_allowed(self):
-        from core.models import StudyGroup
+        from django.utils import timezone
+        from core.models import StudyGroup, ChatRoom
         try:
             room = ChatRoom.objects.get(id=self.room_id)
             group = room.group
             now = timezone.localtime(timezone.now())
 
-            # Map day names to Python weekdays (0=Mon, 5=Sat, etc.)
             day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
             allowed_weekday = day_map.get(group.study_day)
 
+            # Check if today is the study day
             if now.weekday() == allowed_weekday:
-                if group.start_time <= now.time() <= group.end_time:
-                    return True
+                current_time = now.time()
+                # Ensure start and end times exist and check range
+                if group.start_time and group.end_time:
+                    if group.start_time <= current_time <= group.end_time:
+                        return True
             return False
-        except:
+        except Exception as e:
+            print(f"Call permission error: {e}")
             return False
 
     @database_sync_to_async

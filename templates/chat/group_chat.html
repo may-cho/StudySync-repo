@@ -26,6 +26,14 @@
                                 <button id="video-call-btn" class="btn btn-sm btn-outline-primary rounded-pill border-0 shadow-sm">
                                     <i class="bi bi-camera-video-fill me-1"></i> Join Video
                                 </button>
+                                <div id="call-controls" class="d-none d-flex gap-2">
+                                    <button id="mute-btn" class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="toggleMute()">
+                                        <i class="bi bi-mic-fill"></i>
+                                    </button>
+                                    <button id="camera-btn" class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="toggleCamera()">
+                                        <i class="bi bi-camera-video-fill"></i>
+                                    </button>
+                                </div>
                                 <button id="screen-share-btn" class="btn btn-sm btn-outline-secondary rounded-pill border-0 shadow-sm d-none">
                                     <i class="bi bi-display me-1"></i> Share Screen
                                 </button>
@@ -214,6 +222,8 @@
     const chatBody = document.getElementById('chat-messages');
     const messageInput = document.getElementById('message-input');
     const chatForm = document.getElementById('chat-form');
+    const muteBtn = document.getElementById('mute-btn');
+    const cameraBtn = document.getElementById('camera-btn');
 
     chatBody.scrollTop = chatBody.scrollHeight;
 
@@ -226,10 +236,28 @@
 
     chatSocket.onmessage = async function(e) {
         const data = JSON.parse(e.data);
+
         if (data.action === 'call') {
-            if (data.sender === "{{ request.user.username }}") return;
+
+    // Ignore if message is targeted to someone else
+    if (data.data.to && data.data.to !== "{{ request.user.username }}") {
+        return;
+    }
+
+    if (data.sender === "{{ request.user.username }}") return;
+
+        
+
+
+            // FORCE the video grid to show
+            const videoGrid = document.getElementById('video-grid');
+            videoGrid.classList.remove('d-none');
+            videoGrid.style.display = 'flex';
+
             const signal = data.data;
-            if (signal.type === 'ready') { initPeerConnection(data.sender, true); }
+            if (signal.type === 'ready') {
+                await initPeerConnection(data.sender, true);
+            }
             else if (signal.type === 'offer') {
                 await initPeerConnection(data.sender, false);
                 await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(signal.offer));
@@ -237,44 +265,66 @@
                 await peerConnections[data.sender].setLocalDescription(answer);
                 chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'answer', 'answer': answer, 'to': data.sender}}));
             }
-            else if (signal.type === 'answer') { await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(signal.answer)); }
-            else if (signal.type === 'candidate') { await peerConnections[data.sender].addIceCandidate(new RTCIceCandidate(signal.candidate)); }
+            else if (signal.type === 'answer') {
+                await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(signal.answer));
+            }
+            else if (signal.type === 'candidate') {
+                await peerConnections[data.sender].addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
         }
-        else if (data.action === 'refresh') { location.reload(); }
-        else if (data.action === 'edit') {
-            const textSpan = document.getElementById(`text-${data.msgId}`);
-            if (textSpan) { textSpan.innerText = data.content; cancelEdit(data.msgId); }
+        // FIX: Prevent page reload if a call is active to avoid disconnecting
+        else if (data.action === 'refresh' || data.action === 'delete') {
+            if (!localStream) {
+                location.reload();
+            } else {
+                console.log("New message received. Manual refresh needed to see it during call.");
+            }
         }
-        else if (data.action === 'delete') { location.reload(); }
     };
 
     async function initPeerConnection(remoteUser, isOffer) {
-        if (peerConnections[remoteUser]) return;
-        const pc = new RTCPeerConnection(iceConfig);
-        peerConnections[remoteUser] = pc;
+    if (peerConnections[remoteUser]) return;
 
-        const streamToSend = screenStream || localStream;
-        if (streamToSend) { streamToSend.getTracks().forEach(track => pc.addTrack(track, streamToSend)); }
+    const pc = new RTCPeerConnection(iceConfig);
+    peerConnections[remoteUser] = pc;
 
-        pc.onicecandidate = (e) => {
-            if (e.candidate) { chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'candidate', 'candidate': e.candidate, 'to': remoteUser}})); }
-        };
-        pc.ontrack = (e) => {
-            if (!document.getElementById(`video-${remoteUser}`)) {
-                const col = document.createElement('div');
-                col.className = 'video-item col-6 col-md-4 position-relative';
-                col.id = `container-${remoteUser}`;
-                col.innerHTML = `<video id="video-${remoteUser}" autoplay playsinline class="w-100 rounded-3 shadow-sm bg-dark" style="aspect-ratio: 16/9; object-fit: cover;"></video><span class="badge bg-dark position-absolute bottom-0 start-0 m-2 opacity-75">${remoteUser}</span>`;
-                document.getElementById('video-grid').appendChild(col);
-                document.getElementById(`video-${remoteUser}`).srcObject = e.streams[0];
-            }
-        };
-        if (isOffer) {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'offer', 'offer': offer, 'to': remoteUser}}));
-        }
+    // Ensure the local video grid is visible for the person receiving the call
+    document.getElementById('video-grid').classList.remove('d-none');
+    document.getElementById('video-grid').style.display = 'flex';
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
     }
+
+    pc.onicecandidate = (e) => {
+        if (e.candidate) {
+            chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'candidate', 'candidate': e.candidate, 'to': remoteUser}}));
+        }
+    };
+
+    pc.ontrack = (e) => {
+        // Use a more robust check for existing remote videos
+        let remoteVideo = document.getElementById(`video-${remoteUser}`);
+        if (!remoteVideo) {
+            const col = document.createElement('div');
+            col.className = 'video-item col-6 col-md-4 position-relative';
+            col.id = `container-${remoteUser}`;
+            col.innerHTML = `
+                <video id="video-${remoteUser}" autoplay playsinline class="w-100 rounded-3 shadow-sm bg-dark" style="aspect-ratio: 16/9; object-fit: cover;"></video>
+                <span class="badge bg-dark position-absolute bottom-0 start-0 m-2 opacity-75">${remoteUser}</span>
+            `;
+            document.getElementById('video-grid').appendChild(col);
+            remoteVideo = document.getElementById(`video-${remoteUser}`);
+        }
+        remoteVideo.srcObject = e.streams[0];
+    };
+
+    if (isOffer) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'offer', 'offer': offer, 'to': remoteUser}}));
+    }
+}
 
     const videoBtn = document.getElementById('video-call-btn');
     if (videoBtn) {
@@ -284,12 +334,21 @@
                     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     document.getElementById('local-video').srcObject = localStream;
                     document.getElementById('video-grid').classList.remove('d-none');
+                    document.getElementById('video-grid').style.display = 'flex';
+
                     videoBtn.classList.replace('btn-outline-primary', 'btn-danger');
                     videoBtn.innerHTML = '<i class="bi bi-camera-video-off-fill me-1"></i> Leave';
+
+                    // Show screen share, mute, and camera buttons
                     screenBtn.classList.remove('d-none');
+                    // Ensure you have these IDs in your HTML (as added in the previous step)
+                    if(document.getElementById('call-controls')) document.getElementById('call-controls').classList.remove('d-none');
+
                     chatSocket.send(JSON.stringify({'action': 'call', 'data': {'type': 'ready'}}));
                 } catch (err) { alert("Camera access denied."); }
-            } else { location.reload(); }
+            } else {
+                location.reload(); // Leave call
+            }
         };
     }
 
@@ -372,6 +431,23 @@
 
     function toggleReaction(messageId, emoji) {
         chatSocket.send(JSON.stringify({'action': 'react', 'msgId': messageId, 'emoji': emoji}));
+    }
+
+    function toggleMute() {
+        const audioTrack = localStream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+        const btn = document.getElementById('mute-btn');
+        btn.classList.toggle('btn-danger', !audioTrack.enabled);
+        btn.innerHTML = audioTrack.enabled ? '<i class="bi bi-mic-fill"></i>' : '<i class="bi bi-mic-mute-fill"></i>';
+    }
+
+    // Camera Toggle Logic
+    function toggleCamera() {
+        const videoTrack = localStream.getVideoTracks()[0];
+        videoTrack.enabled = !videoTrack.enabled;
+        const btn = document.getElementById('camera-btn');
+        btn.classList.toggle('btn-danger', !videoTrack.enabled);
+        btn.innerHTML = videoTrack.enabled ? '<i class="bi bi-camera-video-fill"></i>' : '<i class="bi bi-camera-video-off-fill"></i>';
     }
 
     async function handleFileUpload(input) {
