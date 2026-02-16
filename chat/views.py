@@ -11,80 +11,76 @@ from django.http import JsonResponse
 from django.db.models import Count
 from django.http import HttpResponseForbidden
 from django.contrib.auth.models import User
-from django.utils import timezone
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
-
-
-from django.utils import timezone
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.db.models import Count
-from core.models import StudyGroup, GroupMembership
-from .models import ChatRoom, Message, SharedFile
 
 @login_required
 def group_chat(request, group_id):
-
     group = get_object_or_404(StudyGroup, id=group_id)
-
-    is_member = GroupMembership.objects.filter(group=group, student__user=request.user).exists()
-    if not is_member: return redirect('dashboard')
-
-    membership = GroupMembership.objects.filter(
+    is_member = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
-    ).first()
+    ).exists()
 
-
-    if not membership:
+    if not is_member:
         return redirect('dashboard')
-
-
-
-    membership.last_chat_view = timezone.now()
-    membership.save()
-
 
     chat_room, created = ChatRoom.objects.get_or_create(group=group)
 
-
+    # ---------------------------
+    # ✅ VIDEO CALL LOGIC ADDED
+    # ---------------------------
+    from django.utils import timezone
 
     now = timezone.localtime(timezone.now())
 
-    day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+    day_map = {
+        'Mon': 0, 'Tue': 1, 'Wed': 2,
+        'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6
+    }
+
     group_weekday = day_map.get(group.study_day)
-
     is_timetable_active = False
-    if now.weekday() == group_weekday:
-        if group.start_time and group.end_time:
-            if group.start_time <= now.time() <= group.end_time:
-                is_timetable_active = True
 
-    if request.method == 'POST' and 'content' in request.POST:
-        content = request.POST.get('content')
-        if content:
-            Message.objects.create(room=chat_room, sender=request.user, content=content)
-        return redirect(request.path_info)
+    if group_weekday is not None:
+        if now.weekday() == group_weekday:
+            if group.start_time and group.end_time:
+                if group.start_time <= now.time() <= group.end_time:
+                    is_timetable_active = True
+
+    # Check if current user is creator
+    is_creator = (group.creator == request.user)
+    # ---------------------------
+    # END VIDEO CALL LOGIC
+    # ---------------------------
 
 
+    # Fetching messages (unchanged)
+    chat_messages = Message.objects.filter(room=chat_room)\
+        .prefetch_related('reactions')\
+        .order_by('timestamp')
 
-    chat_messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
     for message in chat_messages:
         message.reaction_counts = (
             message.reactions.values('emoji')
             .annotate(total=Count('id'))
         )
 
-
-    files = SharedFile.objects.filter(room=chat_room).order_by('-uploaded_at')
+    files = SharedFile.objects.filter(room=chat_room)\
+        .order_by('-uploaded_at')
 
     return render(request, 'chat/group_chat.html', {
         'group': group,
         'chat_room': chat_room,
         'chat_messages': chat_messages,
         'files': files,
+
+        # ✅ Added for video call UI control
         'is_timetable_active': is_timetable_active,
+        'is_creator': is_creator,
     })
+
 
 
 @login_required
@@ -105,35 +101,27 @@ def edit_message(request, message_id):
 def delete_message(request, message_id):
     message = get_object_or_404(Message, id=message_id)
 
-    # Security: Only sender can delete
     if message.sender != request.user:
         return HttpResponseForbidden("You cannot delete this message")
 
-    # --- NEW: Logic to also delete the associated file ---
-    # We check if the message is a file notification by looking for the pipe symbol
-    if "📎 Shared a file:" in message.content and "|" in message.content:
+    if "|" in message.content:
         try:
-            # Extract the URL part from "Filename | URL"
             file_url = message.content.split('|')[1].strip()
-
-            # Find the SharedFile object where the file field matches the URL path
-            # We use __icontains to match the file path stored in the database
             filename_part = file_url.split('/')[-1]
+            # Precise filtering to ensure we don't delete the wrong file
+            from core.models import SharedFile
             shared_file = SharedFile.objects.filter(
                 room=message.room,
                 file__icontains=filename_part
             ).first()
 
             if shared_file:
-                # Use your existing deletion logic: delete from storage first
                 if shared_file.file and os.path.isfile(shared_file.file.path):
                     os.remove(shared_file.file.path)
-                # Then delete the record (removes it from Resources sidebar)
                 shared_file.delete()
         except Exception as e:
-            print(f"Error deleting associated file: {e}")
+            print(f"File deletion error: {e}")
 
-    # Delete the message (removes it from Chatroom)
     message.delete()
     return JsonResponse({'success': True})
 
@@ -146,15 +134,42 @@ def upload_file(request, room_id):
         uploaded_file = request.FILES['file']
 
         shared_instance = SharedFile.objects.create(
-            room=chat_room, uploader=request.user, file=uploaded_file, filename=uploaded_file.name
+            room=chat_room,
+            uploader=request.user,
+            file=uploaded_file,
+            filename=uploaded_file.name
         )
-        # Create notification message
-        Message.objects.create(
-            room=chat_room, sender=request.user,
-            content=f"📎 Shared a file: {uploaded_file.name}|{shared_instance.file.url}"
+
+        file_msg = f"📎 Shared a file: {uploaded_file.name}|{shared_instance.file.url}"
+
+        message = Message.objects.create(
+            room=chat_room,
+            sender=request.user,
+            content=file_msg
         )
-        return JsonResponse({'success': True})
-    return JsonResponse({'success': False})
+
+        # ✅ NEW: Broadcast to the WebSocket group so everyone sees it instantly
+        channel_layer = get_channel_layer()
+        profile_pic = None
+        if hasattr(request.user, 'profile') and request.user.profile.image:
+            profile_pic = request.user.profile.image.url
+
+        async_to_sync(channel_layer.group_send)(
+            f'chat_{room_id}',  # Must match the room_group_name in your Consumer
+            {
+                'type': 'chat_message',
+                'action': 'new_message',
+                'msgId': str(message.id),
+                'username': request.user.username,
+                'profile_pic': profile_pic,
+                'content': file_msg,
+                'timestamp': 'Just now'
+            }
+        )
+
+        return JsonResponse({'success': True, 'message': file_msg})
+
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
 
 @login_required
 def get_messages(request, room_id):
@@ -237,28 +252,20 @@ def toggle_reaction(request, message_id):
 
 @login_required
 def group_posts(request, group_id):
-    # 1. Fetch the group and verify the user is a member
     group = get_object_or_404(StudyGroup, id=group_id)
 
-    # Using your specific model structure for membership check
-    membership = GroupMembership.objects.filter(
+    # Updated membership check based on your core models (StudentProfile relationship)
+    is_member = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
-    ).first()
+    ).exists()
 
-    if not membership:
+    if not is_member:
         return redirect('group_detail', group_id=group.id)
 
-    # 2. Update the 'last_feed_view' timestamp
-    # This ensures that next time 'group_detail' is loaded,
-    # the unread count for posts will be 0
-    membership.last_feed_view = timezone.now()
-    membership.save()
-
-    # 3. Handle New Post Creation (POST request)
     if request.method == 'POST':
         content = request.POST.get('content')
-        image = request.FILES.get('image')  # Handle the image file
+        image = request.FILES.get('image') # Handle the image file
 
         if content or image:
             GroupPost.objects.create(
@@ -269,10 +276,7 @@ def group_posts(request, group_id):
             )
         return redirect('group_posts', group_id=group.id)
 
-    # 4. Fetch existing posts for the feed
-    # Access posts via the StudyGroup's related_name='posts'
-    posts = group.posts.all().order_by('-created_at')
-
+    posts = GroupPost.objects.filter(group=group).order_by('-created_at')
     return render(request, 'chat/group_posts.html', {
         'group': group,
         'posts': posts,

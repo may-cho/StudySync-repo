@@ -120,7 +120,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/chat/views.py</url>
-          <line>24</line>
+          <line>17</line>
           <option name="timeStamp" value="37" />
         </line-breakpoint>
       </breakpoints>
