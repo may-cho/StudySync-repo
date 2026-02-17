@@ -14,51 +14,54 @@ from django.contrib.auth.models import User
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+from django.utils import timezone
+from django.db.models import Count
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import ChatRoom, Message, SharedFile
+from core.models import StudyGroup, GroupMembership
+
 
 @login_required
 def group_chat(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
-    is_member = GroupMembership.objects.filter(
+
+    # 1. Fetch membership and handle unread count logic
+    membership = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
-    ).exists()
+    ).first()
 
-    if not is_member:
+    if not membership:
         return redirect('dashboard')
 
+    # Update timestamp so the unread badge clears
+    membership.last_chat_view = timezone.now()
+    membership.save()
+
+    # 2. Get or Create ChatRoom
     chat_room, created = ChatRoom.objects.get_or_create(group=group)
 
     # ---------------------------
-    # ✅ VIDEO CALL LOGIC ADDED
+    # ✅ IMPROVED VIDEO CALL LOGIC
     # ---------------------------
-    from django.utils import timezone
-
     now = timezone.localtime(timezone.now())
 
-    day_map = {
-        'Mon': 0, 'Tue': 1, 'Wed': 2,
-        'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6
-    }
-
-    group_weekday = day_map.get(group.study_day)
+    # Using strftime('%a') ensures 'Mon', 'Tue' etc matches your group.study_day exactly
+    current_day_str = now.strftime('%a')
     is_timetable_active = False
 
-    if group_weekday is not None:
-        if now.weekday() == group_weekday:
-            if group.start_time and group.end_time:
-                if group.start_time <= now.time() <= group.end_time:
-                    is_timetable_active = True
+    if group.study_day == current_day_str:
+        if group.start_time and group.end_time:
+            # Direct time comparison
+            current_time = now.time()
+            if group.start_time <= current_time <= group.end_time:
+                is_timetable_active = True
 
-    # Check if current user is creator
-    is_creator = (group.creator == request.user)
     # ---------------------------
-    # END VIDEO CALL LOGIC
+    # 3. Fetch messages and reactions
     # ---------------------------
-
-
-    # Fetching messages (unchanged)
-    chat_messages = Message.objects.filter(room=chat_room)\
-        .prefetch_related('reactions')\
+    chat_messages = Message.objects.filter(room=chat_room) \
+        .prefetch_related('reactions') \
         .order_by('timestamp')
 
     for message in chat_messages:
@@ -67,18 +70,15 @@ def group_chat(request, group_id):
             .annotate(total=Count('id'))
         )
 
-    files = SharedFile.objects.filter(room=chat_room)\
-        .order_by('-uploaded_at')
+    files = SharedFile.objects.filter(room=chat_room).order_by('-uploaded_at')
 
     return render(request, 'chat/group_chat.html', {
         'group': group,
         'chat_room': chat_room,
         'chat_messages': chat_messages,
         'files': files,
-
-        # ✅ Added for video call UI control
         'is_timetable_active': is_timetable_active,
-        'is_creator': is_creator,
+        'is_creator': (group.creator.user == request.user),
     })
 
 
@@ -248,35 +248,67 @@ def toggle_reaction(request, message_id):
     return JsonResponse({'success': False})
 
 
+from django.utils import timezone
+from core.models import GroupMembership, ActivityNotification
+from core.utils import trigger_notification_update  # Using the helper we created
 
 
 @login_required
 def group_posts(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
 
-    # Updated membership check based on your core models (StudentProfile relationship)
-    is_member = GroupMembership.objects.filter(
+    # 1. Fetch the specific membership object
+    membership = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
-    ).exists()
+    ).first()
 
-    if not is_member:
+    if not membership:
         return redirect('group_detail', group_id=group.id)
 
+    # 2. ✅ CLEAR UNREAD BADGE: Update the last_feed_view timestamp
+    membership.last_feed_view = timezone.now()
+    membership.save()
+
+    # 3. Handle New Post Creation
     if request.method == 'POST':
         content = request.POST.get('content')
-        image = request.FILES.get('image') # Handle the image file
+        image = request.FILES.get('image')
 
         if content or image:
-            GroupPost.objects.create(
+            new_post = GroupPost.objects.create(
                 group=group,
                 author=request.user,
                 content=content,
                 image=image
             )
+
+            # 4. ✅ NOTIFY MEMBERS: Create notifications for all other members
+            other_memberships = group.memberships.exclude(student__user=request.user)
+
+            for member_ship in other_memberships:
+                # Optional: Only notify via ActivityNotification model if you want
+                # posts to show up in the "All Notifications" list
+                ActivityNotification.objects.create(
+                    recipient=member_ship.student.user,
+                    sender=request.user,
+                    notification_type='comment',  # Or add 'post' to your TYPES
+                    group_id=group.id,
+                    post_id=str(new_post.id),
+                    content_preview=f"New post: {content[:30]}" if content else "Shared an image"
+                )
+
+                # Trigger live WebSocket update for each member
+                trigger_notification_update(
+                    member_ship.student.user,
+                    f"{request.user.username} posted in {group.name}"
+                )
+
         return redirect('group_posts', group_id=group.id)
 
+    # 5. Fetch existing posts
     posts = GroupPost.objects.filter(group=group).order_by('-created_at')
+
     return render(request, 'chat/group_posts.html', {
         'group': group,
         'posts': posts,

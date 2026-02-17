@@ -8,6 +8,8 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from datetime import date, timedelta
 import uuid
+from .utils import trigger_notification_update # Add this import at the top
+
 
 
 # class User(AbstractUser):
@@ -572,29 +574,41 @@ class SessionAttendance(models.Model):
     def __str__(self):
         return f"{self.student.user.username} - {self.session}"
 
+class ActivityNotification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('like', 'Like'),
+        ('comment', 'Comment'),
+        ('post', 'New Post'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activity_notifications')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_activity')
+    notification_type = models.CharField(max_length=10, choices=NOTIFICATION_TYPES)
+
+    # Link to the Group where activity happened
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name='notifications')
+
+    # We store the Post ID as a string to avoid complex circular imports between Core and Chat apps
+    post_id = models.CharField(max_length=255, null=True, blank=True)
+
+    content_preview = models.CharField(max_length=150, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.sender.username} {self.notification_type} - {self.recipient.username}"
+
+
 
 @receiver(post_save, sender=GroupInvitation)
 def notify_invitation(sender, instance, created, **kwargs):
     if created:
-        channel_layer = get_channel_layer()
-        target_id = instance.invited_student.user.id
-
-        # Calculate total unread count
-        profile = instance.invited_student
-        unread_count = (
-                profile.received_invitations.filter(is_read=False).count() +
-                profile.received_matches.filter(is_read=False).count()
+        # Use our new central helper function
+        trigger_notification_update(
+            instance.invited_student.user,
+            f"New invite for {instance.group.name}"
         )
-
-        async_to_sync(channel_layer.group_send)(
-            f"user_notifications_{target_id}",
-            {
-                "type": "send_notification",
-                "count": unread_count,
-                "invitation_id": str(instance.id),
-                "group_name": instance.group.name,
-                "sender_name": instance.invited_by.user.username,
-                "message": f"New invite for {instance.group.name}"
-            }
-        )
-

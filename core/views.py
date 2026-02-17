@@ -338,8 +338,6 @@ def load_courses(request):
 
 from django.utils import timezone
 
-from django.utils import timezone
-
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
