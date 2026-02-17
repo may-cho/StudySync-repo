@@ -1,47 +1,56 @@
 const socket = new WebSocket(
-    (window.location.protocol === 'https:' ? 'wss://' : 'ws://')
-    + window.location.host
-    + '/ws/notifications/'
+  (window.location.protocol === "https:" ? "wss://" : "ws://") +
+    window.location.host +
+    "/ws/notifications/",
 );
+window.onload = () => {
+  socket.onopen = function (e) {
+    console.log("Connections Established!");
+  };
+};
+socket.onmessage = function (e) {
+  const data = JSON.parse(e.data);
+  console.log("parse data received! " + data);
+  for (let data in data) {
+    console.log(data);
+  }
+  const badge = document.getElementById("unread-count-badge");
 
-socket.onmessage = function(e) {
-    const data = JSON.parse(e.data);
-    const badge = document.getElementById('unread-count-badge');
-
-    if (badge) {
-        badge.innerText = data.count;
-        if (data.count > 0) {
-            badge.style.display = 'inline-block';
-        } else {
-            badge.style.display = 'none';
-        }
+  if (badge) {
+    badge.innerText = data.count;
+    if (data.count > 0) {
+      badge.style.display = "inline-block";
     } else {
-        // If badge doesn't exist yet, you might need to inject the HTML
-        // into the notification icon container
-        location.reload(); // Simple fallback: refresh to show new badge
+      badge.style.display = "none";
     }
+  } else {
+    // If badge doesn't exist yet, you might need to inject the HTML
+    // into the notification icon container
+    // location.reload(); // Simple fallback: refresh to show new badge
+  }
 
-    // Optional: Show a small "Toast" notification like Facebook
-    alert(data.message);
+  // Optional: Show a small "Toast" notification like Facebook
+  alert(data.message);
 };
 
-socket.onmessage = function(e) {
-    const data = JSON.parse(e.data);
+socket.onmessage = function (e) {
+  const data = JSON.parse(e.data);
+  console.log("parse data received! " + data[0]);
 
-    // 1. Update Badge
-    const badge = document.getElementById('unread-count-badge');
-    if (badge) {
-        badge.innerText = data.count;
-        badge.style.display = 'block';
-    }
+  // 1. Update Badge
+  const badge = document.getElementById("unread-count-badge");
+  if (badge) {
+    badge.innerText = data.count;
+    badge.style.display = "block";
+  }
 
-    // 2. Prep the Notification Item
-    const container = document.getElementById('notification-items-container');
-    const noMsg = document.getElementById('no-notifications-msg');
-    if (noMsg) noMsg.remove();
+  // 2. Prep the Notification Item
+  const container = document.getElementById("notification-items-container");
+  const noMsg = document.getElementById("no-notifications-msg");
+  if (noMsg) noMsg.remove();
 
-    // 3. Build the HTML dynamically
-    const newHtml = `
+  // 3. Build the HTML dynamically
+  const newHtml = `
         <div class="dropdown-item border-bottom animate__animated animate__fadeIn" style="background-color: #f0f7ff;">
             <div class="d-flex p-1">
                 <div class="flex-shrink-0">
@@ -67,26 +76,41 @@ socket.onmessage = function(e) {
         </div>
     `;
 
-    container.insertAdjacentHTML('afterbegin', newHtml);
+  container.insertAdjacentHTML("afterbegin", newHtml);
 };
-
+function getCSRFToken() {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      // Default Django cookie name is 'csrftoken'
+      if (cookie.substring(0, 10) === "csrftoken=") {
+        cookieValue = decodeURIComponent(cookie.substring(10));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
 function markAsRead() {
-    const badge = document.getElementById('unread-count-badge');
-    if (!badge || badge.style.display === 'none') return;
+  const badge = document.getElementById("unread-count-badge");
+  if (!badge || badge.style.display === "none") return;
 
-    fetch('/notifications/mark-read/', { // Ensure this URL matches your urls.py
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json'
-        }
-    }).then(response => {
-        if (response.ok) {
-            badge.style.display = 'none';
-            // Optional: Change background of "new" items to white
-            document.querySelectorAll('.dropdown-item').forEach(el => {
-                el.style.backgroundColor = 'white';
-            });
-        }
-    });
+  fetch("/notifications/mark-read/", {
+    // Ensure this URL matches your urls.py
+    method: "POST",
+    headers: {
+      "X-CSRFToken": getCSRFToken(),
+      "Content-Type": "application/json",
+    },
+  }).then((response) => {
+    if (response.ok) {
+      badge.style.display = "none";
+      // Optional: Change background of "new" items to white
+      document.querySelectorAll(".dropdown-item").forEach((el) => {
+        el.style.backgroundColor = "white";
+      });
+    }
+  });
 }
