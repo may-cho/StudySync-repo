@@ -1499,47 +1499,36 @@ def all_notifications(request):
     # Sort by date (newest first)
     all_notifications.sort(key=lambda x: x.created_at, reverse=True)
 
-    # Mark all as read when they visit this page (Optional but recommended)
-    invites.update(is_read=True)
-    matches.update(is_read=True)
-    activities.update(is_read=True)
+    # Mark as read
+    invites.filter(is_read=False).update(is_read=True)
+    matches.filter(is_read=False).update(is_read=True)
+    # Ensure activity is also marked read
+    activities.filter(is_read=False).update(is_read=True)
 
     # Trigger a counter reset via WebSocket (optional)
     from .utils import trigger_notification_update
-    trigger_notification_update(request.user)
+    trigger_notification_update(request.user, message_text="All read")
 
     return render(request, 'core/all_notifications.html', {
         'notifications': all_notifications
     })
 
 @login_required
-@require_POST  # Ensures this only works with POST requests (security best practice)
+@require_POST
 def mark_notifications_read(request):
-    """
-    Marks all unread notifications for the current user as read.
-    Triggered when clicking the notification bell icon.
-    """
     try:
         profile = request.user.studentprofile
+        user = request.user
 
-        # 1. Update Group Invitations
-        invitations_updated = GroupInvitation.objects.filter(
-            invited_student=profile,
-            is_read=False
-        ).update(is_read=True)
+        # Mark everything as read
+        GroupInvitation.objects.filter(invited_student=profile, is_read=False).update(is_read=True)
+        CourseGroupMatch.objects.filter(target_student=profile, is_read=False).update(is_read=True)
+        ActivityNotification.objects.filter(recipient=user, is_read=False).update(is_read=True)
 
-        # 2. Update Course Matches
-        matches_updated = CourseGroupMatch.objects.filter(
-            target_student=profile,
-            is_read=False
-        ).update(is_read=True)
+        # Trigger WebSocket update so the red bubble disappears immediately
+        from .utils import trigger_notification_update
+        trigger_notification_update(user)
 
-        return JsonResponse({
-            'status': 'success',
-            'updated_count': invitations_updated + matches_updated
-        })
+        return JsonResponse({'status': 'success'})
     except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': str(e)
-        }, status=500)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

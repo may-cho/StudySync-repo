@@ -58,7 +58,7 @@ def trigger_notification_update(user, message_text="New notification", group_id=
         f"user_notifications_{user.id}",
         {
             "type": "send_notification",  # Matches method in consumers.py
-            "total_count": total_unread,
+            "count": total_unread,
             "group_update": group_update_data,
             "message": message_text
         }

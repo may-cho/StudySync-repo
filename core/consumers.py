@@ -19,11 +19,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         # Use .get() to provide a default value (0) if 'count' isn't in the event
         message = event.get('message', 'New notification')
         count = event.get('count', 0)
-        group_id = event.get('group_id', None)
-
+        group_update = event.get('group_update', {})
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'message': message,
             'count': count,
-            'group_id': group_id
+            'group_update': group_update
         }))

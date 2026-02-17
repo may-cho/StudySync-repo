@@ -336,6 +336,18 @@ def add_comment(request, post_id):
                 author=request.user,
                 content=content
             )
+            # ✅ NEW: Notify post author about the comment
+            if post.author != request.user:
+                ActivityNotification.objects.create(
+                    recipient=post.author,
+                    sender=request.user,
+                    notification_type='comment',
+                    group=post.group,
+                    content_preview=content[:30],
+                    is_read=False
+                )
+                # Trigger live update
+                trigger_notification_update(post.author, f"{request.user.username} commented on your post.")
 
     return redirect('group_posts', group_id=post.group.id)
 
@@ -398,6 +410,20 @@ def toggle_post_like(request, post_id):
         post.likes.remove(request.user)
     else:
         post.likes.add(request.user)
+
+        # ✅ NEW: Create notification for the post author
+        if post.author != request.user:
+            ActivityNotification.objects.create(
+                recipient=post.author,
+                sender=request.user,
+                notification_type='like',
+                group=post.group,
+                content_preview=post.content[:30] if post.content else "Liked your photo",
+                is_read=False
+            )
+            # Trigger real-time WebSocket update
+            trigger_notification_update(post.author, f"{request.user.username} liked your post.")
+
     return redirect('group_posts', group_id=post.group.id)
 
 

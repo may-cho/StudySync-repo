@@ -107,6 +107,18 @@
 //    }
 //};
 
+const socket = new WebSocket('ws://' + window.location.host + '/ws/notifications/');
+
+socket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    const badge = document.getElementById('notification-badge');
+
+    if (badge) {
+        badge.innerText = data.count;
+        badge.style.display = data.count > 0 ? 'block' : 'none';
+    }
+};
+
 notificationSocket.onmessage = function(e) {
     const data = JSON.parse(e.data);
 
