@@ -16,7 +16,14 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     # This method is called when we send a message to the group
     async def send_notification(self, event):
+        # Use .get() to provide a default value (0) if 'count' isn't in the event
+        message = event.get('message', 'New notification')
+        count = event.get('count', 0)
+        group_id = event.get('group_id', None)
+
+        # Send message to WebSocket
         await self.send(text_data=json.dumps({
-            'count': event['count'],
-            'message': event['message']
+            'message': message,
+            'count': count,
+            'group_id': group_id
         }))

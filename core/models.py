@@ -579,6 +579,7 @@ class ActivityNotification(models.Model):
         ('like', 'Like'),
         ('comment', 'Comment'),
         ('post', 'New Post'),
+        ('accept', 'Accepted Invite'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

@@ -12,45 +12,49 @@
                     {% for n in notifications %}
                         <div class="list-group-item p-4 {% if not n.is_read %}bg-light{% endif %} border-start-0 border-end-0">
                             <div class="d-flex align-items-start">
+
                                 <div class="flex-shrink-0 me-3">
-                                    {% if n.invited_by %}
-                                        <div class="rounded-circle bg-primary-subtle p-3 text-primary">
-                                            <i class="fas fa-users fa-lg"></i>
-                                        </div>
-                                    {% else %}
-                                        <div class="rounded-circle bg-info-subtle p-3 text-info">
-                                            <i class="fas fa-bolt fa-lg"></i>
-                                        </div>
+                                    {% if n.invited_by %} <div class="rounded-circle bg-primary-subtle p-3 text-primary"><i class="fas fa-users fa-lg"></i></div>
+                                    {% elif n.initiator %} <div class="rounded-circle bg-info-subtle p-3 text-info"><i class="fas fa-bolt fa-lg"></i></div>
+                                    {% else %} {% if n.notification_type == 'like' %}
+                                            <div class="rounded-circle bg-danger-subtle p-3 text-danger"><i class="fas fa-heart fa-lg"></i></div>
+                                        {% elif n.notification_type == 'comment' %}
+                                            <div class="rounded-circle bg-success-subtle p-3 text-success"><i class="fas fa-comment fa-lg"></i></div>
+                                        {% else %}
+                                            <div class="rounded-circle bg-warning-subtle p-3 text-warning"><i class="fas fa-newspaper fa-lg"></i></div>
+                                        {% endif %}
                                     {% endif %}
                                 </div>
 
                                 <div class="flex-grow-1">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <small class="text-muted">{{ n.created_at|timesince }} ago</small>
-                                        {% if not n.is_read %}
-                                            <span class="badge rounded-pill bg-primary" style="font-size: 0.6rem;">NEW</span>
-                                        {% endif %}
+                                        {% if not n.is_read %}<span class="badge rounded-pill bg-primary" style="font-size: 0.6rem;">NEW</span>{% endif %}
                                     </div>
 
                                     {% if n.invited_by %}
-                                        <p class="mb-2">
-                                            <strong>{{ n.invited_by.user.username }}</strong> invited you to join the study group:
-                                            <span class="text-primary fw-bold">{{ n.group.name }}</span>
-                                        </p>
-                                        <div class="mt-3">
-                                            <a href="{% url 'accept_invitation' n.id %}" class="btn btn-success btn-sm px-4 me-2">Accept</a>
-                                            <a href="{% url 'decline_invitation' n.id %}" class="btn btn-outline-secondary btn-sm px-4">Decline</a>
+                                        <p class="mb-2"><strong>{{ n.invited_by.user.username }}</strong> invited you to <strong>{{ n.group.name }}</strong></p>
+                                        <div class="mt-2">
+                                            <a href="{% url 'accept_invitation' n.id %}" class="btn btn-success btn-sm">Accept</a>
+                                            <a href="{% url 'decline_invitation' n.id %}" class="btn btn-outline-secondary btn-sm">Decline</a>
+                                        </div>
+
+                                    {% elif n.initiator %}
+                                        <p class="mb-2">Match! <strong>{{ n.initiator.user.username }}</strong> is taking <strong>{{ n.course.code }}</strong></p>
+                                        <div class="mt-2">
+                                            <a href="{% url 'respond_invite' n.id 'accept' %}" class="btn btn-primary btn-sm">Connect</a>
                                         </div>
 
                                     {% else %}
-                                        <p class="mb-2">
-                                            New study partner match! <strong>{{ n.initiator.user.username }}</strong>
-                                            is also taking <span class="badge bg-secondary">{{ n.course.code }}</span>.
+                                        <p class="mb-1">
+                                            <strong>{{ n.sender.username }}</strong>
+                                            {% if n.notification_type == 'like' %}liked your post{% elif n.notification_type == 'comment' %}commented on your post{% else %}posted a new update{% endif %}
+                                            in <strong>{{ n.group.name }}</strong>
                                         </p>
-                                        <div class="mt-3">
-                                            <a href="{% url 'respond_invite' n.id 'accept' %}" class="btn btn-primary btn-sm px-4 me-2">Connect</a>
-                                            <a href="{% url 'respond_invite' n.id 'decline' %}" class="btn btn-outline-secondary btn-sm px-4">Ignore</a>
-                                        </div>
+                                        {% if n.content_preview %}
+                                            <p class="text-muted small italic">"{{ n.content_preview }}"</p>
+                                        {% endif %}
+                                        <a href="{% url 'group_posts' n.group.id %}" class="btn btn-link btn-sm p-0 text-decoration-none text-primary">View Post</a>
                                     {% endif %}
                                 </div>
                             </div>
