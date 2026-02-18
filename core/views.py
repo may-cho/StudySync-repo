@@ -338,8 +338,6 @@ def load_courses(request):
 
 from django.utils import timezone
 
-from django.utils import timezone
-
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
@@ -661,12 +659,12 @@ def edit_profile(request):
     return render(request, 'core/edit_profile.html', {'form': form, 'profile': profile})
 
 
+@login_required
 def student_profile(request, user_id):
     # 1. Get the User object for the profile you are viewing
     target_user = get_object_or_404(User, id=user_id)
 
-    # 2. Get the StudentProfile for both the target and the current viewer
-    # Note: Check your model to see if it's .profile or .studentprofile
+    # 2. Use 'target_profile' consistently to avoid collision with function name
     target_profile = target_user.studentprofile
     viewer_profile = request.user.studentprofile
 
@@ -677,25 +675,37 @@ def student_profile(request, user_id):
     # 4. Find shared courses
     shared_courses = student_courses.filter(id__in=viewer_courses)
 
-    # 2. USER'S GROUPS (All groups user joined)
+    # 5. USER'S GROUPS (All groups viewer joined)
     user_groups = StudyGroup.objects.filter(
         memberships__student=viewer_profile
     ).distinct()
 
-    # 3. TARGET USER'S ADMIN GROUPS
-    # Filter the groups where the user has an admin role
+    # 6. VIEWER'S ADMIN GROUPS (Groups they can invite others to)
     user_admin_groups = user_groups.filter(
         memberships__role__in=['admin', 'project_admin']
     ).distinct()
+
+    # 7. ✅ FIXED: Use 'target_profile' here instead of 'student_profile'
+    pending_invites = GroupInvitation.objects.filter(
+        invited_student=target_profile,
+        status='pending'
+    ).values_list('group_id', flat=True)
+
+    already_member_group_ids = StudyGroup.objects.filter(
+        memberships__student=target_profile
+    ).values_list('id', flat=True)
 
     context = {
         'student': target_user,
         'student_profile': target_profile,
         'shared_courses': shared_courses,
         'user_groups': user_groups,
+        'pending_invites': list(pending_invites),
         'user_admin_groups': user_admin_groups,
+        'already_member_group_ids': list(already_member_group_ids),  # Added this
     }
     return render(request, 'core/student_profile.html', context)
+
 
 @login_required
 def add_course(request):
@@ -1051,91 +1061,161 @@ def create_group_with_student(request, student_id):
 
     return redirect('student_profile', user_id=student_id)
 
+
+from django.utils import timezone
+from datetime import timedelta
+from django.db import IntegrityError
+
+
 @login_required
 def invite_to_existing_group(request, student_id):
-    """Invite student to an existing group"""
+    """Invite student with graceful warnings instead of crashes"""
     if request.method == 'POST':
+        # 1. Get the target student (The person being invited)
         target_user = get_object_or_404(User, id=student_id)
-        target_profile = target_user.studentprofile
+        target_profile = getattr(target_user, 'studentprofile', None)
         viewer_profile = request.user.studentprofile
         group_id = request.POST.get('group_id')
         invite_message = request.POST.get('invite_message', '')
 
+        if not target_profile:
+            messages.error(request, "Target user profile not found.")
+            return redirect('student_profile', user_id=student_id)
+
         try:
             group = StudyGroup.objects.get(id=group_id)
 
-            # Check if user is admin of the group
-            if not group.is_admin(request.user):
-                messages.error(request, 'You need to be an admin to invite members.')
-                return redirect('student_profile', user_id=student_id)
-
-            # Check if student is already a member
+            # 2. Check: Is the user already a member?
             if group.memberships.filter(student=target_profile).exists():
                 messages.warning(request, f'{target_user.username} is already a member of this group.')
                 return redirect('student_profile', user_id=student_id)
 
-            # Check if invitation already exists
-            if GroupInvitation.objects.filter(group=group, invited_student=target_profile, status='pending').exists():
-                messages.info(request, f'An invitation has already been sent to {target_user.username}.')
-                return redirect('student_profile', user_id=student_id)
-
-            # Create invitation
-            invitation = GroupInvitation.objects.create(
+            # 3. Check: Is there already an active/pending invitation?
+            # We look for the unique pair (group + target_profile)
+            existing_invite = GroupInvitation.objects.filter(
                 group=group,
-                invited_by=viewer_profile,
-                invited_student=target_profile,
-                message=invite_message,
-                expires_at=timezone.now() + timedelta(days=7)
-            )
+                invited_student=target_profile
+            ).first()
 
-            messages.success(request, f'Invitation sent to {target_user.username}!')
+            if existing_invite:
+                if existing_invite.status == 'pending' and not existing_invite.is_expired():
+                    # CASE: Already invited and still waiting
+                    messages.info(request, f'An invitation is already pending for {target_user.username}.')
+                else:
+                    # CASE: Previously invited (declined or expired) - we RE-INVITE
+                    existing_invite.status = 'pending'
+                    existing_invite.invited_by = viewer_profile
+                    existing_invite.message = invite_message
+                    existing_invite.created_at = timezone.now()
+                    existing_invite.expires_at = timezone.now() + timedelta(days=7)
+                    existing_invite.save()
+
+                    messages.success(request, f"Invitation re-sent to {target_user.username}!")
+                    # Notify via WebSocket
+                    from .utils import trigger_notification_update
+                    trigger_notification_update(target_user, f"New invite for {group.name}")
+            else:
+                # 4. CASE: First time invitation
+                GroupInvitation.objects.create(
+                    group=group,
+                    invited_by=viewer_profile,
+                    invited_student=target_profile,
+                    message=invite_message,
+                    status='pending',
+                    expires_at=timezone.now() + timedelta(days=7)
+                )
+                messages.success(request, f'Invitation sent to {target_user.username}!')
+
+                # Notify via WebSocket
+                from .utils import trigger_notification_update
+                trigger_notification_update(target_user, f"New invite for {group.name}")
 
         except StudyGroup.DoesNotExist:
             messages.error(request, 'Group not found.')
-
-        return redirect('student_profile', user_id=student_id)
+        except Exception as e:
+            # Catch-all for any other weird errors to prevent 500 pages
+            messages.error(request, f"An unexpected error occurred: {str(e)}")
 
     return redirect('student_profile', user_id=student_id)
 
+
+from django.contrib import messages
+from .models import ActivityNotification, TimetableSlot
+from .utils import trigger_notification_update
+
+
 @login_required
 def accept_invitation(request, invitation_id):
-    """Accept a group invitation"""
+    """Accept a group invitation and notify the inviter"""
     invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
 
     if invitation.status == 'pending' and not invitation.is_expired():
         invitation.accept()
-        group = invitation.group;
+        group = invitation.group
+
+        # 1. Update Timetable
         days = group.study_day.split(",")
         slots = [
             TimetableSlot(
-                student = request.user.studentprofile,
-                slot_type = "activity",
-                day= d.strip(),
+                student=request.user.studentprofile,
+                slot_type="activity",
+                day=d.strip(),
                 start_time=group.start_time,
-                end_time = group.end_time,
-                custom_name = group.name
+                end_time=group.end_time,
+                custom_name=group.name
             )
             for d in days
         ]
-        
         TimetableSlot.objects.bulk_create(slots)
-        
-        
-        messages.success(request, f'You have joined "{invitation.group.name}"!')
+
+        # 2. Create Activity Notification for the Inviter
+        ActivityNotification.objects.create(
+            recipient=invitation.invited_by.user,
+            sender=request.user,
+            notification_type='comment',  # Using comment type or add 'accept' to your model choices
+            group=group,
+            content_preview=f"Joined the group: {group.name}"
+        )
+
+        # 3. Trigger WebSocket update for the Inviter
+        trigger_notification_update(
+            invitation.invited_by.user,
+            message_text=f"{request.user.username} accepted your invite to {group.name}"
+        )
+
+        messages.success(request, f'You have joined "{group.name}"!')
+        return redirect('group_detail', group_id=group.id)
+
     elif invitation.is_expired():
         messages.error(request, 'This invitation has expired.')
     else:
         messages.error(request, 'This invitation is no longer valid.')
 
-    return redirect('group_detail', group_id=invitation.group.id)
+    return redirect('dashboard')
+
 
 @login_required
 def decline_invitation(request, invitation_id):
-    """Decline a group invitation"""
+    """Decline a group invitation and notify the inviter"""
     invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
 
     if invitation.status == 'pending':
         invitation.decline()
+
+        # Optional: Notify the inviter that the request was declined
+        ActivityNotification.objects.create(
+            recipient=invitation.invited_by.user,
+            sender=request.user,
+            notification_type='comment',
+            group=invitation.group,
+            content_preview=f"Declined the invite to {invitation.group.name}"
+        )
+
+        trigger_notification_update(
+            invitation.invited_by.user,
+            message_text=f"{request.user.username} declined the invite to {invitation.group.name}"
+        )
+
         messages.info(request, f'You have declined the invitation to "{invitation.group.name}".')
 
     return redirect('dashboard')
@@ -1394,57 +1474,61 @@ def delete_timetable_slot(request, slot_id):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from .models import GroupInvitation, CourseGroupMatch, ActivityNotification
+
+
 @login_required
 def all_notifications(request):
     profile = request.user.studentprofile
 
-    # Get both types of notifications
-    invites = profile.received_invitations.all()
-    matches = profile.received_matches.all()
+    # 1. Fetch Invitations
+    invites = GroupInvitation.objects.filter(invited_student=profile).order_by('-created_at')
 
-    # Combine and sort by date
-    notifications = sorted(
-        list(invites) + list(matches),
-        key=lambda x: x.created_at,
-        reverse=True
-    )
+    # 2. Fetch Matches
+    matches = CourseGroupMatch.objects.filter(target_student=profile).order_by('-created_at')
 
-    # Mark all as read when they view this page
+    # 3. Fetch Activity (Likes, Comments, Posts, Acceptances)
+    activities = ActivityNotification.objects.filter(recipient=request.user)
+
+    # Combine all lists
+    all_notifications = list(invites) + list(matches) + list(activities)
+
+    # Sort by date (newest first)
+    all_notifications.sort(key=lambda x: x.created_at, reverse=True)
+
+    # Mark as read
     invites.filter(is_read=False).update(is_read=True)
     matches.filter(is_read=False).update(is_read=True)
+    # Ensure activity is also marked read
+    activities.filter(is_read=False).update(is_read=True)
+
+    # Trigger a counter reset via WebSocket (optional)
+    from .utils import trigger_notification_update
+    trigger_notification_update(request.user, message_text="All read")
 
     return render(request, 'core/all_notifications.html', {
-        'notifications': notifications
+        'notifications': all_notifications
     })
 
 @login_required
-@require_POST  # Ensures this only works with POST requests (security best practice)
+@require_POST
 def mark_notifications_read(request):
-    """
-    Marks all unread notifications for the current user as read.
-    Triggered when clicking the notification bell icon.
-    """
     try:
         profile = request.user.studentprofile
+        user = request.user
 
-        # 1. Update Group Invitations
-        invitations_updated = GroupInvitation.objects.filter(
-            invited_student=profile,
-            is_read=False
-        ).update(is_read=True)
+        # Mark everything as read
+        GroupInvitation.objects.filter(invited_student=profile, is_read=False).update(is_read=True)
+        CourseGroupMatch.objects.filter(target_student=profile, is_read=False).update(is_read=True)
+        ActivityNotification.objects.filter(recipient=user, is_read=False).update(is_read=True)
 
-        # 2. Update Course Matches
-        matches_updated = CourseGroupMatch.objects.filter(
-            target_student=profile,
-            is_read=False
-        ).update(is_read=True)
+        # Trigger WebSocket update so the red bubble disappears immediately
+        from .utils import trigger_notification_update
+        trigger_notification_update(user)
 
-        return JsonResponse({
-            'status': 'success',
-            'updated_count': invitations_updated + matches_updated
-        })
+        return JsonResponse({'status': 'success'})
     except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': str(e)
-        }, status=500)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

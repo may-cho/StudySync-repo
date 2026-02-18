@@ -39,7 +39,7 @@
                     <a href="{% url 'chat_room' group.id %}" class="btn btn-success rounded-pill px-4 shadow-sm position-relative">
                          <i class="bi bi-chat-dots-fill me-1"></i>Open Chat
                         {% if new_messages_count > 0 %}
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            <span id="chat-badge-{{ group.id }}" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" >
                                 {% if new_messages_count > 99 %}99+{% else %}{{ new_messages_count }}{% endif %}
                             </span>
                         {% endif %}
@@ -48,7 +48,7 @@
                    <a href="{% url 'group_posts' group.id %}" class="btn btn-primary rounded-pill px-4 shadow-sm position-relative">
                         <i class="bi bi-grid-fill me-1"></i>View Posts
                         {% if new_posts_count > 0 %}
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-info border border-white">
+                            <span id="posts-badge-{{ group.id }}" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-info border border-white">
                                 {% if new_posts_count > 99 %}99+{% else %}{{ new_posts_count }}{% endif %}
                             </span>
                         {% endif %}
@@ -152,4 +152,44 @@
         </div>
     </div>
 </div>
+<script>
+    // This connects to the same NotificationConsumer we set up earlier
+const groupSocket = new WebSocket(
+    (window.location.protocol === 'https:' ? 'wss://' : 'ws://')
+    + window.location.host
+    + '/ws/notifications/'
+);
+
+groupSocket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    // 1. Update Global Navbar (If it exists on this page)
+    const globalBadge = document.getElementById('notification-badge');
+    if (globalBadge) {
+        globalBadge.innerText = data.count;
+        data.count > 0 ? globalBadge.classList.remove('d-none') : globalBadge.classList.add('d-none');
+    }
+
+    // 2. Update Group-Specific Badges
+    if (data.group_update) {
+        const gId = data.group_update.group_id;
+
+        // Update Chat Badge
+        const chatBadge = document.getElementById(`chat-badge-${gId}`);
+        if (chatBadge) {
+            const msgCount = data.group_update.new_messages;
+            chatBadge.innerText = msgCount > 99 ? '99+' : msgCount;
+            msgCount > 0 ? chatBadge.classList.remove('d-none') : chatBadge.classList.add('d-none');
+        }
+
+        // Update Posts Badge
+        const postBadge = document.getElementById(`posts-badge-${gId}`);
+        if (postBadge) {
+            const pCount = data.group_update.new_posts;
+            postBadge.innerText = pCount > 99 ? '99+' : pCount;
+            pCount > 0 ? postBadge.classList.remove('d-none') : postBadge.classList.add('d-none');
+        }
+    }
+};
+</script>
 {% endblock %}

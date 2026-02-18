@@ -470,49 +470,65 @@
                             <hr>
 
                             <!-- Option 2: Invite to Existing Group -->
-                            <div>
-                                <h6 class="mb-3">
-                                    <i class="fas fa-user-plus text-primary me-2"></i>
-                                    Invite to Existing Group
-                                </h6>
-                                {% if user_groups %}
-                                <form method="post" action="{% url 'invite_to_existing_group' student.id %}" class="row g-3">
-                                    {% csrf_token %}
-                                    <div class="col-md-8">
-                                        <label for="group_id" class="form-label">Select Group *</label>
-                                        <select class="form-select" id="group_id" name="group_id" required>
-                                            <option value="">Choose a group...</option>
-                                            {% for group in user_admin_groups %}
-                                                <option value="{{ group.id }}">{{ group.name }} ({{ group.member_count }} members)</option>
-                                            {% endfor %}
-                                        </select>
-                                        <small class="text-muted">Only groups where you are an admin are shown</small>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="invite_message2" class="form-label">Message (Optional)</label>
-                                        <input type="text" class="form-control" id="invite_message2" name="invite_message"
-                                               placeholder="Join our study group!">
-                                    </div>
-                                    <div class="col-12">
-                                        <div class="d-grid">
-                                            <button type="submit" class="btn btn-primary">
-                                                <i class="fas fa-paper-plane me-2"></i> Send Invitation
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                                {% else %}
-                                <div class="alert alert-info">
-                                    <div class="d-flex align-items-center">
-                                        <i class="fas fa-info-circle me-3"></i>
-                                        <div>
-                                            <p class="mb-0">You don't have any groups yet where you are an admin.</p>
-                                            <p class="mb-0">Create a new group above or join existing groups first.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </div>
+                            <div class="mt-4">
+    <h6 class="mb-3">
+        <i class="fas fa-user-plus text-primary me-2"></i>
+        Invite to Existing Group
+    </h6>
+
+    {% if user_admin_groups %}
+    <form method="post" action="{% url 'invite_to_existing_group' student.id %}" class="row g-3">
+        {% csrf_token %}
+        <div class="col-md-8">
+            <label for="group_id" class="form-label">Select Group *</label>
+            <select class="form-select" id="group_id" name="group_id" required>
+                <option value="">Choose a group...</option>
+                {% for group in user_admin_groups %}
+
+                    {% if group.id in already_member_group_ids %}
+                        <option value="{{ group.id }}" disabled style="color: #999;">
+                            {{ group.name }} — (Already a Member)
+                        </option>
+                    {% elif group.id in pending_invites %}
+                        <option value="{{ group.id }}" disabled style="color: #999;">
+                            {{ group.name }} — (Invitation Already Sent)
+                        </option>
+                    {% else %}
+                        <option value="{{ group.id }}">
+                            {{ group.name }} ({{ group.member_count }} members)
+                        </option>
+                    {% endif %}
+
+                {% endfor %}
+            </select>
+            <small class="text-muted">Only groups where you are an admin are shown.</small>
+        </div>
+
+        <div class="col-md-4">
+            <label for="invite_message2" class="form-label">Message (Optional)</label>
+            <input type="text" class="form-control" id="invite_message2" name="invite_message"
+                   placeholder="Join our study group!">
+        </div>
+
+        <div class="col-12">
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane me-2"></i> Send Invitation
+                </button>
+            </div>
+        </div>
+    </form>
+    {% else %}
+    <div class="alert alert-light border">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-info-circle me-3 text-info"></i>
+            <div>
+                <p class="mb-0">You don't have any groups where you are an admin.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
                         </div>
                     </div>
                     
