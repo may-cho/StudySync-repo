@@ -12,8 +12,9 @@ from .models import StudyGroup, StudentProfile, GroupMembership
 from .forms import StudyGroupForm
 from django.db.models import Prefetch
 
-from django.views.decorators.http import require_http_methods
 
+from django.views.decorators.http import require_http_methods
+from .service import CompatibilityService
 from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
     get_common_courses, calculate_compatibility
 from django.shortcuts import render, get_object_or_404, redirect
@@ -91,42 +92,80 @@ def dashboard(request):
 
     return render(request, 'core/dashboard.html', context)
 
+
+
+    
 @login_required
 def find_study_partners(request):
     """Find classmates for group study"""
+
     profile = get_object_or_404(StudentProfile, user=request.user)
+    user_course_ids = profile.get_courses().values_list('id', flat=True)
 
-    
-    user_courses = profile.get_courses();
-    # Get recent classmates (simple version)
-    recent_classmates = StudentProfile.objects.filter(
-        studentcourse__course__in=user_courses
-    ).exclude(
-        user=request.user
-    ).distinct().select_related('user')[:4]  # Just get 4 recent classmates
+    # 1. Helper function to avoid repeating code
+    def serialize_profiles(queryset):
+        data_list = []
+        for classmate in queryset:
+            score, overlap_hours, overlap_courses, overlap_days,daily_schedules = CompatibilityService.get_compatibility(profile, classmate)
+            print(classmate.user.id)
+            data_list.append({
+                'profile': {
+                    'id': classmate.user.id,
+                    'username': classmate.user.username,
+                    'major': classmate.major.name if classmate.major else "N/A",
+                    'year': str(classmate.year),
+                },
+                'match_percent': score,
+                'overlap_hours': float(overlap_hours),
+                'overlap_courses': list(overlap_courses.values_list('code', flat=True)),
+                'overlap_days': list(overlap_days),
+                'daily_schedules' : list(daily_schedules)
+            })
+        # Sort by match score automatically
+        data_list.sort(key=lambda x: x['match_percent'], reverse=True)
+        return data_list
 
-    if request.method == 'POST':
-        course_id = request.POST.get('course_id')
-        if course_id:
-            course = get_object_or_404(Course, id=course_id)
-            # Run matching algorithm
-            matches = find_course_study_partners(profile, course)
+    # 2. Optimized Queries
+    # Base queryset to reuse
+    base_qs = StudentProfile.objects.exclude(user=profile.user).select_related('user', 'major')
 
-            if len(matches) > 0:
-                messages.success(request, f'Found {len(matches)} potential study partners for {course.code}!')
-            else:
-                messages.info(request, f'No matching study partners found for {course.code}.')
+    # Top Matches (Annotated by shared courses)
+    top_matches_qs = base_qs.annotate(
+        shared_course_count=Count('studentcourse', filter=Q(studentcourse__course_id__in=user_course_ids))
+    ).order_by('-shared_course_count')[:20]
 
-            return redirect('study_partners_list', course_id=course.id)
-        else:
-            messages.error(request, 'Please select a course.')
-            return redirect('find_study_partners')
+    # Same Major only
+    same_major_qs = base_qs.filter(major=profile.major)[:10]
 
+    # Same Courses only
+    same_course_qs = base_qs.filter(studentcourse__course_id__in=user_course_ids).distinct()[:10]
+
+    # 3. Create the Context
     context = {
         'profile': profile,
-        'user_courses': user_courses,
-        'recent_classmates': recent_classmates,
+        'user_courses': profile.get_courses(),
+        'top_matches_json': json.dumps(serialize_profiles(top_matches_qs)),
+        'same_major_json': json.dumps(serialize_profiles(same_major_qs)),
+        'same_course_json': json.dumps(serialize_profiles(same_course_qs)),
     }
+
+    # if request.method == 'POST':
+    #     course_id = request.POST.get('course_id')
+    #     if course_id:
+    #         course = get_object_or_404(Course, id=course_id)
+    #         # Run matching algorithm
+    #         matches = find_course_study_partners(profile, course)
+
+    #         if len(matches) > 0:
+    #             messages.success(request, f'Found {len(matches)} potential study partners for {course.code}!')
+    #         else:
+    #             messages.info(request, f'No matching study partners found for {course.code}.')
+
+    #         return redirect('study_partners_list', course_id=course.id)
+    # else:
+    #     messages.error(request, 'Please select a course.')
+    #     return redirect('find_study_partners')
+
     return render(request, 'core/find_study_partners.html', context)
 
 def study_partners_list(request, course_id=None):
@@ -259,15 +298,39 @@ def delete_timetable_slot(request, slot_id):
 
     return redirect('timetable_view')
 
+
+
+def check_for_conflicts(student_profile,start_time,end_time,study_day) :
+    print(start_time,end_time)
+    conflicts = TimetableSlot.objects.filter(
+        student=student_profile,
+        day__in=study_day,
+        start_time__lt=end_time,
+        end_time__gt=start_time
+    )
+    
+    print(conflicts);
+
+    return conflicts.exists()
 @login_required
 def create_study_group(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
 
     if request.method == 'POST':
-        form = StudyGroupForm(request.POST)  
-    
+        form = StudyGroupForm(request.POST) ;
+
        
         if form.is_valid():
+            group = form.save(commit=False)
+            
+            study_days = form.cleaned_data['study_day'].split(",");
+            start_time,end_time= form.cleaned_data['start_time'],form.cleaned_data['end_time'];
+            days_list = [d.strip() for d in study_days];
+            if check_for_conflicts(profile,start_time,end_time,days_list):
+                messages.error(request, f"Conflict! You already have '{group.name}' scheduled for this time.")
+                return redirect('group_list')
+            
+            
             group = form.save(commit=False)
             group.creator = profile
 
@@ -276,6 +339,8 @@ def create_study_group(request):
                 group.project_admin_managed = True
 
             group.save()
+            
+
             
             #Added to timeslot
             days = group.study_day.split(",");
@@ -286,7 +351,7 @@ def create_study_group(request):
                     end_time=group.end_time,
                     student=profile,
                     custom_name=group.name,
-                    slot_type="activity"
+                    slot_type="self_study"
                 )
                 for d in days
             ]
@@ -420,12 +485,34 @@ def join_group(request, group_id):
         messages.error(request, 'This group is full')
         return redirect('group_detail', group_id=group_id)
 
+    days = group.study_day.split(",");
+    days_list = [d.strip() for d in days];
+    
+    if check_for_conflicts(profile,group.start_time,group.end_time,days_list):
+         messages.error(request, f"Conflict! You already have '{group.name}' scheduled for this time.")
+         return redirect('group_list')
+
     # Join group
     GroupMembership.objects.create(
         group=group,
         student=profile,
         role='member'
     )
+    
+    slots = [
+            TimetableSlot(
+                day=d.strip(),
+                start_time=group.start_time,
+                end_time=group.end_time,
+                student=profile,
+                custom_name=group.name,
+                slot_type="self_study"
+            )
+            for d in days_list
+            ]
+            
+    TimetableSlot.objects.bulk_create(slots);
+  
 
     messages.success(request, f'You have joined {group.name}')
     return redirect('group_detail', group_id=group_id)
@@ -439,12 +526,33 @@ def leave_group(request, group_id):
         try:
             membership = GroupMembership.objects.get(group=group, student=profile)
 
+          
             # Prevent creator from leaving without transferring ownership
             if group.creator == profile:
                 messages.error(request, 'Group creator cannot leave. Transfer ownership first.')
                 return redirect('group_manage', group_id=group.id)
 
             membership.delete()
+            
+              #delete all timeslots when the user leaves
+            days = group.study_day.split(",");
+            cleaned_days = [d.strip() for d in days];
+            slots = TimetableSlot.objects.filter(
+                    student=profile,custom_name=group.name,day__in=cleaned_days,
+                    start_time=group.start_time,end_time=group.end_time
+            )
+            
+            count = slots.count()
+            print(f"DEBUG: Found {count} slots to delete for group {group.name}")
+
+            if count > 0:
+                slots.delete()
+            else:
+                print("DEBUG: No matching timeslot found. Check time precision.") 
+                
+            
+            
+          
             messages.success(request, f'You have successfully left {group.name}.')
             return redirect('group_list')
 
@@ -459,6 +567,7 @@ def group_manage(request, group_id):
     """View to manage member roles, removals, and group deletion"""
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
+    
 
     # Check if the user is the creator (needed for group deletion)
     is_creator = (group.creator == profile)
@@ -476,8 +585,22 @@ def group_manage(request, group_id):
             if is_creator:
                 group_name = group.name
                 group.delete()
+                
+                #delete timeslots when admin delete the group
+                days = group.study_day.split(',');
+                cleaned_days = [d.strip() for d in days]
+                
+                slots = TimetableSlot.objects.filter(student=profile,custom_name=group.name,day__in=cleaned_days
+                ,start_time=group.start_time,end_time=group.end_time)
+                
+                slot_count = slots.count();
+                if(slot_count>0) :
+                    slots.delete();
+                else: 
+                    print("There is no matching timeslots found!")
                 messages.success(request, f'Group "{group_name}" has been deleted.')
                 return redirect('group_list')
+            
             else:
                 messages.error(request, 'Only the group creator can delete this group.')
 
@@ -1157,9 +1280,15 @@ def accept_invitation(request, invitation_id):
         days = group.study_day.split(",")
         slots = [
             TimetableSlot(
+<<<<<<< HEAD
                 student=request.user.studentprofile,
                 slot_type="activity",
                 day=d.strip(),
+=======
+                student = request.user.studentprofile,
+                slot_type ="self_study",
+                day= d.strip(),
+>>>>>>> origin/frontend-testing
                 start_time=group.start_time,
                 end_time=group.end_time,
                 custom_name=group.name

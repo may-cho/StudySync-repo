@@ -178,6 +178,8 @@
   </div>
 
   <style></style>
-  <script src="{% static 'js/timetable.js' %}"></script>
   {% endblock %}
 </div>
+{% block extra_js %}
+  <script src="{% static 'js/timetable.js' %}"></script>
+{% endblock %}
