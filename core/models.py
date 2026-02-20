@@ -140,6 +140,17 @@ class Major(models.Model):
     def __str__(self):
         return f" {self.code} - {self.name}"
 
+class Interest(models.Model):
+    name = models.CharField(max_length=50)
+    category = models.CharField(max_length=50, choices=[
+        ('programming', 'Programming & Tech'),
+        ('language', 'Foreign Languages'),
+        ('hobby', 'Hobbies & Vibes')
+    ])
+
+    def __str__(self):
+        return self.name
+
 class StudentProfile(models.Model):
     YEAR_CHOICES = [
         (1, 'First Year'),
@@ -168,6 +179,7 @@ class StudentProfile(models.Model):
     major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
     year = models.IntegerField(choices=YEAR_CHOICES)
     semester = models.CharField(max_length=2, choices=SEMESTER_CHOICES, default='1')
+    interests = models.ManyToManyField(Interest, blank=True)
     bio = models.TextField(blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
