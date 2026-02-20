@@ -82,15 +82,25 @@ class StudentProfileForm(forms.ModelForm):
         label='I agree to the Terms of Service'
     )
 
+    interests = forms.ModelMultipleChoiceField(
+        queryset=Interest.objects.all(),
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'form-check-input'
+        }),
+        required=False,
+        help_text="Select topics you're interested in."
+    )
+
     class Meta:
         model = StudentProfile
         # IMPORTANT: All fields rendered in HTML must be listed here
         fields = [
-            'major', 'year', 'semester', 'bio', 'profile_picture',
+            'major', 'year', 'semester', 'bio', 'profile_picture','interests'
         ]
         widgets = {
             'semester': forms.Select(attrs={'class': 'form-select'}),
             'weekend_study': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'interests': forms.CheckboxSelectMultiple(),
         }
 
 

@@ -35,6 +35,10 @@ def home(request):
         return redirect('dashboard')
     return render(request, 'core/home.html')
 
+from django.contrib.auth.decorators import user_passes_test
+from .models import StudentProfile, StudyGroup, Major
+
+
 @login_required
 def dashboard(request):
     try:
@@ -42,12 +46,7 @@ def dashboard(request):
         profile = StudentProfile.objects.get(user=request.user)
     except StudentProfile.DoesNotExist:
         # Create a default profile if it doesn't exist
-        profile = StudentProfile.objects.create(
-            user=request.user,
-            major='SE',  # Default major
-            year=1  # Default year
-        )
-        messages.info(request, 'A default profile has been created for you.')
+        return redirect('register')
 
     # Get today's schedule
     today = date.today()
@@ -210,9 +209,8 @@ def register(request):
             user = user_form.save()
             profile = profile_form.save(commit=False)
             profile.user = user
-            major_id = profile_form.cleaned_data.get('major')
-            profile.major = major_id
             profile.save()
+            profile_form.save_m2m()
 
             login(request, user)
             return redirect('dashboard')
