@@ -1280,15 +1280,13 @@ def accept_invitation(request, invitation_id):
         days = group.study_day.split(",")
         slots = [
             TimetableSlot(
-<<<<<<< HEAD
+
                 student=request.user.studentprofile,
                 slot_type="activity",
                 day=d.strip(),
-=======
-                student = request.user.studentprofile,
-                slot_type ="self_study",
-                day= d.strip(),
->>>>>>> origin/frontend-testing
+
+
+
                 start_time=group.start_time,
                 end_time=group.end_time,
                 custom_name=group.name
