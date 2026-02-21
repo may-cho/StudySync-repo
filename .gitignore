@@ -9,3 +9,8 @@ db.sqlite3
 .env
 settings.py
 .idea/
+
+
+# Vue/Node dependencies
+vue_components/node_modules/
+vue_components/dist/

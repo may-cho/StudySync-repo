@@ -330,11 +330,14 @@ class TimetableSlot(models.Model):
         width = 100 / 7
 
         return f"top: {top}px; left: {left_percent}%; height: {height}px; width: {width}%; position: absolute;"
+
+
         
 class StudyGroup(models.Model):
     GROUP_TYPE_CHOICES = [
         ('major', 'Major-Based'),
         ('course', 'Course-Based'),
+        ('interest', 'Interest-Based'),
         # ('free_time', 'Free Time Matching'),
         ('general', 'General Study'),
     ]
@@ -343,6 +346,7 @@ class StudyGroup(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField()
     group_type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES)
+    is_approved = models.BooleanField(default=False)
     study_day = models.CharField(max_length=100)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
@@ -359,6 +363,7 @@ class StudyGroup(models.Model):
 
     # For course-based groups
     course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True)
+    interest = models.ForeignKey('Interest', on_delete=models.SET_NULL, null=True, blank=True)
     semester = models.CharField(max_length=2, choices=StudentProfile.SEMESTER_CHOICES, null=True, blank=True)
     # For free time matching
     # preferred_day = models.CharField(max_length=3, choices=TimetableSlot.DAY_CHOICES, null=True, blank=True)
@@ -377,7 +382,8 @@ class StudyGroup(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        status = " [Pending]" if not self.is_approved else ""
+        return f"{self.name}{status}"
 
     @property
     def member_count(self):
@@ -440,6 +446,9 @@ class StudyGroup(models.Model):
             return self.memberships.filter(student=profile).exists()
         except:
             return False
+
+
+
 
 class GroupInvitation(models.Model):
     STATUS_CHOICES = [

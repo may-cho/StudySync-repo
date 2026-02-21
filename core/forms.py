@@ -153,6 +153,7 @@ class StudyGroupForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'form-control rounded-pill'}),
             'description': forms.Textarea(attrs={'class': 'form-control rounded-4', 'rows': 4}),
             'group_type': forms.Select(attrs={'class': 'form-select rounded-pill'}),
+            'interest': forms.Select(attrs={'class': 'form-select rounded-pill'}), # Added widget
             'major': forms.Select(attrs={'class': 'form-select rounded-pill'}),
             'course': forms.Select(attrs={'class': 'form-select rounded-pill'}),
             'semester': forms.Select(attrs={'class': 'form-select rounded-pill'}),

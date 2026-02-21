@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Find Study Partners | StudySync{% endblock %}
+{% block title %}Smart Matches | StudySync{% endblock %}
 
 {% block content %}
+
 <div class="container py-5">
     <!-- Header Section -->
     <div class="row mb-5">
@@ -414,31 +415,31 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+
 <style>
-.card {
-    transition: transform 0.2s;
+    :root {
+  --primary: #0f172a;
+  --accent: #3b82f6;
+  --accent-light: #dbeafe;
+  --surface: #ffffff;
+  --background: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border: #e2e8f0;
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --radius: 24px;
 }
 
-.card:hover {
-    transform: translateY(-2px);
-}
-
-.list-group-item:hover {
-    background-color: #f8f9fa;
-}
-
-.badge {
-    font-size: 0.75rem;
-    padding: 0.35em 0.65em;
-}
-
-.form-select-lg {
-    padding: 0.75rem 2.25rem 0.75rem 1rem;
-}
-
-.btn-lg {
-    padding: 0.75rem 1.5rem;
-    font-size: 1.1rem;
-}
 </style>
+
+
+<find-partner-view 
+    top-matches='{{ top_matches_json|safe }}'
+    same-major='{{ same_major_json|safe }}'
+    same-course='{{ same_course_json|safe }}'>
+</find-partner-view>
+
 {% endblock %}

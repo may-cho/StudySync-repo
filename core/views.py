@@ -12,8 +12,9 @@ from .models import StudyGroup, StudentProfile, GroupMembership
 from .forms import StudyGroupForm
 from django.db.models import Prefetch
 
-from django.views.decorators.http import require_http_methods
 
+from django.views.decorators.http import require_http_methods
+from .service import CompatibilityService
 from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
     get_common_courses, calculate_compatibility
 from django.shortcuts import render, get_object_or_404, redirect
@@ -56,8 +57,10 @@ def dashboard(request):
     ).order_by('start_time')
 
     # Get study groups
+    # FIX: Added is_approved=True to ensure unapproved groups aren't counted/displayed
     study_groups = StudyGroup.objects.filter(
-        memberships__student=profile
+        memberships__student=profile,
+        is_approved=True
     )[:5]
 
     # Get course matches
@@ -71,8 +74,10 @@ def dashboard(request):
     courses = StudentCourse.objects.filter(student=profile)
 
     # Get upcoming study sessions
+    # FIX: Ensure sessions are only pulled from approved groups
     upcoming_sessions = StudySession.objects.filter(
         group__memberships__student=profile,
+        group__is_approved=True,
         date__gte=today
     ).order_by('date', 'start_time')[:5]
 
@@ -80,6 +85,7 @@ def dashboard(request):
         'profile': profile,
         'today_slots': today_slots,
         'study_groups': study_groups,
+        'study_groups_count': study_groups.count(), # Added for the yellow card counter
         'course_matches': course_matches,
         'course_matches_count': course_matches.count(),
         'courses': courses,
@@ -90,42 +96,80 @@ def dashboard(request):
 
     return render(request, 'core/dashboard.html', context)
 
+
+
+    
 @login_required
 def find_study_partners(request):
     """Find classmates for group study"""
+
     profile = get_object_or_404(StudentProfile, user=request.user)
+    user_course_ids = profile.get_courses().values_list('id', flat=True)
 
-    
-    user_courses = profile.get_courses();
-    # Get recent classmates (simple version)
-    recent_classmates = StudentProfile.objects.filter(
-        studentcourse__course__in=user_courses
-    ).exclude(
-        user=request.user
-    ).distinct().select_related('user')[:4]  # Just get 4 recent classmates
+    # 1. Helper function to avoid repeating code
+    def serialize_profiles(queryset):
+        data_list = []
+        for classmate in queryset:
+            score, overlap_hours, overlap_courses, overlap_days,daily_schedules = CompatibilityService.get_compatibility(profile, classmate)
+            print(classmate.user.id)
+            data_list.append({
+                'profile': {
+                    'id': classmate.user.id,
+                    'username': classmate.user.username,
+                    'major': classmate.major.name if classmate.major else "N/A",
+                    'year': str(classmate.year),
+                },
+                'match_percent': score,
+                'overlap_hours': float(overlap_hours),
+                'overlap_courses': list(overlap_courses.values_list('code', flat=True)),
+                'overlap_days': list(overlap_days),
+                'daily_schedules' : list(daily_schedules)
+            })
+        # Sort by match score automatically
+        data_list.sort(key=lambda x: x['match_percent'], reverse=True)
+        return data_list
 
-    if request.method == 'POST':
-        course_id = request.POST.get('course_id')
-        if course_id:
-            course = get_object_or_404(Course, id=course_id)
-            # Run matching algorithm
-            matches = find_course_study_partners(profile, course)
+    # 2. Optimized Queries
+    # Base queryset to reuse
+    base_qs = StudentProfile.objects.exclude(user=profile.user).select_related('user', 'major')
 
-            if len(matches) > 0:
-                messages.success(request, f'Found {len(matches)} potential study partners for {course.code}!')
-            else:
-                messages.info(request, f'No matching study partners found for {course.code}.')
+    # Top Matches (Annotated by shared courses)
+    top_matches_qs = base_qs.annotate(
+        shared_course_count=Count('studentcourse', filter=Q(studentcourse__course_id__in=user_course_ids))
+    ).order_by('-shared_course_count')[:20]
 
-            return redirect('study_partners_list', course_id=course.id)
-        else:
-            messages.error(request, 'Please select a course.')
-            return redirect('find_study_partners')
+    # Same Major only
+    same_major_qs = base_qs.filter(major=profile.major)[:10]
 
+    # Same Courses only
+    same_course_qs = base_qs.filter(studentcourse__course_id__in=user_course_ids).distinct()[:10]
+
+    # 3. Create the Context
     context = {
         'profile': profile,
-        'user_courses': user_courses,
-        'recent_classmates': recent_classmates,
+        'user_courses': profile.get_courses(),
+        'top_matches_json': json.dumps(serialize_profiles(top_matches_qs)),
+        'same_major_json': json.dumps(serialize_profiles(same_major_qs)),
+        'same_course_json': json.dumps(serialize_profiles(same_course_qs)),
     }
+
+    # if request.method == 'POST':
+    #     course_id = request.POST.get('course_id')
+    #     if course_id:
+    #         course = get_object_or_404(Course, id=course_id)
+    #         # Run matching algorithm
+    #         matches = find_course_study_partners(profile, course)
+
+    #         if len(matches) > 0:
+    #             messages.success(request, f'Found {len(matches)} potential study partners for {course.code}!')
+    #         else:
+    #             messages.info(request, f'No matching study partners found for {course.code}.')
+
+    #         return redirect('study_partners_list', course_id=course.id)
+    # else:
+    #     messages.error(request, 'Please select a course.')
+    #     return redirect('find_study_partners')
+
     return render(request, 'core/find_study_partners.html', context)
 
 def study_partners_list(request, course_id=None):
@@ -257,45 +301,54 @@ def delete_timetable_slot(request, slot_id):
 
     return redirect('timetable_view')
 
+
+
+def check_for_conflicts(student_profile,start_time,end_time,study_day) :
+    print(start_time,end_time)
+    conflicts = TimetableSlot.objects.filter(
+        student=student_profile,
+        day__in=study_day,
+        start_time__lt=end_time,
+        end_time__gt=start_time
+    )
+    
+    print(conflicts);
+
+    return conflicts.exists()
+
+
 @login_required
 def create_study_group(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
 
     if request.method == 'POST':
-        form = StudyGroupForm(request.POST)  
-    
-       
+        form = StudyGroupForm(request.POST)
+
         if form.is_valid():
             group = form.save(commit=False)
+
+            study_days = form.cleaned_data['study_day'].split(",")
+            start_time = form.cleaned_data['start_time']
+            end_time = form.cleaned_data['end_time']
+            days_list = [d.strip() for d in study_days]
+
+            if check_for_conflicts(profile, start_time, end_time, days_list):
+                messages.error(request, f"Conflict! You already have a schedule for this time.")
+                return redirect('group_list')
+
+            # Set initial state
             group.creator = profile
+            group.is_approved = False  # New: Requires admin permission
 
-            interest_id = request.POST.get('interest')
-            if interest_id:
-                group.interest = get_object_or_404(Interest, id=interest_id)
-
-            # If user is project admin, mark as project admin managed
             if profile.is_project_admin:
                 group.project_admin_managed = True
+                # Optional: Auto-approve if the creator is already an admin/superuser
+                # group.is_approved = True
 
             group.save()
-            
-            #Added to timeslot
-            days = group.study_day.split(",");
-            slots = [
-                TimetableSlot(
-                    day=d.strip(),
-                    start_time=group.start_time,
-                    end_time=group.end_time,
-                    student=profile,
-                    custom_name=group.name,
-                    slot_type="activity"
-                )
-                for d in days
-            ]
-            
-            TimetableSlot.objects.bulk_create(slots);
 
-            # Add creator as admin
+            # Note: We still create the membership so the creator owns it,
+            # but the group won't appear in public lists until is_approved=True
             role = 'project_admin' if profile.is_project_admin else 'admin'
             GroupMembership.objects.create(
                 group=group,
@@ -307,24 +360,21 @@ def create_study_group(request):
             from chat.models import ChatRoom
             ChatRoom.objects.create(group=group)
 
-            messages.success(request, 'Study group created successfully!')
-            return redirect('group_detail', group_id=group.id)
-        else: 
+            # Inform the user about the pending approval
+            messages.success(request,
+                             'Study group submitted! It will be visible once an Admin verifies it relates to University Courses or approved Interests.')
+            return redirect('group_list')  # Redirect to list instead of detail since it's pending
+        else:
             print('Form is invalid')
     else:
-        form = StudyGroupForm()  # Form instance
-    courses = Course.objects.all();
+        form = StudyGroupForm()
 
-    # Get only the interests this student has selected/enrolled in
-    user_interests = profile.interests.all()
-    
-    
+    courses = Course.objects.all()
+
     context = {
         'form': form,
         'profile': profile,
-        'user_courses' : courses,
-        'user_interests': user_interests,
-       
+        'user_courses': courses
     }
     return render(request, 'core/create_study_group.html', context)
 
@@ -334,7 +384,7 @@ def load_group_fields(request):
     
     return render(request, 'core/partials/group_type_fields.html', {
         'selected_type': selected_type,
-        'form': form,
+        'form': form
     })
 
 def load_courses(request): 
@@ -348,6 +398,13 @@ from django.utils import timezone
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
+
+    # NEW: Admin Approval Check
+    # If the group is NOT approved, only the creator or a superuser can see it.
+    if not group.is_approved:
+        if group.creator != profile and not request.user.is_superuser:
+            messages.error(request, "This study group is pending admin approval and is not yet accessible.")
+            return redirect('group_list')
 
     # 1. Get the SINGLE membership for the logged-in user
     user_mem = GroupMembership.objects.filter(group=group, student=profile).first()
@@ -389,14 +446,18 @@ def group_list(request):
     user_course_ids = StudentCourse.objects.filter(student=profile).values_list('course_id', flat=True)
 
     # 2. Get groups user is already a member of
+    # We include is_approved=True so they don't see unapproved groups even if they created them,
+    # OR you can remove it if you want creators to see their own pending groups.
     my_groups = StudyGroup.objects.filter(
-        memberships__student=profile
+        memberships__student=profile,
+        is_approved=True  # Only show approved groups in the main list
     ).order_by('-created_at')
 
     # 3. Get Recommended Groups
-    # We look for groups that match the user's courses OR their major
+    # Added is_approved=True to ensure admin-denied groups aren't recommended
     recommended_groups = StudyGroup.objects.filter(
-        is_active=True
+        is_active=True,
+        is_approved=True  # Added: Only recommend groups the admin has permitted
     ).exclude(
         memberships__student=profile # Don't recommend groups they are already in
     ).filter(
@@ -426,12 +487,34 @@ def join_group(request, group_id):
         messages.error(request, 'This group is full')
         return redirect('group_detail', group_id=group_id)
 
+    days = group.study_day.split(",");
+    days_list = [d.strip() for d in days];
+    
+    if check_for_conflicts(profile,group.start_time,group.end_time,days_list):
+         messages.error(request, f"Conflict! You already have '{group.name}' scheduled for this time.")
+         return redirect('group_list')
+
     # Join group
     GroupMembership.objects.create(
         group=group,
         student=profile,
         role='member'
     )
+    
+    slots = [
+            TimetableSlot(
+                day=d.strip(),
+                start_time=group.start_time,
+                end_time=group.end_time,
+                student=profile,
+                custom_name=group.name,
+                slot_type="self_study"
+            )
+            for d in days_list
+            ]
+            
+    TimetableSlot.objects.bulk_create(slots);
+  
 
     messages.success(request, f'You have joined {group.name}')
     return redirect('group_detail', group_id=group_id)
@@ -445,12 +528,33 @@ def leave_group(request, group_id):
         try:
             membership = GroupMembership.objects.get(group=group, student=profile)
 
+          
             # Prevent creator from leaving without transferring ownership
             if group.creator == profile:
                 messages.error(request, 'Group creator cannot leave. Transfer ownership first.')
                 return redirect('group_manage', group_id=group.id)
 
             membership.delete()
+            
+              #delete all timeslots when the user leaves
+            days = group.study_day.split(",");
+            cleaned_days = [d.strip() for d in days];
+            slots = TimetableSlot.objects.filter(
+                    student=profile,custom_name=group.name,day__in=cleaned_days,
+                    start_time=group.start_time,end_time=group.end_time
+            )
+            
+            count = slots.count()
+            print(f"DEBUG: Found {count} slots to delete for group {group.name}")
+
+            if count > 0:
+                slots.delete()
+            else:
+                print("DEBUG: No matching timeslot found. Check time precision.") 
+                
+            
+            
+          
             messages.success(request, f'You have successfully left {group.name}.')
             return redirect('group_list')
 
@@ -465,6 +569,7 @@ def group_manage(request, group_id):
     """View to manage member roles, removals, and group deletion"""
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
+    
 
     # Check if the user is the creator (needed for group deletion)
     is_creator = (group.creator == profile)
@@ -482,8 +587,22 @@ def group_manage(request, group_id):
             if is_creator:
                 group_name = group.name
                 group.delete()
+                
+                #delete timeslots when admin delete the group
+                days = group.study_day.split(',');
+                cleaned_days = [d.strip() for d in days]
+                
+                slots = TimetableSlot.objects.filter(student=profile,custom_name=group.name,day__in=cleaned_days
+                ,start_time=group.start_time,end_time=group.end_time)
+                
+                slot_count = slots.count();
+                if(slot_count>0) :
+                    slots.delete();
+                else: 
+                    print("There is no matching timeslots found!")
                 messages.success(request, f'Group "{group_name}" has been deleted.')
                 return redirect('group_list')
+            
             else:
                 messages.error(request, 'Only the group creator can delete this group.')
 
@@ -758,7 +877,6 @@ def remove_course(request, course_id):
 
     return redirect('profile')
 
-
 @csrf_exempt
 @login_required
 def api_save_timetable(request):
@@ -999,13 +1117,13 @@ def create_group_with_student(request, student_id):
         target_profile = target_user.studentprofile
         viewer_profile = request.user.studentprofile
 
-        print(viewer_profile.preferred_study_end,viewer_profile.preferred_study_days,viewer_profile.preferred_study_start)
-        study_day = request.POST.get("study_day",viewer_profile.preferred_study_days)
+        study_day = request.POST.get("study_day", viewer_profile.preferred_study_days)
 
-        #Get form data
+        # Get form data
         group_name = request.POST.get('group_name')
         group_description = request.POST.get('group_description')
         group_type = request.POST.get('group_type')
+        interest_id = request.POST.get('interest') # Added to capture interest
         invite_message = request.POST.get('invite_message', '')
 
         # Validate
@@ -1013,11 +1131,13 @@ def create_group_with_student(request, student_id):
             messages.error(request, 'Group name and description are required.')
             return redirect('student_profile', user_id=student_id)
 
-        # Create the group
+        # Create the group with Admin Approval logic
         group = StudyGroup.objects.create(
             name=group_name,
             description=group_description,
             group_type=group_type,
+            interest_id=interest_id, # Link to Seed Interests
+            is_approved=False, # New: Requires Superuser permission
             study_day=study_day,
             start_time=request.POST.get('start_time') or viewer_profile.preferred_study_start,
             end_time=request.POST.get('end_time') or viewer_profile.preferred_study_end,
@@ -1025,22 +1145,7 @@ def create_group_with_student(request, student_id):
             creator=viewer_profile,
         )
 
-        #Save timeslot
-        slots = []
-        for day in study_day.split(","):
-            #create a slot for the current viewer
-            slots.append(TimetableSlot(
-                student=viewer_profile,
-                day=day,
-                start_time=group.start_time,
-                end_time=group.end_time,
-                slot_type="activity",
-                custom_name=group_name
-            ))
-        TimetableSlot.objects.bulk_create(slots)
-
-
-        # Add creator as admin
+        # Add creator as admin (Membership exists but group is hidden from others)
         GroupMembership.objects.create(
             group=group,
             student=viewer_profile,
@@ -1048,7 +1153,7 @@ def create_group_with_student(request, student_id):
         )
 
         # Create invitation
-        invitation = GroupInvitation.objects.create(
+        GroupInvitation.objects.create(
             group=group,
             invited_by=viewer_profile,
             invited_student=target_profile,
@@ -1060,11 +1165,9 @@ def create_group_with_student(request, student_id):
         from chat.models import ChatRoom
         ChatRoom.objects.create(group=group)
 
-
-
         messages.success(request,
-                         f'Group "{group.name}" created successfully and invitation sent to {target_user.username}!')
-        return redirect('group_detail', group_id=group.id)
+                         f'Group "{group.name}" created! It will be visible and invitations will be active once an Admin approves it.')
+        return redirect('group_list') # Redirect to list instead of detail while pending
 
     return redirect('student_profile', user_id=student_id)
 
@@ -1155,10 +1258,15 @@ from .utils import trigger_notification_update
 def accept_invitation(request, invitation_id):
     """Accept a group invitation and notify the inviter"""
     invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
+    group = invitation.group
+
+    # NEW: Safety check - Cannot join unapproved groups
+    if not group.is_approved:
+        messages.error(request, "This group is still pending admin approval. You can join once it is verified.")
+        return redirect('dashboard')
 
     if invitation.status == 'pending' and not invitation.is_expired():
         invitation.accept()
-        group = invitation.group
 
         # 1. Update Timetable
         days = group.study_day.split(",")
@@ -1179,7 +1287,7 @@ def accept_invitation(request, invitation_id):
         ActivityNotification.objects.create(
             recipient=invitation.invited_by.user,
             sender=request.user,
-            notification_type='comment',  # Using comment type or add 'accept' to your model choices
+            notification_type='comment',
             group=group,
             content_preview=f"Joined the group: {group.name}"
         )
