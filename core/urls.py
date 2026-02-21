@@ -46,7 +46,7 @@ urlpatterns = [
     # Group invitation URLs
     path('student/<int:student_id>/create-group/', views.create_group_with_student, name='create_group_with_student'),
     path('student/<int:student_id>/invite-to-group/', views.invite_to_existing_group, name='invite_to_existing_group'),
-path('notifications/', views.all_notifications, name='all_notifications'),
+    path('notifications/', views.all_notifications, name='all_notifications'),
     path('notifications/mark-read/', views.mark_notifications_read, name='mark_notifications_read'),
     path('invitations/<uuid:invitation_id>/accept/', views.accept_invitation, name='accept_invitation'),
     path('invitations/<uuid:invitation_id>/decline/', views.decline_invitation, name='decline_invitation'),

@@ -240,7 +240,7 @@ def timetable_view(request):
         'timetable_slots': slots,
         'courses' : courses
     }
-    return render(request, 'core/timetable.html', context)
+    return render(request, 'core/testing.html', context)
 
 @login_required
 def add_timetable_slot(request):

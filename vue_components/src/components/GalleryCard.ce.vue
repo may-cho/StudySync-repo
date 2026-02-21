@@ -45,7 +45,9 @@
         <div class="stat-minimal-divider" v-if="!isListView"></div>
 
         <div class="stat-minimal">
-          <span class="stat-minimal-emoji">{{ timeEmoji }}</span>
+          <span class="stat-minimal-emoji">
+            <i class="fa-solid fa-clock"></i>
+          </span>
           <span class="stat-minimal-text">
             <span class="stat-minimal-value">{{ timePeriodLabel }}</span>
             <span class="stat-minimal-label">pref</span>
