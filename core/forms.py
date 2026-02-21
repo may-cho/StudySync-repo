@@ -140,12 +140,14 @@ class StudyGroupForm(forms.ModelForm):
 
     class Meta:
         model = StudyGroup
-        fields = ['name', 'description', 'group_type', 'major', 'course', 'semester',
+        # Added 'interest' to the fields list
+        fields = ['name', 'description', 'group_type', 'interest', 'major', 'course', 'semester',
                   'study_day', 'start_time', 'end_time', 'max_members']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control rounded-pill'}),
             'description': forms.Textarea(attrs={'class': 'form-control rounded-4', 'rows': 4}),
             'group_type': forms.Select(attrs={'class': 'form-select rounded-pill'}),
+            'interest': forms.Select(attrs={'class': 'form-select rounded-pill'}), # Added widget
             'major': forms.Select(attrs={'class': 'form-select rounded-pill'}),
             'course': forms.Select(attrs={'class': 'form-select rounded-pill'}),
             'semester': forms.Select(attrs={'class': 'form-select rounded-pill'}),
@@ -160,10 +162,11 @@ class StudyGroupForm(forms.ModelForm):
 
         # Pre-populate study_day if editing an existing group
         if self.instance and self.instance.pk and self.instance.study_day:
-            # Converts "Mon,Tue" back into ['Mon', 'Tue'] for the checkboxes
             self.initial['study_day'] = self.instance.study_day.split(',')
 
         self.fields["group_type"].empty_label = "Please select a group type"
+        # Added empty label for interest
+        self.fields["interest"].empty_label = "Optional: Select an Interest topic"
 
         # HTMX support for dynamic course loading
         self.fields['semester'].widget.attrs.update({
@@ -181,7 +184,6 @@ class StudyGroupForm(forms.ModelForm):
                 except (ValueError, TypeError):
                     pass
             elif self.instance and self.instance.pk:
-                # If editing, show courses for the current group's semester
                 self.fields['course'].queryset = Course.objects.filter(semester=self.instance.semester)
             else:
                 self.fields['course'].queryset = Course.objects.filter(semester=student.semester)

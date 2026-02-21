@@ -57,8 +57,10 @@ def dashboard(request):
     ).order_by('start_time')
 
     # Get study groups
+    # FIX: Added is_approved=True to ensure unapproved groups aren't counted/displayed
     study_groups = StudyGroup.objects.filter(
-        memberships__student=profile
+        memberships__student=profile,
+        is_approved=True
     )[:5]
 
     # Get course matches
@@ -72,8 +74,10 @@ def dashboard(request):
     courses = StudentCourse.objects.filter(student=profile)
 
     # Get upcoming study sessions
+    # FIX: Ensure sessions are only pulled from approved groups
     upcoming_sessions = StudySession.objects.filter(
         group__memberships__student=profile,
+        group__is_approved=True,
         date__gte=today
     ).order_by('date', 'start_time')[:5]
 
@@ -81,6 +85,7 @@ def dashboard(request):
         'profile': profile,
         'today_slots': today_slots,
         'study_groups': study_groups,
+        'study_groups_count': study_groups.count(), # Added for the yellow card counter
         'course_matches': course_matches,
         'course_matches_count': course_matches.count(),
         'courses': courses,
@@ -310,53 +315,40 @@ def check_for_conflicts(student_profile,start_time,end_time,study_day) :
     print(conflicts);
 
     return conflicts.exists()
+
+
 @login_required
 def create_study_group(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
 
     if request.method == 'POST':
-        form = StudyGroupForm(request.POST) ;
+        form = StudyGroupForm(request.POST)
 
-       
         if form.is_valid():
             group = form.save(commit=False)
-            
-            study_days = form.cleaned_data['study_day'].split(",");
-            start_time,end_time= form.cleaned_data['start_time'],form.cleaned_data['end_time'];
-            days_list = [d.strip() for d in study_days];
-            if check_for_conflicts(profile,start_time,end_time,days_list):
-                messages.error(request, f"Conflict! You already have '{group.name}' scheduled for this time.")
-                return redirect('group_list')
-            
-            
-            group = form.save(commit=False)
-            group.creator = profile
 
-            # If user is project admin, mark as project admin managed
+            study_days = form.cleaned_data['study_day'].split(",")
+            start_time = form.cleaned_data['start_time']
+            end_time = form.cleaned_data['end_time']
+            days_list = [d.strip() for d in study_days]
+
+            if check_for_conflicts(profile, start_time, end_time, days_list):
+                messages.error(request, f"Conflict! You already have a schedule for this time.")
+                return redirect('group_list')
+
+            # Set initial state
+            group.creator = profile
+            group.is_approved = False  # New: Requires admin permission
+
             if profile.is_project_admin:
                 group.project_admin_managed = True
+                # Optional: Auto-approve if the creator is already an admin/superuser
+                # group.is_approved = True
 
             group.save()
-            
 
-            
-            #Added to timeslot
-            days = group.study_day.split(",");
-            slots = [
-                TimetableSlot(
-                    day=d.strip(),
-                    start_time=group.start_time,
-                    end_time=group.end_time,
-                    student=profile,
-                    custom_name=group.name,
-                    slot_type="self_study"
-                )
-                for d in days
-            ]
-            
-            TimetableSlot.objects.bulk_create(slots);
-
-            # Add creator as admin
+            # Note: We still create the membership so the creator owns it,
+            # but the group won't appear in public lists until is_approved=True
             role = 'project_admin' if profile.is_project_admin else 'admin'
             GroupMembership.objects.create(
                 group=group,
@@ -368,20 +360,21 @@ def create_study_group(request):
             from chat.models import ChatRoom
             ChatRoom.objects.create(group=group)
 
-            messages.success(request, 'Study group created successfully!')
-            return redirect('group_detail', group_id=group.id)
-        else: 
+            # Inform the user about the pending approval
+            messages.success(request,
+                             'Study group submitted! It will be visible once an Admin verifies it relates to University Courses or approved Interests.')
+            return redirect('group_list')  # Redirect to list instead of detail since it's pending
+        else:
             print('Form is invalid')
     else:
-        form = StudyGroupForm()  # Form instance
-    courses = Course.objects.all();
-    
-    
+        form = StudyGroupForm()
+
+    courses = Course.objects.all()
+
     context = {
         'form': form,
         'profile': profile,
-        'user_courses' : courses
-       
+        'user_courses': courses
     }
     return render(request, 'core/create_study_group.html', context)
 
@@ -405,6 +398,13 @@ from django.utils import timezone
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
+
+    # NEW: Admin Approval Check
+    # If the group is NOT approved, only the creator or a superuser can see it.
+    if not group.is_approved:
+        if group.creator != profile and not request.user.is_superuser:
+            messages.error(request, "This study group is pending admin approval and is not yet accessible.")
+            return redirect('group_list')
 
     # 1. Get the SINGLE membership for the logged-in user
     user_mem = GroupMembership.objects.filter(group=group, student=profile).first()
@@ -446,14 +446,18 @@ def group_list(request):
     user_course_ids = StudentCourse.objects.filter(student=profile).values_list('course_id', flat=True)
 
     # 2. Get groups user is already a member of
+    # We include is_approved=True so they don't see unapproved groups even if they created them,
+    # OR you can remove it if you want creators to see their own pending groups.
     my_groups = StudyGroup.objects.filter(
-        memberships__student=profile
+        memberships__student=profile,
+        is_approved=True  # Only show approved groups in the main list
     ).order_by('-created_at')
 
     # 3. Get Recommended Groups
-    # We look for groups that match the user's courses OR their major
+    # Added is_approved=True to ensure admin-denied groups aren't recommended
     recommended_groups = StudyGroup.objects.filter(
-        is_active=True
+        is_active=True,
+        is_approved=True  # Added: Only recommend groups the admin has permitted
     ).exclude(
         memberships__student=profile # Don't recommend groups they are already in
     ).filter(
@@ -1113,13 +1117,13 @@ def create_group_with_student(request, student_id):
         target_profile = target_user.studentprofile
         viewer_profile = request.user.studentprofile
 
-        print(viewer_profile.preferred_study_end,viewer_profile.preferred_study_days,viewer_profile.preferred_study_start)
-        study_day = request.POST.get("study_day",viewer_profile.preferred_study_days)
+        study_day = request.POST.get("study_day", viewer_profile.preferred_study_days)
 
-        #Get form data
+        # Get form data
         group_name = request.POST.get('group_name')
         group_description = request.POST.get('group_description')
         group_type = request.POST.get('group_type')
+        interest_id = request.POST.get('interest') # Added to capture interest
         invite_message = request.POST.get('invite_message', '')
 
         # Validate
@@ -1127,11 +1131,13 @@ def create_group_with_student(request, student_id):
             messages.error(request, 'Group name and description are required.')
             return redirect('student_profile', user_id=student_id)
 
-        # Create the group
+        # Create the group with Admin Approval logic
         group = StudyGroup.objects.create(
             name=group_name,
             description=group_description,
             group_type=group_type,
+            interest_id=interest_id, # Link to Seed Interests
+            is_approved=False, # New: Requires Superuser permission
             study_day=study_day,
             start_time=request.POST.get('start_time') or viewer_profile.preferred_study_start,
             end_time=request.POST.get('end_time') or viewer_profile.preferred_study_end,
@@ -1139,22 +1145,7 @@ def create_group_with_student(request, student_id):
             creator=viewer_profile,
         )
 
-        #Save timeslot
-        slots = []
-        for day in study_day.split(","):
-            #create a slot for the current viewer
-            slots.append(TimetableSlot(
-                student=viewer_profile,
-                day=day,
-                start_time=group.start_time,
-                end_time=group.end_time,
-                slot_type="activity",
-                custom_name=group_name
-            ))
-        TimetableSlot.objects.bulk_create(slots)
-
-
-        # Add creator as admin
+        # Add creator as admin (Membership exists but group is hidden from others)
         GroupMembership.objects.create(
             group=group,
             student=viewer_profile,
@@ -1162,7 +1153,7 @@ def create_group_with_student(request, student_id):
         )
 
         # Create invitation
-        invitation = GroupInvitation.objects.create(
+        GroupInvitation.objects.create(
             group=group,
             invited_by=viewer_profile,
             invited_student=target_profile,
@@ -1174,11 +1165,9 @@ def create_group_with_student(request, student_id):
         from chat.models import ChatRoom
         ChatRoom.objects.create(group=group)
 
-
-
         messages.success(request,
-                         f'Group "{group.name}" created successfully and invitation sent to {target_user.username}!')
-        return redirect('group_detail', group_id=group.id)
+                         f'Group "{group.name}" created! It will be visible and invitations will be active once an Admin approves it.')
+        return redirect('group_list') # Redirect to list instead of detail while pending
 
     return redirect('student_profile', user_id=student_id)
 
@@ -1269,22 +1258,23 @@ from .utils import trigger_notification_update
 def accept_invitation(request, invitation_id):
     """Accept a group invitation and notify the inviter"""
     invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
+    group = invitation.group
+
+    # NEW: Safety check - Cannot join unapproved groups
+    if not group.is_approved:
+        messages.error(request, "This group is still pending admin approval. You can join once it is verified.")
+        return redirect('dashboard')
 
     if invitation.status == 'pending' and not invitation.is_expired():
         invitation.accept()
-        group = invitation.group
 
         # 1. Update Timetable
         days = group.study_day.split(",")
         slots = [
             TimetableSlot(
-
                 student=request.user.studentprofile,
                 slot_type="activity",
                 day=d.strip(),
-
-
-
                 start_time=group.start_time,
                 end_time=group.end_time,
                 custom_name=group.name
@@ -1297,7 +1287,7 @@ def accept_invitation(request, invitation_id):
         ActivityNotification.objects.create(
             recipient=invitation.invited_by.user,
             sender=request.user,
-            notification_type='comment',  # Using comment type or add 'accept' to your model choices
+            notification_type='comment',
             group=group,
             content_preview=f"Joined the group: {group.name}"
         )
