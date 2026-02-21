@@ -337,7 +337,6 @@ class StudyGroup(models.Model):
     GROUP_TYPE_CHOICES = [
         ('major', 'Major-Based'),
         ('course', 'Course-Based'),
-        ('interest', 'Interest-Based'),
         # ('free_time', 'Free Time Matching'),
         ('general', 'General Study'),
     ]
