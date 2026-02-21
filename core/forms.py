@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from .models import *
+from .models import Interest
+
 
 
 class UserRegisterForm(UserCreationForm):
@@ -200,8 +202,15 @@ class StudyGroupForm(forms.ModelForm):
         if isinstance(data, list):
             return ",".join(data)
         return data
-                
-                
+
+
+class InterestForm(forms.ModelForm):
+    class Meta:
+        model = Interest
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter interest name...'}),
+        }
 
 class CourseForm(forms.ModelForm):
     class Meta:

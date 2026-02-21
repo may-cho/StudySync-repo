@@ -512,7 +512,7 @@ def join_group(request, group_id):
             )
             for d in days_list
             ]
-            
+
     TimetableSlot.objects.bulk_create(slots);
   
 
@@ -876,6 +876,25 @@ def remove_course(request, course_id):
         messages.error(request, 'Course not found')
 
     return redirect('profile')
+
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Interest
+from .forms import InterestForm
+
+
+def add_interest(request):
+    if request.method == 'POST':
+        form = InterestForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "New interest added successfully!")
+            return redirect('dashboard')  # Or wherever you want them to go
+    else:
+        form = InterestForm()
+
+    return render(request, 'core/add_interest.html', {'form': form})
 
 @csrf_exempt
 @login_required
