@@ -269,6 +269,10 @@ def create_study_group(request):
             group = form.save(commit=False)
             group.creator = profile
 
+            interest_id = request.POST.get('interest')
+            if interest_id:
+                group.interest = get_object_or_404(Interest, id=interest_id)
+
             # If user is project admin, mark as project admin managed
             if profile.is_project_admin:
                 group.project_admin_managed = True
@@ -310,12 +314,16 @@ def create_study_group(request):
     else:
         form = StudyGroupForm()  # Form instance
     courses = Course.objects.all();
+
+    # Get only the interests this student has selected/enrolled in
+    user_interests = profile.interests.all()
     
     
     context = {
         'form': form,
         'profile': profile,
-        'user_courses' : courses
+        'user_courses' : courses,
+        'user_interests': user_interests,
        
     }
     return render(request, 'core/create_study_group.html', context)
@@ -326,7 +334,7 @@ def load_group_fields(request):
     
     return render(request, 'core/partials/group_type_fields.html', {
         'selected_type': selected_type,
-        'form': form
+        'form': form,
     })
 
 def load_courses(request): 
@@ -749,6 +757,7 @@ def remove_course(request, course_id):
         messages.error(request, 'Course not found')
 
     return redirect('profile')
+
 
 @csrf_exempt
 @login_required

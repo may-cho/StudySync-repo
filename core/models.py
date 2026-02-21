@@ -346,6 +346,13 @@ class StudyGroup(models.Model):
     study_day = models.CharField(max_length=100)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
+    interest = models.ForeignKey(
+        'Interest',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='study_groups'
+    )
 
     # For major-based groups
     major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)

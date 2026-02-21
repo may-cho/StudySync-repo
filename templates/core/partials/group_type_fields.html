@@ -15,4 +15,13 @@
         <label class="form-label font-weight-bold">Select Course:</label> 
         {{ form.course|add_class:"form-select custom-dropdown" }}
     </div>
+{% elif selected_type == 'general' %}
+    <div class="mb-3 animate__animated animate__fadeIn">
+        <label class="form-label font-weight-bold">Select Interest Track:</label>
+        {# This renders the interest field you added to the StudyGroupForm #}
+        {{ form.interest|add_class:"form-select custom-dropdown" }}
+        <div class="form-text small">Pick a general topic (e.g., Python, UI Design) for this session.</div>
+    </div>
+
+
 {% endif %}

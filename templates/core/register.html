@@ -131,21 +131,19 @@
                                 </div>
 
 
-                                <div class="interest-grid p-3 border rounded bg-light">
-                                    <ul class="list-unstyled d-flex flex-wrap gap-2">
-                                        {% for choice in profile_form.interests %}
-                                            <li class="interest-tag">
-                                                {{ choice.tag }}
-                                                <label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                                            </li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
+                                <div class="col-md-12">
+                                    <label for="id_for_label">Interest *</label><br><br>
 
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="id_profile-bio" class="form-label">Bio (Optional)</label>
-                                        {{ profile_form.bio }}
+                                    <div class="interest-grid p-3 border rounded bg-light">
+
+                                        <ul class="list-unstyled d-flex flex-wrap gap-2">
+                                            {% for choice in profile_form.interests %}
+                                                <li class="interest-tag">
+                                                    {{ choice.tag }}
+                                                    <label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
                                     </div>
                                 </div>
 
@@ -163,6 +161,14 @@
                                         <label for="id_user-password2">Confirm Password *</label>
                                     </div>
                                 </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-bio" class="form-label">Bio (Optional)</label>
+                                        {{ profile_form.bio }}
+                                    </div>
+                                </div>
+
                             </div>
 
                             <div class="col-md-6">

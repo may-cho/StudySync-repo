@@ -138,10 +138,17 @@ class StudyGroupForm(forms.ModelForm):
         required=True
     )
 
+    interest = forms.ModelChoiceField(
+        queryset=Interest.objects.all(),
+        required=False,  # We only require it for 'general' type
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Study Interest"
+    )
+
     class Meta:
         model = StudyGroup
         fields = ['name', 'description', 'group_type', 'major', 'course', 'semester',
-                  'study_day', 'start_time', 'end_time', 'max_members']
+                  'study_day', 'start_time', 'end_time', 'max_members', 'interest']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control rounded-pill'}),
             'description': forms.Textarea(attrs={'class': 'form-control rounded-4', 'rows': 4}),
