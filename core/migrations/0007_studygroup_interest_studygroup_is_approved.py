@@ -21,11 +21,5 @@ class Migration(migrations.Migration):
             name='is_approved',
             field=models.BooleanField(default=False),
         ),
-        migrations.AlterField(
-            model_name='studygroup',
-            name='group_type',
-            field=models.CharField(
-                choices=[('major', 'Major-Based'), ('course', 'Course-Based'), ('interest', 'Interest-Based'),
-                         ('general', 'General Study')], max_length=20),
-        ),
+
     ]
