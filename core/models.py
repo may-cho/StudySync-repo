@@ -392,6 +392,14 @@ class StudyGroup(models.Model):
     def is_full(self):
         return self.member_count >= self.max_members
 
+    def has_pending_request(self, user):
+        """Check if a specific user has a pending join request"""
+        try:
+            profile = StudentProfile.objects.get(user=user)
+            return self.join_requests.filter(student=profile, status='pending').exists()
+        except:
+            return False
+
     def get_available_slots(self):
         """Get all available study time slots for group members"""
         members = StudentProfile.objects.filter(
@@ -514,6 +522,43 @@ class GroupMembership(models.Model):
 
     def __str__(self):
         return f"{self.student.user.username} - {self.group.name}"
+
+class GroupJoinRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name='join_requests')
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='sent_join_requests')
+    message = models.TextField(blank=True, help_text="Optional message to the group creator")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['group', 'student']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.student.user.username} -> {self.group.name} ({self.status})"
+
+    def approve(self):
+        """Approve the request and create membership"""
+        self.status = 'approved'
+        self.save()
+        # Create the actual membership
+        GroupMembership.objects.get_or_create(
+            group=self.group,
+            student=self.student,
+            defaults={'role': 'member'}
+        )
+
+    def deny(self):
+        """Deny the request"""
+        self.status = 'denied'
+        self.save()
 
 
 # class FreeTimeMatch(models.Model):

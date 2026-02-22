@@ -13,6 +13,7 @@ from django.http import HttpResponseForbidden
 from django.contrib.auth.models import User
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.contrib import messages
 
 from django.utils import timezone
 from django.db.models import Count
@@ -351,15 +352,24 @@ def add_comment(request, post_id):
 
     return redirect('group_posts', group_id=post.group.id)
 
+
 @login_required
 def delete_post(request, post_id):
     post = get_object_or_404(GroupPost, id=post_id)
+    group = post.group
 
-    if post.author != request.user:
-        return redirect('group_posts', group_id=post.group.id)
+    # Permission Check: Allow deletion if user is the Author OR the Group Creator
+    # (Assuming group.creator is a StudentProfile and request.user has a .studentprofile)
+    is_author = (post.author == request.user)
+    is_group_creator = (group.creator.user == request.user)
 
-    post.delete()
-    return redirect('group_posts', group_id=post.group.id)
+    if is_author or is_group_creator:
+        post.delete()
+        messages.success(request, "Post has been removed.")
+    else:
+        messages.error(request, "You do not have permission to take down this post.")
+
+    return redirect('group_posts', group_id=group.id)
 
 @login_required
 def edit_post(request, post_id):

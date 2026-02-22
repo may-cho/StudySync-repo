@@ -472,6 +472,7 @@ def group_list(request):
     }
     return render(request, 'core/group_list.html', context)
 
+
 @login_required
 def join_group(request, group_id):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -487,37 +488,34 @@ def join_group(request, group_id):
         messages.error(request, 'This group is full')
         return redirect('group_detail', group_id=group_id)
 
-    days = group.study_day.split(",");
-    days_list = [d.strip() for d in days];
-    
-    if check_for_conflicts(profile,group.start_time,group.end_time,days_list):
-         messages.error(request, f"Conflict! You already have '{group.name}' scheduled for this time.")
-         return redirect('group_list')
-
-    # Join group
-    GroupMembership.objects.create(
+    # FIX: Use get_or_create to handle students re-applying after being denied
+    join_request, created = GroupJoinRequest.objects.get_or_create(
         group=group,
         student=profile,
-        role='member'
+        defaults={'status': 'pending'}
     )
-    
-    slots = [
-            TimetableSlot(
-                day=d.strip(),
-                start_time=group.start_time,
-                end_time=group.end_time,
-                student=profile,
-                custom_name=group.name,
-                slot_type="self_study"
-            )
-            for d in days_list
-            ]
 
-    TimetableSlot.objects.bulk_create(slots);
-  
+    if not created:
+        if join_request.status == 'pending':
+            messages.warning(request, 'You already have a pending join request for this group.')
+            return redirect('group_list')
+        elif join_request.status == 'denied':
+            # If they were denied before, reset the status to pending to try again
+            join_request.status = 'pending'
+            join_request.save()
+        else:
+            # Fallback for 'approved' or other statuses
+            return redirect('group_detail', group_id=group_id)
 
-    messages.success(request, f'You have joined {group.name}')
-    return redirect('group_detail', group_id=group_id)
+    days = group.study_day.split(",")
+    days_list = [d.strip() for d in days]
+
+    if check_for_conflicts(profile, group.start_time, group.end_time, days_list):
+        messages.error(request, f"Conflict! You already have a schedule for this time.")
+        return redirect('group_list')
+
+    messages.success(request, f'Join request sent to the creator of {group.name}. You will be notified once approved.')
+    return redirect('group_list')
 
 @login_required
 def leave_group(request, group_id):
@@ -564,12 +562,12 @@ def leave_group(request, group_id):
 
     return redirect('group_detail', group_id=group_id)
 
+
 @login_required
 def group_manage(request, group_id):
-    """View to manage member roles, removals, and group deletion"""
+    """View to manage member roles, removals, join requests, and group deletion"""
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
-    
 
     # Check if the user is the creator (needed for group deletion)
     is_creator = (group.creator == profile)
@@ -581,42 +579,72 @@ def group_manage(request, group_id):
     if request.method == 'POST':
         action = request.POST.get('action')
         student_id = request.POST.get('student_id')
+        request_id = request.POST.get('request_id')  # Get the ID for join requests
 
-        # 1. DELETE GROUP ACTION
-        if action == 'delete_group':
+        # 1. APPROVE JOIN REQUEST
+        if action == 'approve_request':
+            join_req = get_object_or_404(GroupJoinRequest, id=request_id, group=group)
+            join_req.approve()  # This method handles status change and Membership creation
+
+            # Create Timetable Slots for the approved student
+            days_list = [d.strip() for d in group.study_day.split(",")]
+            slots = [
+                TimetableSlot(
+                    day=d,
+                    start_time=group.start_time,
+                    end_time=group.end_time,
+                    student=join_req.student,
+                    custom_name=group.name,
+                    slot_type="activity"
+                )
+                for d in days_list
+            ]
+            TimetableSlot.objects.bulk_create(slots)
+            messages.success(request, f'Approved {join_req.student.user.username}.')
+
+        # 2. DENY JOIN REQUEST
+        elif action == 'deny_request':
+            join_req = get_object_or_404(GroupJoinRequest, id=request_id, group=group)
+            join_req.deny()
+            messages.info(request, f'Denied request from {join_req.student.user.username}.')
+
+        # 3. DELETE GROUP ACTION
+        elif action == 'delete_group':
             if is_creator:
                 group_name = group.name
                 group.delete()
-                
-                #delete timeslots when admin delete the group
+
+                # delete timeslots when admin delete the group
                 days = group.study_day.split(',');
                 cleaned_days = [d.strip() for d in days]
-                
-                slots = TimetableSlot.objects.filter(student=profile,custom_name=group.name,day__in=cleaned_days
-                ,start_time=group.start_time,end_time=group.end_time)
-                
+
+                slots = TimetableSlot.objects.filter(student=profile, custom_name=group.name, day__in=cleaned_days
+                                                     , start_time=group.start_time, end_time=group.end_time)
+
                 slot_count = slots.count();
-                if(slot_count>0) :
+                if (slot_count > 0):
                     slots.delete();
-                else: 
+                else:
                     print("There is no matching timeslots found!")
                 messages.success(request, f'Group "{group_name}" has been deleted.')
                 return redirect('group_list')
-            
+
             else:
                 messages.error(request, 'Only the group creator can delete this group.')
 
-        # 2. PROMOTE TO ADMIN
+        # 4. PROMOTE TO ADMIN
         elif action == 'add_admin':
             membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
             membership.role = 'admin'
             membership.save()
             messages.success(request, 'Member promoted to Admin.')
 
-        # 3. REMOVE MEMBER
+        # 5. REMOVE MEMBER
         elif action == 'remove_member':
             membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
             if membership.student != group.creator:
+                # Also remove the removed member's timetable slots for this group
+                TimetableSlot.objects.filter(student=membership.student, custom_name=group.name).delete()
                 membership.delete()
                 messages.success(request, 'Member removed.')
             else:
@@ -624,10 +652,14 @@ def group_manage(request, group_id):
 
         return redirect('group_manage', group_id=group.id)
 
+    # Fetch pending requests to display in the management UI
+    pending_requests = group.join_requests.filter(status='pending').select_related('student__user')
     memberships = GroupMembership.objects.filter(group=group).select_related('student__user')
+
     return render(request, 'core/group_manage.html', {
         'group': group,
         'memberships': memberships,
+        'pending_requests': pending_requests,
         'is_creator': is_creator,
     })
 
