@@ -495,6 +495,24 @@ def join_group(request, group_id):
         defaults={'status': 'pending'}
     )
 
+    if created or join_request.status == 'pending':
+        # Create a database notification for the creator
+        ActivityNotification.objects.create(
+            recipient=group.creator.user,
+            sender=request.user,
+            notification_type='request',  # Ensure 'request' is in your model choices
+            group=group,
+            content_preview=f"{request.user.username} wants to join {group.name}",
+            is_read=False
+        )
+
+        # Trigger live WebSocket update for the CREATOR
+        from .utils import trigger_notification_update
+        trigger_notification_update(
+            group.creator.user,
+            f"New join request from {request.user.username} for {group.name}"
+        )
+
     if not created:
         if join_request.status == 'pending':
             messages.warning(request, 'You already have a pending join request for this group.')
@@ -585,6 +603,41 @@ def group_manage(request, group_id):
         if action == 'approve_request':
             join_req = get_object_or_404(GroupJoinRequest, id=request_id, group=group)
             join_req.approve()  # This method handles status change and Membership creation
+
+            # ✅ NEW: Create Notification for Student
+            ActivityNotification.objects.create(
+                recipient=join_req.student.user,
+                sender=request.user,
+                notification_type='accept',
+                group=group,
+                content_preview=f"Your request to join {group.name} was approved!",
+                is_read=False
+            )
+            # Trigger WebSocket for the STUDENT
+            trigger_notification_update(
+                join_req.student.user,
+                f"You have been approved to join {group.name}!"
+            )
+            # ... (existing timetable slot logic) ...
+
+        elif action == 'deny_request':
+            join_req = get_object_or_404(GroupJoinRequest, id=request_id, group=group)
+            join_req.deny()
+
+            # ✅ NEW: Create Notification for Student
+            ActivityNotification.objects.create(
+                recipient=join_req.student.user,
+                sender=request.user,
+                notification_type='deny',
+                group=group,
+                content_preview=f"Your request to join {group.name} was declined.",
+                is_read=False
+            )
+            # Trigger WebSocket for the STUDENT
+            trigger_notification_update(
+                join_req.student.user,
+                f"Your request for {group.name} was declined."
+            )
 
             # Create Timetable Slots for the approved student
             days_list = [d.strip() for d in group.study_day.split(",")]
@@ -1404,6 +1457,7 @@ def invitation_list(request):
         'responded_invitations': profile.groupinvitation_set.exclude(status='pending').exclude(status='expired'),
     }
     return render(request, 'core/invitation_list.html', context)
+
 @login_required
 def pending_invites(request):
     """View and manage pending group invitations"""
