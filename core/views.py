@@ -2,7 +2,6 @@ from django.contrib.auth import login
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -11,34 +10,78 @@ import json
 from .models import StudyGroup, StudentProfile, GroupMembership
 from .forms import StudyGroupForm
 from django.db.models import Prefetch
-
-
-from django.views.decorators.http import require_http_methods
+from django.utils.timesince import timesince
+from django.forms.models import model_to_dict
+from django.views.decorators.http import require_http_methods,require_POST
 from .service import CompatibilityService
-from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
-    get_common_courses, calculate_compatibility
+from .matching_algorithm import  suggest_group_times
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django.db.models import Q, Count
-from datetime import datetime, date, time, timedelta
 from .models import *
 from .forms import *
-from .matching_algorithm import find_course_study_partners, suggest_group_times
+from django.db import transaction
+
 
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+
 # from .models import GroupInvitation, CourseGroupMatch
 
 def home(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('login_success_redirect')
     return render(request, 'core/home.html')
 
 from django.contrib.auth.decorators import user_passes_test
 from .models import StudentProfile, StudyGroup, Major
 
+@login_required
+def admin_dashboard_api(request):
+  
+  
+    data = {
+        'stats': {
+            'groups': StudyGroup.objects.count(),
+            'students': StudentProfile.objects.count(),
+            'pending': StudyGroup.objects.filter(status="PENDING",is_approved=False).count()
+        },
+        'pendingGroups': [
+            {
+                "id": str(g.id),
+                "name": g.name,
+                "creator": g.creator.user.username,
+                "created_at": g.created_at.strftime("%Y-%m-%d %H:%M")
+            } for g in StudyGroup.objects.filter(is_approved=False,status="PENDING").select_related("creator").order_by('-created_at')
+        ],
+        'activities': [
+            {
+                "id": str(a.id),
+                "type": a.notification_type,
+                "sender": a.sender.username,
+                "content": a.content_preview,
+                "group": {
+                    "id": str(a.group.id),
+                    "name": a.group.name,
+                } if a.group else None,
+                "time_ago": (
+                    "Just now" 
+                    if (timezone.now() - a.created_at).total_seconds() < 60 
+                    else f"{timesince(a.created_at, timezone.now()).split(',')[0]} ago"
+                )
+            } for a in ActivityNotification.objects.filter(notification_type__in=['register','create','delete','approve','deny']).order_by('-created_at')[:10]
+        ]
+    }
+    return JsonResponse(data)
 
+@login_required 
+def admin_dashboard(request):
+    return render(request,"core/admin_dashboard.html")
+@login_required
+def login_success_redirect(request):
+    if hasattr(request.user,"adminprofile"):
+        print('hrer')
+        return redirect("admin_dashboard")
+    return redirect("dashboard")
+    
 @login_required
 def dashboard(request):
     try:
@@ -97,7 +140,76 @@ def dashboard(request):
     return render(request, 'core/dashboard.html', context)
 
 
+def approve_group_request(request,group_id):
+    if not group_id: 
+        return JsonResponse({'error': 'No ID provided'}, status=400)
+    group = get_object_or_404(StudyGroup,id=group_id)
+    
+    group.is_approved = True
+    group.status = 'APPROVED'
+    group.save()
+    
+    #notify admins
+    ActivityNotification.objects.create(
+        notification_type='approve',
+        sender=request.user,
+        recipient=group.creator.user,
+        group=group,
+        content_preview=f"Your group '{group.name}' has been approved."
+    )
 
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Group {group.name} approved successfully'
+    })
+    
+def deny_group_request(request,group_id):
+    if not group_id: 
+        return JsonResponse({'error': 'No ID provided'}, status=400)
+    
+    group = get_object_or_404(StudyGroup,id=group_id)
+    
+    group.is_approved = False
+    group.status = 'REJECTED'
+    group.save()
+    
+    #notify admins
+    ActivityNotification.objects.create(
+        notification_type='deny',
+        sender=request.user,
+        recipient=group.creator.user,
+        group=group,
+        content_preview=f"Your group '{group.name}' has been denied."
+    )
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Group {group.name} denied successfully'
+    })
+
+def get_group_details(request,group_id):
+    if not group_id: 
+        return JsonResponse({'error': 'No ID provided'}, status=400)
+    
+    group = get_object_or_404(
+        StudyGroup.objects.select_related('major', 'course', 'interest','creator'), 
+        id=group_id
+    )
+
+    data = model_to_dict(group, exclude=['is_approved'])
+    
+    if group.major:
+        data['major_name'] = group.major.name
+    if group.course:
+        data['course_name'] = group.course.name
+    if group.interest:
+        data['interest'] = group.interest.name
+    data['creator'] = group.creator.user.username
+        
+    data['id'] = str(group.id)
+
+    return JsonResponse(data)
+    
     
 @login_required
 def find_study_partners(request):
@@ -211,14 +323,39 @@ def register(request):
         profile_form = StudentProfileForm(request.POST, request.FILES, prefix='profile')
 
         if user_form.is_valid() and profile_form.is_valid():
-            user = user_form.save()
-            profile = profile_form.save(commit=False)
-            profile.user = user
-            profile.save()
-            profile_form.save_m2m()
+            try :
+                with transaction.atomic():
+                    
+                    user = user_form.save()
+                    profile = profile_form.save(commit=False)
+                    profile.user = user
+                    profile.save()
+                    profile_form.save_m2m()
+                    
+                    #notify all admins 
+                    all_admins = AdminProfile.objects.select_related("user").all()
+                    
+                    notifications = []
+                    for admin in all_admins:
+                        notifications.append(
+                            ActivityNotification(
+                                recipient=admin.user,    # The User associated with the AdminProfile
+                                sender=user,     # The person who triggered the event
+                                notification_type='register', 
+                                content_preview=f"{user.username} joined our commnunity",
+                            )
+                        )
 
-            login(request, user)
-            return redirect('dashboard')
+                    ActivityNotification.objects.bulk_create(notifications)
+                    from .utils import trigger_notification_update
+                    for admin in all_admins:
+                        trigger_notification_update(admin.user, "New member:{user.username} joined!")
+                    
+                    login(request, user)
+                    return redirect('dashboard')
+            except Exception as e:
+                messages.error(request, 'An error occurred during registration.')
+                return redirect('register')
         else:
             # Print errors for debugging
             print("User form errors:", user_form.errors)
@@ -355,6 +492,37 @@ def create_study_group(request):
                 student=profile,
                 role=role
             )
+
+            
+            #notify creator and all admins    
+            all_admins = AdminProfile.objects.select_related("user").all();
+        
+            notifications = [];
+
+            #notify to creator
+            notifications = [
+                    ActivityNotification(
+                        recipient=request.user, # The student
+                        sender=request.user,    # System/Self
+                        notification_type='create',
+                        group=group,
+                        content_preview=f"Your request for '{group.name}' has been submitted for approval. ⏳"
+                    )
+            ]
+            for admin in all_admins:
+                notifications.append(
+                    ActivityNotification(
+                        recipient=admin.user,
+                        sender=request.user,
+                        notification_type='create',
+                        group=group,
+                        content_preview=f"New group request: {group.name}"
+                    )
+                )
+
+            if notifications:
+                ActivityNotification.objects.bulk_create(notifications)
+            
 
             # Create chat room
             from chat.models import ChatRoom

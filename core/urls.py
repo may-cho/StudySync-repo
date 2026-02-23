@@ -8,8 +8,13 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('register/', views.register, name='register'),
-
+    path('redirect-user', views.login_success_redirect,name="login_success_redirect"),
     # Dashboard & Profile
+    path('admin_dashboard',views.admin_dashboard,name="admin_dashboard"),
+    path('api/admin/dashboard-data',views.admin_dashboard_api,name="admin_dashboard_api"),
+    path('api/group/<uuid:group_id>/approve',views.approve_group_request,name="approve_group_request"),
+    path('api/group/<uuid:group_id>/deny',views.deny_group_request,name="deny_group_request"),
+    path('api/group/<uuid:group_id>',views.get_group_details,name="get_group_details"),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/', views.profile_view, name='profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),

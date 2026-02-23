@@ -151,6 +151,12 @@ class Interest(models.Model):
     def __str__(self):
         return self.name
 
+class AdminProfile(models.Model):
+    user = models.OneToOneField(User,on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"System Admin: {self.user.username}"
+    
 class StudentProfile(models.Model):
     YEAR_CHOICES = [
         (1, 'First Year'),
@@ -349,6 +355,7 @@ class StudyGroup(models.Model):
     study_day = models.CharField(max_length=100)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
+    status = models.CharField(max_length=10,default="PENDING")
     interest = models.ForeignKey(
         'Interest',
         on_delete=models.SET_NULL,
@@ -362,7 +369,6 @@ class StudyGroup(models.Model):
 
     # For course-based groups
     course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True)
-    interest = models.ForeignKey('Interest', on_delete=models.SET_NULL, null=True, blank=True)
     semester = models.CharField(max_length=2, choices=StudentProfile.SEMESTER_CHOICES, null=True, blank=True)
     # For free time matching
     # preferred_day = models.CharField(max_length=3, choices=TimetableSlot.DAY_CHOICES, null=True, blank=True)
@@ -648,12 +654,25 @@ class SessionAttendance(models.Model):
 
 class ActivityNotification(models.Model):
     NOTIFICATION_TYPES = [
+        #Content Interactions
         ('like', 'Like'),
         ('comment', 'Comment'),
         ('post', 'New Post'),
-        ('accept', 'Accepted Invite'),
-        ('request', 'Group Request'),
-        ('deny', 'Request Deny')
+        ('file', 'New File Uploaded'),
+        
+        #Membership (Student <-> Student)
+        ('accept', 'Request Accepted'),   # Student -> Group Creator
+        ('request', 'Join Request'),      # Creator -> Student
+        ('decline', 'Request Declined'),  # Creator -> Student
+        
+       # Group Lifecycle (Admin <-> Student)
+        ('create', 'Group Proposal'),     # Student -> Admin
+        ('approve', 'Group Approved'),    # Admin -> Student
+        ('deny', 'Group Denied'),         # Admin -> Student
+        ('delete', 'Group Deleted'),      # System -> Members
+        
+        # System
+        ('register', 'Registered User')  # New user joined the platform
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -662,7 +681,13 @@ class ActivityNotification(models.Model):
     notification_type = models.CharField(max_length=10, choices=NOTIFICATION_TYPES)
 
     # Link to the Group where activity happened
-    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name='notifications')
+    group = models.ForeignKey(
+        StudyGroup, 
+        on_delete=models.CASCADE, 
+        blank=True,
+        null=True,
+        related_name='notifications'
+    )
 
     # We store the Post ID as a string to avoid complex circular imports between Core and Chat apps
     post_id = models.CharField(max_length=255, null=True, blank=True)

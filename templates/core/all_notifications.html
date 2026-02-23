@@ -16,9 +16,9 @@
                 <div class="flex-shrink-0 me-3">
                     {% if n.notification_type == 'request' %}
                         <div class="rounded-circle bg-warning-subtle p-3 text-warning"><i class="fas fa-user-clock fa-lg"></i></div>
-                    {% elif n.notification_type == 'accept' %}
+                    {% elif n.notification_type == 'accept' or n.notification_type ==  'approve' %}
                         <div class="rounded-circle bg-success-subtle p-3 text-success"><i class="fas fa-check-circle fa-lg"></i></div>
-                    {% elif n.notification_type == 'deny' %}
+                    {% elif n.notification_type == 'deny' or n.notification_type == 'decline' %}
                         <div class="rounded-circle bg-danger-subtle p-3 text-danger"><i class="fas fa-times-circle fa-lg"></i></div>
                     {% elif n.invited_by %}
                         <div class="rounded-circle bg-primary-subtle p-3 text-primary"><i class="fas fa-users fa-lg"></i></div>
@@ -54,11 +54,22 @@
                             <a href="{% url 'group_detail' n.group.id %}" class="btn btn-success btn-sm">Go to Group</a>
                         </div>
 
-                    {% elif n.notification_type == 'deny' %}
+                    {% elif n.notification_type == 'decline' %}
                         <p class="mb-2 text-danger fw-bold">Request Declined</p>
                         <p class="mb-0">Your request to join <strong>{{ n.group.name }}</strong> was not approved at this time.</p>
 
+                    {% elif n.notification_type == 'create'%}
+                        <p class="mb-2 text-info fw-bold">Group Proposal</p>
+                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been requested.</p>
+                    {% elif n.notification_type == 'approve'%}
+                         <p class="mb-2 text-success fw-bold">Group Approved</p>
+                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been approved.</p>
+
+                    {% elif n.notification_type == 'deny' %}
+                         <p class="mb-2 text-danger fw-bold">Group Rejected</p>
+                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been denied.</p>
                     {% elif n.invited_by %}
+
                         <p class="mb-2"><strong>{{ n.invited_by.user.username }}</strong> invited you to <strong>{{ n.group.name }}</strong></p>
                         <div class="mt-2">
                             <a href="{% url 'accept_invitation' n.id %}" class="btn btn-success btn-sm">Accept</a>
