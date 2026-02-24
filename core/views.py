@@ -157,7 +157,11 @@ def approve_group_request(request,group_id):
         group=group,
         content_preview=f"Your group '{group.name}' has been approved."
     )
-
+    # ✅ TRIGGER REAL - TIME NOTIFICATION
+    trigger_notification_update(
+        group.creator.user,
+        f"Success! Your group '{group.name}' has been approved."
+    )
     return JsonResponse({
         'status': 'success',
         'message': f'Group {group.name} approved successfully'
@@ -180,6 +184,12 @@ def deny_group_request(request,group_id):
         recipient=group.creator.user,
         group=group,
         content_preview=f"Your group '{group.name}' has been denied."
+    )
+
+    # TRIGGER REAL-TIME NOTIFICATION
+    trigger_notification_update(
+        group.creator.user,
+        f"Attention: Your group '{group.name}' was not approved."
     )
 
     return JsonResponse({
@@ -522,7 +532,15 @@ def create_study_group(request):
 
             if notifications:
                 ActivityNotification.objects.bulk_create(notifications)
-            
+
+            from .utils import trigger_notification_update
+
+            # Update Creator's UI
+            trigger_notification_update(request.user, f"Group '{group.name}' submitted!")
+
+            # Update every Admin's UI
+            for admin in all_admins:
+                trigger_notification_update(admin.user, f"New Group Approval Required: {group.name}")
 
             # Create chat room
             from chat.models import ChatRoom
