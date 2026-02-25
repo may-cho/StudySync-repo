@@ -2,7 +2,6 @@ from django.contrib.auth import login
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -11,26 +10,78 @@ import json
 from .models import StudyGroup, StudentProfile, GroupMembership
 from .forms import StudyGroupForm
 from django.db.models import Prefetch
-
-
-from django.views.decorators.http import require_http_methods
+from django.utils.timesince import timesince
+from django.forms.models import model_to_dict
+from django.views.decorators.http import require_http_methods,require_POST
 from .service import CompatibilityService
-from .matching_algorithm import find_course_study_partners, find_course_study_partners, suggest_group_times, \
-    get_common_courses, calculate_compatibility
+from .matching_algorithm import  suggest_group_times
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django.db.models import Q, Count
-from datetime import datetime, date, time, timedelta
 from .models import *
 from .forms import *
-from .matching_algorithm import find_course_study_partners, suggest_group_times
+from django.db import transaction
+
+
+from django.http import JsonResponse
+
+# from .models import GroupInvitation, CourseGroupMatch
 
 def home(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('login_success_redirect')
     return render(request, 'core/home.html')
 
+from django.contrib.auth.decorators import user_passes_test
+from .models import StudentProfile, StudyGroup, Major
+
+@login_required
+def admin_dashboard_api(request):
+  
+  
+    data = {
+        'stats': {
+            'groups': StudyGroup.objects.count(),
+            'students': StudentProfile.objects.count(),
+            'pending': StudyGroup.objects.filter(status="PENDING",is_approved=False).count()
+        },
+        'pendingGroups': [
+            {
+                "id": str(g.id),
+                "name": g.name,
+                "creator": g.creator.user.username,
+                "created_at": g.created_at.strftime("%Y-%m-%d %H:%M")
+            } for g in StudyGroup.objects.filter(is_approved=False,status="PENDING").select_related("creator").order_by('-created_at')
+        ],
+        'activities': [
+            {
+                "id": str(a.id),
+                "type": a.notification_type,
+                "sender": a.sender.username,
+                "content": a.content_preview,
+                "group": {
+                    "id": str(a.group.id),
+                    "name": a.group.name,
+                } if a.group else None,
+                "time_ago": (
+                    "Just now" 
+                    if (timezone.now() - a.created_at).total_seconds() < 60 
+                    else f"{timesince(a.created_at, timezone.now()).split(',')[0]} ago"
+                )
+            } for a in ActivityNotification.objects.filter(notification_type__in=['register','create','delete','approve','deny']).order_by('-created_at')[:10]
+        ]
+    }
+    return JsonResponse(data)
+
+@login_required 
+def admin_dashboard(request):
+    return render(request,"core/admin_dashboard.html")
+@login_required
+def login_success_redirect(request):
+    if hasattr(request.user,"adminprofile"):
+        print('hrer')
+        return redirect("admin_dashboard")
+    return redirect("dashboard")
+    
 @login_required
 def dashboard(request):
     try:
@@ -38,13 +89,7 @@ def dashboard(request):
         profile = StudentProfile.objects.get(user=request.user)
     except StudentProfile.DoesNotExist:
         # Create a default profile if it doesn't exist
-        default_major = Major.objects.filter(id=1).first() or Major.objects.first()
-        profile = StudentProfile.objects.create(
-            user=request.user,
-            major=default_major,  
-            year=1  # Default year
-        )
-        messages.info(request, 'A default profile has been created for you.')
+        return redirect('register')
 
     # Get today's schedule
     today = date.today()
@@ -55,8 +100,10 @@ def dashboard(request):
     ).order_by('start_time')
 
     # Get study groups
+    # FIX: Added is_approved=True to ensure unapproved groups aren't counted/displayed
     study_groups = StudyGroup.objects.filter(
-        memberships__student=profile
+        memberships__student=profile,
+        is_approved=True
     )[:5]
 
     # Get course matches
@@ -70,8 +117,10 @@ def dashboard(request):
     courses = StudentCourse.objects.filter(student=profile)
 
     # Get upcoming study sessions
+    # FIX: Ensure sessions are only pulled from approved groups
     upcoming_sessions = StudySession.objects.filter(
         group__memberships__student=profile,
+        group__is_approved=True,
         date__gte=today
     ).order_by('date', 'start_time')[:5]
 
@@ -79,6 +128,7 @@ def dashboard(request):
         'profile': profile,
         'today_slots': today_slots,
         'study_groups': study_groups,
+        'study_groups_count': study_groups.count(), # Added for the yellow card counter
         'course_matches': course_matches,
         'course_matches_count': course_matches.count(),
         'courses': courses,
@@ -90,7 +140,86 @@ def dashboard(request):
     return render(request, 'core/dashboard.html', context)
 
 
+def approve_group_request(request,group_id):
+    if not group_id: 
+        return JsonResponse({'error': 'No ID provided'}, status=400)
+    group = get_object_or_404(StudyGroup,id=group_id)
+    
+    group.is_approved = True
+    group.status = 'APPROVED'
+    group.save()
+    
+    #notify admins
+    ActivityNotification.objects.create(
+        notification_type='approve',
+        sender=request.user,
+        recipient=group.creator.user,
+        group=group,
+        content_preview=f"Your group '{group.name}' has been approved."
+    )
+    # ✅ TRIGGER REAL - TIME NOTIFICATION
+    trigger_notification_update(
+        group.creator.user,
+        f"Success! Your group '{group.name}' has been approved."
+    )
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Group {group.name} approved successfully'
+    })
+    
+def deny_group_request(request,group_id):
+    if not group_id: 
+        return JsonResponse({'error': 'No ID provided'}, status=400)
+    
+    group = get_object_or_404(StudyGroup,id=group_id)
+    
+    group.is_approved = False
+    group.status = 'REJECTED'
+    group.save()
+    
+    #notify admins
+    ActivityNotification.objects.create(
+        notification_type='deny',
+        sender=request.user,
+        recipient=group.creator.user,
+        group=group,
+        content_preview=f"Your group '{group.name}' has been denied."
+    )
 
+    # TRIGGER REAL-TIME NOTIFICATION
+    trigger_notification_update(
+        group.creator.user,
+        f"Attention: Your group '{group.name}' was not approved."
+    )
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Group {group.name} denied successfully'
+    })
+
+def get_group_details(request,group_id):
+    if not group_id: 
+        return JsonResponse({'error': 'No ID provided'}, status=400)
+    
+    group = get_object_or_404(
+        StudyGroup.objects.select_related('major', 'course', 'interest','creator'), 
+        id=group_id
+    )
+
+    data = model_to_dict(group, exclude=['is_approved'])
+    
+    if group.major:
+        data['major_name'] = group.major.name
+    if group.course:
+        data['course_name'] = group.course.name
+    if group.interest:
+        data['interest'] = group.interest.name
+    data['creator'] = group.creator.user.username
+        
+    data['id'] = str(group.id)
+
+    return JsonResponse(data)
+    
     
 @login_required
 def find_study_partners(request):
@@ -204,15 +333,39 @@ def register(request):
         profile_form = StudentProfileForm(request.POST, request.FILES, prefix='profile')
 
         if user_form.is_valid() and profile_form.is_valid():
-            user = user_form.save()
-            profile = profile_form.save(commit=False)
-            profile.user = user
-            major_id = profile_form.cleaned_data.get('major')
-            profile.major = major_id
-            profile.save()
+            try :
+                with transaction.atomic():
+                    
+                    user = user_form.save()
+                    profile = profile_form.save(commit=False)
+                    profile.user = user
+                    profile.save()
+                    profile_form.save_m2m()
+                    
+                    #notify all admins 
+                    all_admins = AdminProfile.objects.select_related("user").all()
+                    
+                    notifications = []
+                    for admin in all_admins:
+                        notifications.append(
+                            ActivityNotification(
+                                recipient=admin.user,    # The User associated with the AdminProfile
+                                sender=user,     # The person who triggered the event
+                                notification_type='register', 
+                                content_preview=f"{user.username} joined our commnunity",
+                            )
+                        )
 
-            login(request, user)
-            return redirect('dashboard')
+                    ActivityNotification.objects.bulk_create(notifications)
+                    from .utils import trigger_notification_update
+                    for admin in all_admins:
+                        trigger_notification_update(admin.user, "New member:{user.username} joined!")
+                    
+                    login(request, user)
+                    return redirect('dashboard')
+            except Exception as e:
+                messages.error(request, 'An error occurred during registration.')
+                return redirect('register')
         else:
             # Print errors for debugging
             print("User form errors:", user_form.errors)
@@ -309,53 +462,40 @@ def check_for_conflicts(student_profile,start_time,end_time,study_day) :
     print(conflicts);
 
     return conflicts.exists()
+
+
 @login_required
 def create_study_group(request):
     profile = get_object_or_404(StudentProfile, user=request.user)
 
     if request.method == 'POST':
-        form = StudyGroupForm(request.POST) ;
+        form = StudyGroupForm(request.POST)
 
-       
         if form.is_valid():
             group = form.save(commit=False)
-            
-            study_days = form.cleaned_data['study_day'].split(",");
-            start_time,end_time= form.cleaned_data['start_time'],form.cleaned_data['end_time'];
-            days_list = [d.strip() for d in study_days];
-            if check_for_conflicts(profile,start_time,end_time,days_list):
-                messages.error(request, f"Conflict! You already have '{group.name}' scheduled for this time.")
-                return redirect('group_list')
-            
-            
-            group = form.save(commit=False)
-            group.creator = profile
 
-            # If user is project admin, mark as project admin managed
+            study_days = form.cleaned_data['study_day'].split(",")
+            start_time = form.cleaned_data['start_time']
+            end_time = form.cleaned_data['end_time']
+            days_list = [d.strip() for d in study_days]
+
+            if check_for_conflicts(profile, start_time, end_time, days_list):
+                messages.error(request, f"Conflict! You already have a schedule for this time.")
+                return redirect('group_list')
+
+            # Set initial state
+            group.creator = profile
+            group.is_approved = False  # New: Requires admin permission
+
             if profile.is_project_admin:
                 group.project_admin_managed = True
+                # Optional: Auto-approve if the creator is already an admin/superuser
+                # group.is_approved = True
 
             group.save()
-            
 
-            
-            #Added to timeslot
-            days = group.study_day.split(",");
-            slots = [
-                TimetableSlot(
-                    day=d.strip(),
-                    start_time=group.start_time,
-                    end_time=group.end_time,
-                    student=profile,
-                    custom_name=group.name,
-                    slot_type="self_study"
-                )
-                for d in days
-            ]
-            
-            TimetableSlot.objects.bulk_create(slots);
-
-            # Add creator as admin
+            # Note: We still create the membership so the creator owns it,
+            # but the group won't appear in public lists until is_approved=True
             role = 'project_admin' if profile.is_project_admin else 'admin'
             GroupMembership.objects.create(
                 group=group,
@@ -363,24 +503,64 @@ def create_study_group(request):
                 role=role
             )
 
+            
+            #notify creator and all admins    
+            all_admins = AdminProfile.objects.select_related("user").all();
+        
+            notifications = [];
+
+            #notify to creator
+            notifications = [
+                    ActivityNotification(
+                        recipient=request.user, # The student
+                        sender=request.user,    # System/Self
+                        notification_type='create',
+                        group=group,
+                        content_preview=f"Your request for '{group.name}' has been submitted for approval. ⏳"
+                    )
+            ]
+            for admin in all_admins:
+                notifications.append(
+                    ActivityNotification(
+                        recipient=admin.user,
+                        sender=request.user,
+                        notification_type='create',
+                        group=group,
+                        content_preview=f"New group request: {group.name}"
+                    )
+                )
+
+            if notifications:
+                ActivityNotification.objects.bulk_create(notifications)
+
+            from .utils import trigger_notification_update
+
+            # Update Creator's UI
+            trigger_notification_update(request.user, f"Group '{group.name}' submitted!")
+
+            # Update every Admin's UI
+            for admin in all_admins:
+                trigger_notification_update(admin.user, f"New Group Approval Required: {group.name}")
+
             # Create chat room
             from chat.models import ChatRoom
             ChatRoom.objects.create(group=group)
 
-            messages.success(request, 'Study group created successfully!')
-            return redirect('group_detail', group_id=group.id)
-        else: 
+            # Inform the user about the pending approval
+            messages.success(request,
+                             'Study group submitted! It will be visible once an Admin verifies it relates to University Courses or approved Interests.')
+            return redirect('group_list')  # Redirect to list instead of detail since it's pending
+        else:
             print('Form is invalid')
     else:
-        form = StudyGroupForm()  # Form instance
-    courses = Course.objects.all();
-    
-    
+        form = StudyGroupForm()
+
+    courses = Course.objects.all()
+
     context = {
         'form': form,
         'profile': profile,
-        'user_courses' : courses
-       
+        'user_courses': courses
     }
     return render(request, 'core/create_study_group.html', context)
 
@@ -398,32 +578,52 @@ def load_courses(request):
     courses = Course.objects.filter(semester=semester_id).order_by('name')
     return render(request,'core/partials/course_dropdown_list_options.html',{'courses': courses})
 
+from django.utils import timezone
+
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
 
-    # Explicit checks
-    is_member = GroupMembership.objects.filter(group=group, student=profile).exists()
-    is_admin = group.is_admin(request.user)
+    # NEW: Admin Approval Check
+    # If the group is NOT approved, only the creator or a superuser can see it.
+    if not group.is_approved:
+        if group.creator != profile and not request.user.is_superuser:
+            messages.error(request, "This study group is pending admin approval and is not yet accessible.")
+            return redirect('group_list')
 
-    # This is the key variable for the Leave button
-    is_creator = (group.creator == profile)
+    # 1. Get the SINGLE membership for the logged-in user
+    user_mem = GroupMembership.objects.filter(group=group, student=profile).first()
 
-    if not is_member and not is_admin:
+    if not user_mem:
         messages.error(request, 'You are not a member of this group')
         return redirect('group_list')
 
-    memberships = GroupMembership.objects.filter(group=group).select_related('student', 'student__user')
+    # 2. Get counts based on the user's last view timestamps
+    chat_room = getattr(group, 'chat_room', None)
+    new_messages_count = 0
+    if chat_room:
+        new_messages_count = chat_room.messages.filter(
+            timestamp__gt=user_mem.last_chat_view
+        ).count()
+
+    new_posts_count = group.posts.filter(
+        created_at__gt=user_mem.last_feed_view
+    ).count()
+
+    # 3. Fetch ALL memberships for the members list card
+    all_memberships = group.memberships.all().select_related('student__user')
 
     context = {
         'group': group,
-        'memberships': memberships,
-        'is_admin': is_admin,
-        'is_creator': is_creator,
-        'profile': profile,
+        'memberships': all_memberships, # Used for the loop in HTML
+        'is_admin': group.is_admin(request.user),
+        'is_creator': (group.creator == profile),
+        'new_messages_count': new_messages_count,
+        'new_posts_count': new_posts_count,
     }
     return render(request, 'core/group_detail.html', context)
+
 def group_list(request):
     # Use select_related to get the profile and user in one database hit
     profile = get_object_or_404(StudentProfile.objects.select_related('user', 'major'), user=request.user)
@@ -432,14 +632,18 @@ def group_list(request):
     user_course_ids = StudentCourse.objects.filter(student=profile).values_list('course_id', flat=True)
 
     # 2. Get groups user is already a member of
+    # We include is_approved=True so they don't see unapproved groups even if they created them,
+    # OR you can remove it if you want creators to see their own pending groups.
     my_groups = StudyGroup.objects.filter(
-        memberships__student=profile
+        memberships__student=profile,
+        is_approved=True  # Only show approved groups in the main list
     ).order_by('-created_at')
 
     # 3. Get Recommended Groups
-    # We look for groups that match the user's courses OR their major
+    # Added is_approved=True to ensure admin-denied groups aren't recommended
     recommended_groups = StudyGroup.objects.filter(
-        is_active=True
+        is_active=True,
+        is_approved=True  # Added: Only recommend groups the admin has permitted
     ).exclude(
         memberships__student=profile # Don't recommend groups they are already in
     ).filter(
@@ -453,6 +657,7 @@ def group_list(request):
         'profile': profile,
     }
     return render(request, 'core/group_list.html', context)
+
 
 @login_required
 def join_group(request, group_id):
@@ -469,37 +674,52 @@ def join_group(request, group_id):
         messages.error(request, 'This group is full')
         return redirect('group_detail', group_id=group_id)
 
-    days = group.study_day.split(",");
-    days_list = [d.strip() for d in days];
-    
-    if check_for_conflicts(profile,group.start_time,group.end_time,days_list):
-         messages.error(request, f"Conflict! You already have '{group.name}' scheduled for this time.")
-         return redirect('group_list')
-
-    # Join group
-    GroupMembership.objects.create(
+    # FIX: Use get_or_create to handle students re-applying after being denied
+    join_request, created = GroupJoinRequest.objects.get_or_create(
         group=group,
         student=profile,
-        role='member'
+        defaults={'status': 'pending'}
     )
-    
-    slots = [
-            TimetableSlot(
-                day=d.strip(),
-                start_time=group.start_time,
-                end_time=group.end_time,
-                student=profile,
-                custom_name=group.name,
-                slot_type="self_study"
-            )
-            for d in days_list
-            ]
-            
-    TimetableSlot.objects.bulk_create(slots);
-  
 
-    messages.success(request, f'You have joined {group.name}')
-    return redirect('group_detail', group_id=group_id)
+    if created or join_request.status == 'pending':
+        # Create a database notification for the creator
+        ActivityNotification.objects.create(
+            recipient=group.creator.user,
+            sender=request.user,
+            notification_type='request',  # Ensure 'request' is in your model choices
+            group=group,
+            content_preview=f"{request.user.username} wants to join {group.name}",
+            is_read=False
+        )
+
+        # Trigger live WebSocket update for the CREATOR
+        from .utils import trigger_notification_update
+        trigger_notification_update(
+            group.creator.user,
+            f"New join request from {request.user.username} for {group.name}"
+        )
+
+    if not created:
+        if join_request.status == 'pending':
+            messages.warning(request, 'You already have a pending join request for this group.')
+            return redirect('group_list')
+        elif join_request.status == 'denied':
+            # If they were denied before, reset the status to pending to try again
+            join_request.status = 'pending'
+            join_request.save()
+        else:
+            # Fallback for 'approved' or other statuses
+            return redirect('group_detail', group_id=group_id)
+
+    days = group.study_day.split(",")
+    days_list = [d.strip() for d in days]
+
+    if check_for_conflicts(profile, group.start_time, group.end_time, days_list):
+        messages.error(request, f"Conflict! You already have a schedule for this time.")
+        return redirect('group_list')
+
+    messages.success(request, f'Join request sent to the creator of {group.name}. You will be notified once approved.')
+    return redirect('group_list')
 
 @login_required
 def leave_group(request, group_id):
@@ -546,12 +766,12 @@ def leave_group(request, group_id):
 
     return redirect('group_detail', group_id=group_id)
 
+
 @login_required
 def group_manage(request, group_id):
-    """View to manage member roles, removals, and group deletion"""
+    """View to manage member roles, removals, join requests, and group deletion"""
     group = get_object_or_404(StudyGroup, id=group_id)
     profile = get_object_or_404(StudentProfile, user=request.user)
-    
 
     # Check if the user is the creator (needed for group deletion)
     is_creator = (group.creator == profile)
@@ -563,42 +783,107 @@ def group_manage(request, group_id):
     if request.method == 'POST':
         action = request.POST.get('action')
         student_id = request.POST.get('student_id')
+        request_id = request.POST.get('request_id')  # Get the ID for join requests
 
-        # 1. DELETE GROUP ACTION
-        if action == 'delete_group':
+        # 1. APPROVE JOIN REQUEST
+        if action == 'approve_request':
+            join_req = get_object_or_404(GroupJoinRequest, id=request_id, group=group)
+            join_req.approve()  # This method handles status change and Membership creation
+
+            # ✅ NEW: Create Notification for Student
+            ActivityNotification.objects.create(
+                recipient=join_req.student.user,
+                sender=request.user,
+                notification_type='accept',
+                group=group,
+                content_preview=f"Your request to join {group.name} was approved!",
+                is_read=False
+            )
+            # Trigger WebSocket for the STUDENT
+            trigger_notification_update(
+                join_req.student.user,
+                f"You have been approved to join {group.name}!"
+            )
+            # ... (existing timetable slot logic) ...
+
+        elif action == 'deny_request':
+            join_req = get_object_or_404(GroupJoinRequest, id=request_id, group=group)
+            join_req.deny()
+
+            # ✅ NEW: Create Notification for Student
+            ActivityNotification.objects.create(
+                recipient=join_req.student.user,
+                sender=request.user,
+                notification_type='deny',
+                group=group,
+                content_preview=f"Your request to join {group.name} was declined.",
+                is_read=False
+            )
+            # Trigger WebSocket for the STUDENT
+            trigger_notification_update(
+                join_req.student.user,
+                f"Your request for {group.name} was declined."
+            )
+
+            # Create Timetable Slots for the approved student
+            days_list = [d.strip() for d in group.study_day.split(",")]
+            slots = [
+                TimetableSlot(
+                    day=d,
+                    start_time=group.start_time,
+                    end_time=group.end_time,
+                    student=join_req.student,
+                    custom_name=group.name,
+                    slot_type="activity"
+                )
+                for d in days_list
+            ]
+            TimetableSlot.objects.bulk_create(slots)
+            messages.success(request, f'Approved {join_req.student.user.username}.')
+
+        # 2. DENY JOIN REQUEST
+        elif action == 'deny_request':
+            join_req = get_object_or_404(GroupJoinRequest, id=request_id, group=group)
+            join_req.deny()
+            messages.info(request, f'Denied request from {join_req.student.user.username}.')
+
+        # 3. DELETE GROUP ACTION
+        elif action == 'delete_group':
             if is_creator:
                 group_name = group.name
                 group.delete()
-                
-                #delete timeslots when admin delete the group
+
+                # delete timeslots when admin delete the group
                 days = group.study_day.split(',');
                 cleaned_days = [d.strip() for d in days]
-                
-                slots = TimetableSlot.objects.filter(student=profile,custom_name=group.name,day__in=cleaned_days
-                ,start_time=group.start_time,end_time=group.end_time)
-                
+
+                slots = TimetableSlot.objects.filter(student=profile, custom_name=group.name, day__in=cleaned_days
+                                                     , start_time=group.start_time, end_time=group.end_time)
+
                 slot_count = slots.count();
-                if(slot_count>0) :
+                if (slot_count > 0):
                     slots.delete();
-                else: 
+                else:
                     print("There is no matching timeslots found!")
                 messages.success(request, f'Group "{group_name}" has been deleted.')
                 return redirect('group_list')
-            
+
             else:
                 messages.error(request, 'Only the group creator can delete this group.')
 
-        # 2. PROMOTE TO ADMIN
+        # 4. PROMOTE TO ADMIN
         elif action == 'add_admin':
             membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
             membership.role = 'admin'
             membership.save()
             messages.success(request, 'Member promoted to Admin.')
 
-        # 3. REMOVE MEMBER
+        # 5. REMOVE MEMBER
         elif action == 'remove_member':
             membership = get_object_or_404(GroupMembership, group=group, student_id=student_id)
             if membership.student != group.creator:
+                # Also remove the removed member's timetable slots for this group
+                TimetableSlot.objects.filter(student=membership.student, custom_name=group.name).delete()
                 membership.delete()
                 messages.success(request, 'Member removed.')
             else:
@@ -606,10 +891,14 @@ def group_manage(request, group_id):
 
         return redirect('group_manage', group_id=group.id)
 
+    # Fetch pending requests to display in the management UI
+    pending_requests = group.join_requests.filter(status='pending').select_related('student__user')
     memberships = GroupMembership.objects.filter(group=group).select_related('student__user')
+
     return render(request, 'core/group_manage.html', {
         'group': group,
         'memberships': memberships,
+        'pending_requests': pending_requests,
         'is_creator': is_creator,
     })
 
@@ -637,90 +926,90 @@ def edit_group(request, group_id):
         'group': group
     })
 
-@user_passes_test(lambda u: u.is_superuser)
-def project_admin_dashboard(request):
-    # For superuser, get or create profile
-    try:
-        profile = StudentProfile.objects.get(user=request.user)
-    except StudentProfile.DoesNotExist:
-        # Create a profile for superuser
-        profile = StudentProfile.objects.create(
-            user=request.user,
-            major='SE',
-            year=1,
-            is_project_admin=True
-        )
+# @user_passes_test(lambda u: u.is_superuser)
+# def project_admin_dashboard(request):
+#     # For superuser, get or create profile
+#     try:
+#         profile = StudentProfile.objects.get(user=request.user)
+#     except StudentProfile.DoesNotExist:
+#         # Create a profile for superuser
+#         profile = StudentProfile.objects.create(
+#             user=request.user,
+#             major='SE',
+#             year=1,
+#             is_project_admin=True
+#         )
+#
+#     # Get statistics
+#     total_groups = StudyGroup.objects.count()
+#     total_students = StudentProfile.objects.count()
+#     total_members = GroupMembership.objects.count()
+#     active_groups = StudyGroup.objects.filter(is_active=True).count()
+#
+#     # Get recent groups
+#     recent_groups = StudyGroup.objects.all().order_by('-created_at')[:10]
+#
+#     # Get groups needing attention
+#     inactive_groups = StudyGroup.objects.filter(is_active=False)[:5]
+#
+#     context = {
+#         'profile': profile,
+#         'total_groups': total_groups,
+#         'total_students': total_students,
+#         'total_members': total_members,
+#         'active_groups': active_groups,
+#         'recent_groups': recent_groups,
+#         'inactive_groups': inactive_groups,
+#     }
+#     return render(request, 'core/project_admin_dashboard.html', context)
 
-    # Get statistics
-    total_groups = StudyGroup.objects.count()
-    total_students = StudentProfile.objects.count()
-    total_members = GroupMembership.objects.count()
-    active_groups = StudyGroup.objects.filter(is_active=True).count()
 
-    # Get recent groups
-    recent_groups = StudyGroup.objects.all().order_by('-created_at')[:10]
-
-    # Get groups needing attention
-    inactive_groups = StudyGroup.objects.filter(is_active=False)[:5]
-
-    context = {
-        'profile': profile,
-        'total_groups': total_groups,
-        'total_students': total_students,
-        'total_members': total_members,
-        'active_groups': active_groups,
-        'recent_groups': recent_groups,
-        'inactive_groups': inactive_groups,
-    }
-    return render(request, 'core/project_admin_dashboard.html', context)
-
-
-@user_passes_test(lambda u: u.is_superuser)
-def project_admin_groups(request):
-    groups = StudyGroup.objects.all().order_by('-created_at')
-
-    if request.method == 'POST':
-        group_id = request.POST.get('group_id')
-        action = request.POST.get('action')
-
-        try:
-            group = StudyGroup.objects.get(id=group_id)
-
-            if action == 'toggle_active':
-                group.is_active = not group.is_active
-                group.save()
-                messages.success(request, f'Group {"activated" if group.is_active else "deactivated"}')
-
-            elif action == 'add_as_admin':
-                # Get or create profile for superuser
-                profile, created = StudentProfile.objects.get_or_create(
-                    user=request.user,
-                    defaults={'major': 'SE', 'year': 1, 'is_project_admin': True}
-                )
-                membership, created = GroupMembership.objects.get_or_create(
-                    group=group,
-                    student=profile,
-                    defaults={'role': 'project_admin'}
-                )
-                if not created:
-                    membership.role = 'project_admin'
-                    membership.save()
-                messages.success(request, f'Added as admin to {group.name}')
-
-            elif action == 'delete_group':
-                group_name = group.name
-                group.delete()
-                messages.success(request, f'Group "{group_name}" deleted')
-
-        except StudyGroup.DoesNotExist:
-            messages.error(request, 'Group not found')
-
-        return redirect('project_admin_groups')
-
-    context = {
-        'groups': groups,
-    }
-    return render(request, 'core/project_admin_groups.html', context)
+# @user_passes_test(lambda u: u.is_superuser)
+# def project_admin_groups(request):
+#     groups = StudyGroup.objects.all().order_by('-created_at')
+#
+#     if request.method == 'POST':
+#         group_id = request.POST.get('group_id')
+#         action = request.POST.get('action')
+#
+#         try:
+#             group = StudyGroup.objects.get(id=group_id)
+#
+#             if action == 'toggle_active':
+#                 group.is_active = not group.is_active
+#                 group.save()
+#                 messages.success(request, f'Group {"activated" if group.is_active else "deactivated"}')
+#
+#             elif action == 'add_as_admin':
+#                 # Get or create profile for superuser
+#                 profile, created = StudentProfile.objects.get_or_create(
+#                     user=request.user,
+#                     defaults={'major': 'SE', 'year': 1, 'is_project_admin': True}
+#                 )
+#                 membership, created = GroupMembership.objects.get_or_create(
+#                     group=group,
+#                     student=profile,
+#                     defaults={'role': 'project_admin'}
+#                 )
+#                 if not created:
+#                     membership.role = 'project_admin'
+#                     membership.save()
+#                 messages.success(request, f'Added as admin to {group.name}')
+#
+#             elif action == 'delete_group':
+#                 group_name = group.name
+#                 group.delete()
+#                 messages.success(request, f'Group "{group_name}" deleted')
+#
+#         except StudyGroup.DoesNotExist:
+#             messages.error(request, 'Group not found')
+#
+#         return redirect('project_admin_groups')
+#
+#     context = {
+#         'groups': groups,
+#     }
+#     return render(request, 'core/project_admin_groups.html', context)
 
 
 @login_required
@@ -766,12 +1055,12 @@ def edit_profile(request):
     return render(request, 'core/edit_profile.html', {'form': form, 'profile': profile})
 
 
+@login_required
 def student_profile(request, user_id):
     # 1. Get the User object for the profile you are viewing
     target_user = get_object_or_404(User, id=user_id)
 
-    # 2. Get the StudentProfile for both the target and the current viewer
-    # Note: Check your model to see if it's .profile or .studentprofile
+    # 2. Use 'target_profile' consistently to avoid collision with function name
     target_profile = target_user.studentprofile
     viewer_profile = request.user.studentprofile
 
@@ -782,25 +1071,37 @@ def student_profile(request, user_id):
     # 4. Find shared courses
     shared_courses = student_courses.filter(id__in=viewer_courses)
 
-    # 2. USER'S GROUPS (All groups user joined)
+    # 5. USER'S GROUPS (All groups viewer joined)
     user_groups = StudyGroup.objects.filter(
         memberships__student=viewer_profile
     ).distinct()
 
-    # 3. TARGET USER'S ADMIN GROUPS
-    # Filter the groups where the user has an admin role
+    # 6. VIEWER'S ADMIN GROUPS (Groups they can invite others to)
     user_admin_groups = user_groups.filter(
         memberships__role__in=['admin', 'project_admin']
     ).distinct()
+
+    # 7. ✅ FIXED: Use 'target_profile' here instead of 'student_profile'
+    pending_invites = GroupInvitation.objects.filter(
+        invited_student=target_profile,
+        status='pending'
+    ).values_list('group_id', flat=True)
+
+    already_member_group_ids = StudyGroup.objects.filter(
+        memberships__student=target_profile
+    ).values_list('id', flat=True)
 
     context = {
         'student': target_user,
         'student_profile': target_profile,
         'shared_courses': shared_courses,
         'user_groups': user_groups,
+        'pending_invites': list(pending_invites),
         'user_admin_groups': user_admin_groups,
+        'already_member_group_ids': list(already_member_group_ids),  # Added this
     }
     return render(request, 'core/student_profile.html', context)
+
 
 @login_required
 def add_course(request):
@@ -846,6 +1147,25 @@ def remove_course(request, course_id):
         messages.error(request, 'Course not found')
 
     return redirect('profile')
+
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Interest
+from .forms import InterestForm
+
+
+def add_interest(request):
+    if request.method == 'POST':
+        form = InterestForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "New interest added successfully!")
+            return redirect('dashboard')  # Or wherever you want them to go
+    else:
+        form = InterestForm()
+
+    return render(request, 'core/add_interest.html', {'form': form})
 
 @csrf_exempt
 @login_required
@@ -998,86 +1318,86 @@ def create_course_group(request, course_id):
     return render(request, 'core/create_course_group.html', context)
 
 
-@login_required
-def auto_create_group(request, course_id):
-    """Automatically create group with best matching times"""
-    profile = get_object_or_404(StudentProfile, user=request.user)
-    course = get_object_or_404(Course, id=course_id)
-
-    # Get all classmates
-    classmates = StudentProfile.objects.filter(
-        studentcourse__course=course
-    ).exclude(
-        user=request.user
-    )
-
-    if not classmates.exists():
-        messages.error(request, 'No classmates found for this course.')
-        return redirect('course_partners_list', course_id=course_id)
-
-    # Find best common time
-    best_time = None
-    max_members = 0
-
-    for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']:
-        # Check weekday restrictions
-        if day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']:
-            start_time = time(16, 0)  # 4 PM
-            end_time = time(20, 0)  # 8 PM
-        else:
-            start_time = time(9, 0)  # 9 AM
-            end_time = time(20, 0)  # 8 PM
-
-        # Count available members
-        available_members = classmates.filter(
-            preferred_study_days__contains=day
-        ).count() + 1  # +1 for current user
-
-        if available_members > max_members:
-            max_members = available_members
-            best_time = {
-                'day': day,
-                'start_time': start_time,
-                'end_time': end_time,
-            }
-
-    if best_time:
-        # Create group
-        group = StudyGroup.objects.create(
-            name=f"{course.code} Auto-Group - {best_time['day']}s",
-            description=f"Automatically created study group for {course.code}. Meeting every {best_time['day']} from {best_time['start_time']} to {best_time['end_time']}.",
-            course=course,
-            semester=course.semester,
-            group_type='course',
-            study_day=best_time['day'],
-            study_start_time=best_time['start_time'],
-            study_end_time=best_time['end_time'],
-            creator=profile,
-            auto_created=True,
-        )
-
-        # Add creator
-        GroupMembership.objects.create(
-            group=group,
-            student=profile,
-            role='admin'
-        )
-
-        # Add classmates who are available
-        for classmate in classmates.filter(
-                preferred_study_days__contains=best_time['day']
-        )[:9]:  # Max 10 members including creator
-            GroupMembership.objects.create(
-                group=group,
-                student=classmate,
-                role='member'
-            )
-
-        messages.success(request, f'Auto-created group with {group.member_count} members!')
-        return redirect('group_detail', group_id=group.id)
-
-    messages.error(request, 'Could not find suitable time for group creation.')
-    return redirect('course_partners_list', course_id=course_id)
+# @login_required
+# def auto_create_group(request, course_id):
+#     """Automatically create group with best matching times"""
+#     profile = get_object_or_404(StudentProfile, user=request.user)
+#     course = get_object_or_404(Course, id=course_id)
+#
+#     # Get all classmates
+#     classmates = StudentProfile.objects.filter(
+#         studentcourse__course=course
+#     ).exclude(
+#         user=request.user
+#     )
+#
+#     if not classmates.exists():
+#         messages.error(request, 'No classmates found for this course.')
+#         return redirect('course_partners_list', course_id=course_id)
+#
+#     # Find best common time
+#     best_time = None
+#     max_members = 0
+#
+#     for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']:
+#         # Check weekday restrictions
+#         if day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']:
+#             start_time = time(16, 0)  # 4 PM
+#             end_time = time(20, 0)  # 8 PM
+#         else:
+#             start_time = time(9, 0)  # 9 AM
+#             end_time = time(20, 0)  # 8 PM
+#
+#         # Count available members
+#         available_members = classmates.filter(
+#             preferred_study_days__contains=day
+#         ).count() + 1  # +1 for current user
+#
+#         if available_members > max_members:
+#             max_members = available_members
+#             best_time = {
+#                 'day': day,
+#                 'start_time': start_time,
+#                 'end_time': end_time,
+#             }
+#
+#     if best_time:
+#         # Create group
+#         group = StudyGroup.objects.create(
+#             name=f"{course.code} Auto-Group - {best_time['day']}s",
+#             description=f"Automatically created study group for {course.code}. Meeting every {best_time['day']} from {best_time['start_time']} to {best_time['end_time']}.",
+#             course=course,
+#             semester=course.semester,
+#             group_type='course',
+#             study_day=best_time['day'],
+#             study_start_time=best_time['start_time'],
+#             study_end_time=best_time['end_time'],
+#             creator=profile,
+#             auto_created=True,
+#         )
+#
+#         # Add creator
+#         GroupMembership.objects.create(
+#             group=group,
+#             student=profile,
+#             role='admin'
+#         )
+#
+#         # Add classmates who are available
+#         for classmate in classmates.filter(
+#                 preferred_study_days__contains=best_time['day']
+#         )[:9]:  # Max 10 members including creator
+#             GroupMembership.objects.create(
+#                 group=group,
+#                 student=classmate,
+#                 role='member'
+#             )
+#
+#         messages.success(request, f'Auto-created group with {group.member_count} members!')
+#         return redirect('group_detail', group_id=group.id)
+#
+#     messages.error(request, 'Could not find suitable time for group creation.')
+#     return redirect('course_partners_list', course_id=course_id)
 
 @login_required
 def create_group_with_student(request, student_id):
@@ -1087,13 +1407,13 @@ def create_group_with_student(request, student_id):
         target_profile = target_user.studentprofile
         viewer_profile = request.user.studentprofile
 
-        print(viewer_profile.preferred_study_end,viewer_profile.preferred_study_days,viewer_profile.preferred_study_start)
-        study_day = request.POST.get("study_day",viewer_profile.preferred_study_days)
+        study_day = request.POST.get("study_day", viewer_profile.preferred_study_days)
 
-        #Get form data
+        # Get form data
         group_name = request.POST.get('group_name')
         group_description = request.POST.get('group_description')
         group_type = request.POST.get('group_type')
+        interest_id = request.POST.get('interest') # Added to capture interest
         invite_message = request.POST.get('invite_message', '')
 
         # Validate
@@ -1101,11 +1421,13 @@ def create_group_with_student(request, student_id):
             messages.error(request, 'Group name and description are required.')
             return redirect('student_profile', user_id=student_id)
 
-        # Create the group
+        # Create the group with Admin Approval logic
         group = StudyGroup.objects.create(
             name=group_name,
             description=group_description,
             group_type=group_type,
+            interest_id=interest_id, # Link to Seed Interests
+            is_approved=False, # New: Requires Superuser permission
             study_day=study_day,
             start_time=request.POST.get('start_time') or viewer_profile.preferred_study_start,
             end_time=request.POST.get('end_time') or viewer_profile.preferred_study_end,
@@ -1113,22 +1435,7 @@ def create_group_with_student(request, student_id):
             creator=viewer_profile,
         )
 
-        #Save timeslot
-        slots = []
-        for day in study_day.split(","):
-            #create a slot for the current viewer
-            slots.append(TimetableSlot(
-                student=viewer_profile,
-                day=day,
-                start_time=group.start_time,
-                end_time=group.end_time,
-                slot_type="activity",
-                custom_name=group_name
-            ))
-        TimetableSlot.objects.bulk_create(slots)
-
-
-        # Add creator as admin
+        # Add creator as admin (Membership exists but group is hidden from others)
         GroupMembership.objects.create(
             group=group,
             student=viewer_profile,
@@ -1136,7 +1443,7 @@ def create_group_with_student(request, student_id):
         )
 
         # Create invitation
-        invitation = GroupInvitation.objects.create(
+        GroupInvitation.objects.create(
             group=group,
             invited_by=viewer_profile,
             invited_student=target_profile,
@@ -1148,99 +1455,172 @@ def create_group_with_student(request, student_id):
         from chat.models import ChatRoom
         ChatRoom.objects.create(group=group)
 
-
-
         messages.success(request,
-                         f'Group "{group.name}" created successfully and invitation sent to {target_user.username}!')
-        return redirect('group_detail', group_id=group.id)
+                         f'Group "{group.name}" created! It will be visible and invitations will be active once an Admin approves it.')
+        return redirect('group_list') # Redirect to list instead of detail while pending
 
     return redirect('student_profile', user_id=student_id)
 
+
+from django.utils import timezone
+from datetime import timedelta
+from django.db import IntegrityError
+
+
 @login_required
 def invite_to_existing_group(request, student_id):
-    """Invite student to an existing group"""
+    """Invite student with graceful warnings instead of crashes"""
     if request.method == 'POST':
+        # 1. Get the target student (The person being invited)
         target_user = get_object_or_404(User, id=student_id)
-        target_profile = target_user.studentprofile
+        target_profile = getattr(target_user, 'studentprofile', None)
         viewer_profile = request.user.studentprofile
         group_id = request.POST.get('group_id')
         invite_message = request.POST.get('invite_message', '')
 
+        if not target_profile:
+            messages.error(request, "Target user profile not found.")
+            return redirect('student_profile', user_id=student_id)
+
         try:
             group = StudyGroup.objects.get(id=group_id)
 
-            # Check if user is admin of the group
-            if not group.is_admin(request.user):
-                messages.error(request, 'You need to be an admin to invite members.')
-                return redirect('student_profile', user_id=student_id)
-
-            # Check if student is already a member
+            # 2. Check: Is the user already a member?
             if group.memberships.filter(student=target_profile).exists():
                 messages.warning(request, f'{target_user.username} is already a member of this group.')
                 return redirect('student_profile', user_id=student_id)
 
-            # Check if invitation already exists
-            if GroupInvitation.objects.filter(group=group, invited_student=target_profile, status='pending').exists():
-                messages.info(request, f'An invitation has already been sent to {target_user.username}.')
-                return redirect('student_profile', user_id=student_id)
-
-            # Create invitation
-            invitation = GroupInvitation.objects.create(
+            # 3. Check: Is there already an active/pending invitation?
+            # We look for the unique pair (group + target_profile)
+            existing_invite = GroupInvitation.objects.filter(
                 group=group,
-                invited_by=viewer_profile,
-                invited_student=target_profile,
-                message=invite_message,
-                expires_at=timezone.now() + timedelta(days=7)
-            )
+                invited_student=target_profile
+            ).first()
 
-            messages.success(request, f'Invitation sent to {target_user.username}!')
+            if existing_invite:
+                if existing_invite.status == 'pending' and not existing_invite.is_expired():
+                    # CASE: Already invited and still waiting
+                    messages.info(request, f'An invitation is already pending for {target_user.username}.')
+                else:
+                    # CASE: Previously invited (declined or expired) - we RE-INVITE
+                    existing_invite.status = 'pending'
+                    existing_invite.invited_by = viewer_profile
+                    existing_invite.message = invite_message
+                    existing_invite.created_at = timezone.now()
+                    existing_invite.expires_at = timezone.now() + timedelta(days=7)
+                    existing_invite.save()
+
+                    messages.success(request, f"Invitation re-sent to {target_user.username}!")
+                    # Notify via WebSocket
+                    from .utils import trigger_notification_update
+                    trigger_notification_update(target_user, f"New invite for {group.name}")
+            else:
+                # 4. CASE: First time invitation
+                GroupInvitation.objects.create(
+                    group=group,
+                    invited_by=viewer_profile,
+                    invited_student=target_profile,
+                    message=invite_message,
+                    status='pending',
+                    expires_at=timezone.now() + timedelta(days=7)
+                )
+                messages.success(request, f'Invitation sent to {target_user.username}!')
+
+                # Notify via WebSocket
+                from .utils import trigger_notification_update
+                trigger_notification_update(target_user, f"New invite for {group.name}")
 
         except StudyGroup.DoesNotExist:
             messages.error(request, 'Group not found.')
-
-        return redirect('student_profile', user_id=student_id)
+        except Exception as e:
+            # Catch-all for any other weird errors to prevent 500 pages
+            messages.error(request, f"An unexpected error occurred: {str(e)}")
 
     return redirect('student_profile', user_id=student_id)
 
+
+from django.contrib import messages
+from .models import ActivityNotification, TimetableSlot
+from .utils import trigger_notification_update
+
+
 @login_required
 def accept_invitation(request, invitation_id):
-    """Accept a group invitation"""
+    """Accept a group invitation and notify the inviter"""
     invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
+    group = invitation.group
+
+    # NEW: Safety check - Cannot join unapproved groups
+    if not group.is_approved:
+        messages.error(request, "This group is still pending admin approval. You can join once it is verified.")
+        return redirect('dashboard')
 
     if invitation.status == 'pending' and not invitation.is_expired():
         invitation.accept()
-        group = invitation.group;
+
+        # 1. Update Timetable
         days = group.study_day.split(",")
         slots = [
             TimetableSlot(
-                student = request.user.studentprofile,
-                slot_type ="self_study",
-                day= d.strip(),
+                student=request.user.studentprofile,
+                slot_type="activity",
+                day=d.strip(),
                 start_time=group.start_time,
-                end_time = group.end_time,
-                custom_name = group.name
+                end_time=group.end_time,
+                custom_name=group.name
             )
             for d in days
         ]
-        
         TimetableSlot.objects.bulk_create(slots)
-        
-        
-        messages.success(request, f'You have joined "{invitation.group.name}"!')
+
+        # 2. Create Activity Notification for the Inviter
+        ActivityNotification.objects.create(
+            recipient=invitation.invited_by.user,
+            sender=request.user,
+            notification_type='comment',
+            group=group,
+            content_preview=f"Joined the group: {group.name}"
+        )
+
+        # 3. Trigger WebSocket update for the Inviter
+        trigger_notification_update(
+            invitation.invited_by.user,
+            message_text=f"{request.user.username} accepted your invite to {group.name}"
+        )
+
+        messages.success(request, f'You have joined "{group.name}"!')
+        return redirect('group_detail', group_id=group.id)
+
     elif invitation.is_expired():
         messages.error(request, 'This invitation has expired.')
     else:
         messages.error(request, 'This invitation is no longer valid.')
 
-    return redirect('group_detail', group_id=invitation.group.id)
+    return redirect('dashboard')
+
 
 @login_required
 def decline_invitation(request, invitation_id):
-    """Decline a group invitation"""
+    """Decline a group invitation and notify the inviter"""
     invitation = get_object_or_404(GroupInvitation, id=invitation_id, invited_student=request.user.studentprofile)
 
     if invitation.status == 'pending':
         invitation.decline()
+
+        # Optional: Notify the inviter that the request was declined
+        ActivityNotification.objects.create(
+            recipient=invitation.invited_by.user,
+            sender=request.user,
+            notification_type='comment',
+            group=invitation.group,
+            content_preview=f"Declined the invite to {invitation.group.name}"
+        )
+
+        trigger_notification_update(
+            invitation.invited_by.user,
+            message_text=f"{request.user.username} declined the invite to {invitation.group.name}"
+        )
+
         messages.info(request, f'You have declined the invitation to "{invitation.group.name}".')
 
     return redirect('dashboard')
@@ -1263,6 +1643,7 @@ def invitation_list(request):
         'responded_invitations': profile.groupinvitation_set.exclude(status='pending').exclude(status='expired'),
     }
     return render(request, 'core/invitation_list.html', context)
+
 @login_required
 def pending_invites(request):
     """View and manage pending group invitations"""
@@ -1499,63 +1880,61 @@ def delete_timetable_slot(request, slot_id):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from .models import GroupInvitation, CourseGroupMatch, ActivityNotification
+
+
 @login_required
 def all_notifications(request):
     profile = request.user.studentprofile
 
-    # Get both types of notifications
-    invites = profile.received_invitations.all()
-    matches = profile.received_matches.all()
+    # 1. Fetch Invitations
+    invites = GroupInvitation.objects.filter(invited_student=profile).order_by('-created_at')
 
-    # Combine and sort by date
-    notifications = sorted(
-        list(invites) + list(matches),
-        key=lambda x: x.created_at,
-        reverse=True
-    )
+    # 2. Fetch Matches
+    matches = CourseGroupMatch.objects.filter(target_student=profile).order_by('-created_at')
 
-    # Mark all as read when they view this page
+    # 3. Fetch Activity (Likes, Comments, Posts, Acceptances)
+    activities = ActivityNotification.objects.filter(recipient=request.user)
+
+    # Combine all lists
+    all_notifications = list(invites) + list(matches) + list(activities)
+
+    # Sort by date (newest first)
+    all_notifications.sort(key=lambda x: x.created_at, reverse=True)
+
+    # Mark as read
     invites.filter(is_read=False).update(is_read=True)
     matches.filter(is_read=False).update(is_read=True)
+    # Ensure activity is also marked read
+    activities.filter(is_read=False).update(is_read=True)
+
+    # Trigger a counter reset via WebSocket (optional)
+    from .utils import trigger_notification_update
+    trigger_notification_update(request.user, message_text="All read")
 
     return render(request, 'core/all_notifications.html', {
-        'notifications': notifications
+        'notifications': all_notifications
     })
 
-
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from .models import GroupInvitation, CourseGroupMatch
-
-
 @login_required
-@require_POST  # Ensures this only works with POST requests (security best practice)
+@require_POST
 def mark_notifications_read(request):
-    """
-    Marks all unread notifications for the current user as read.
-    Triggered when clicking the notification bell icon.
-    """
     try:
         profile = request.user.studentprofile
+        user = request.user
 
-        # 1. Update Group Invitations
-        invitations_updated = GroupInvitation.objects.filter(
-            invited_student=profile,
-            is_read=False
-        ).update(is_read=True)
+        # Mark everything as read
+        GroupInvitation.objects.filter(invited_student=profile, is_read=False).update(is_read=True)
+        CourseGroupMatch.objects.filter(target_student=profile, is_read=False).update(is_read=True)
+        ActivityNotification.objects.filter(recipient=user, is_read=False).update(is_read=True)
 
-        # 2. Update Course Matches
-        matches_updated = CourseGroupMatch.objects.filter(
-            target_student=profile,
-            is_read=False
-        ).update(is_read=True)
+        # Trigger WebSocket update so the red bubble disappears immediately
+        from .utils import trigger_notification_update
+        trigger_notification_update(user)
 
-        return JsonResponse({
-            'status': 'success',
-            'updated_count': invitations_updated + matches_updated
-        })
+        return JsonResponse({'status': 'success'})
     except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': str(e)
-        }, status=500)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

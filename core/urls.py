@@ -8,8 +8,13 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('register/', views.register, name='register'),
-
+    path('redirect-user', views.login_success_redirect,name="login_success_redirect"),
     # Dashboard & Profile
+    path('admin_dashboard',views.admin_dashboard,name="admin_dashboard"),
+    path('api/admin/dashboard-data',views.admin_dashboard_api,name="admin_dashboard_api"),
+    path('api/group/<uuid:group_id>/approve',views.approve_group_request,name="approve_group_request"),
+    path('api/group/<uuid:group_id>/deny',views.deny_group_request,name="deny_group_request"),
+    path('api/group/<uuid:group_id>',views.get_group_details,name="get_group_details"),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/', views.profile_view, name='profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
@@ -26,6 +31,9 @@ urlpatterns = [
     # Courses
     path('courses/add/', views.add_course, name='add_course'),
     path('courses/remove/<uuid:course_id>/', views.remove_course, name='remove_course'),
+
+    #Interests
+    path('interest/add/', views.add_interest, name='add_interest'),
 
     # Study Partners
     path('partners/find/', views.find_study_partners, name='find_study_partners_view'),
@@ -51,8 +59,8 @@ urlpatterns = [
     path('invitations/<uuid:invitation_id>/accept/', views.accept_invitation, name='accept_invitation'),
     path('invitations/<uuid:invitation_id>/decline/', views.decline_invitation, name='decline_invitation'),
 
-    # Project Admin
-    path('project-admin/', views.project_admin_dashboard, name='project_admin_dashboard'),
-    path('project-admin/groups/', views.project_admin_groups, name='project_admin_groups'),
+    # # Project Admin
+    # path('project-admin/', views.project_admin_dashboard, name='project_admin_dashboard'),
+    # path('project-admin/groups/', views.project_admin_groups, name='project_admin_groups'),
 
 ]

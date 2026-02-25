@@ -8,6 +8,8 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from datetime import date, timedelta
 import uuid
+from .utils import trigger_notification_update # Add this import at the top
+
 
 
 # class User(AbstractUser):
@@ -138,6 +140,23 @@ class Major(models.Model):
     def __str__(self):
         return f" {self.code} - {self.name}"
 
+class Interest(models.Model):
+    name = models.CharField(max_length=50)
+    category = models.CharField(max_length=50, choices=[
+        ('programming', 'Programming & Tech'),
+        ('language', 'Foreign Languages'),
+        ('hobby', 'Hobbies & Vibes')
+    ])
+
+    def __str__(self):
+        return self.name
+
+class AdminProfile(models.Model):
+    user = models.OneToOneField(User,on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"System Admin: {self.user.username}"
+    
 class StudentProfile(models.Model):
     YEAR_CHOICES = [
         (1, 'First Year'),
@@ -166,6 +185,7 @@ class StudentProfile(models.Model):
     major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
     year = models.IntegerField(choices=YEAR_CHOICES)
     semester = models.CharField(max_length=2, choices=SEMESTER_CHOICES, default='1')
+    interests = models.ManyToManyField(Interest, blank=True)
     bio = models.TextField(blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -316,6 +336,8 @@ class TimetableSlot(models.Model):
         width = 100 / 7
 
         return f"top: {top}px; left: {left_percent}%; height: {height}px; width: {width}%; position: absolute;"
+
+
         
 class StudyGroup(models.Model):
     GROUP_TYPE_CHOICES = [
@@ -329,9 +351,18 @@ class StudyGroup(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField()
     group_type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES)
+    is_approved = models.BooleanField(default=False)
     study_day = models.CharField(max_length=100)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
+    status = models.CharField(max_length=10,default="PENDING")
+    interest = models.ForeignKey(
+        'Interest',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='study_groups'
+    )
 
     # For major-based groups
     major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
@@ -356,7 +387,8 @@ class StudyGroup(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        status = " [Pending]" if not self.is_approved else ""
+        return f"{self.name}{status}"
 
     @property
     def member_count(self):
@@ -365,6 +397,14 @@ class StudyGroup(models.Model):
     @property
     def is_full(self):
         return self.member_count >= self.max_members
+
+    def has_pending_request(self, user):
+        """Check if a specific user has a pending join request"""
+        try:
+            profile = StudentProfile.objects.get(user=user)
+            return self.join_requests.filter(student=profile, status='pending').exists()
+        except:
+            return False
 
     def get_available_slots(self):
         """Get all available study time slots for group members"""
@@ -419,6 +459,9 @@ class StudyGroup(models.Model):
             return self.memberships.filter(student=profile).exists()
         except:
             return False
+
+
+
 
 class GroupInvitation(models.Model):
     STATUS_CHOICES = [
@@ -477,12 +520,51 @@ class GroupMembership(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='group_memberships')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
     joined_at = models.DateTimeField(auto_now_add=True)
+    last_chat_view = models.DateTimeField(auto_now_add=True)
+    last_feed_view = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ['group', 'student']
 
     def __str__(self):
         return f"{self.student.user.username} - {self.group.name}"
+
+class GroupJoinRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name='join_requests')
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='sent_join_requests')
+    message = models.TextField(blank=True, help_text="Optional message to the group creator")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['group', 'student']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.student.user.username} -> {self.group.name} ({self.status})"
+
+    def approve(self):
+        """Approve the request and create membership"""
+        self.status = 'approved'
+        self.save()
+        # Create the actual membership
+        GroupMembership.objects.get_or_create(
+            group=self.group,
+            student=self.student,
+            defaults={'role': 'member'}
+        )
+
+    def deny(self):
+        """Deny the request"""
+        self.status = 'denied'
+        self.save()
 
 
 # class FreeTimeMatch(models.Model):
@@ -570,29 +652,63 @@ class SessionAttendance(models.Model):
     def __str__(self):
         return f"{self.student.user.username} - {self.session}"
 
+class ActivityNotification(models.Model):
+    NOTIFICATION_TYPES = [
+        #Content Interactions
+        ('like', 'Like'),
+        ('comment', 'Comment'),
+        ('post', 'New Post'),
+        ('file', 'New File Uploaded'),
+        
+        #Membership (Student <-> Student)
+        ('accept', 'Request Accepted'),   # Student -> Group Creator
+        ('request', 'Join Request'),      # Creator -> Student
+        ('decline', 'Request Declined'),  # Creator -> Student
+        
+       # Group Lifecycle (Admin <-> Student)
+        ('create', 'Group Proposal'),     # Student -> Admin
+        ('approve', 'Group Approved'),    # Admin -> Student
+        ('deny', 'Group Denied'),         # Admin -> Student
+        ('delete', 'Group Deleted'),      # System -> Members
+        
+        # System
+        ('register', 'Registered User')  # New user joined the platform
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activity_notifications')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_activity')
+    notification_type = models.CharField(max_length=10, choices=NOTIFICATION_TYPES)
+
+    # Link to the Group where activity happened
+    group = models.ForeignKey(
+        StudyGroup, 
+        on_delete=models.CASCADE, 
+        blank=True,
+        null=True,
+        related_name='notifications'
+    )
+
+    # We store the Post ID as a string to avoid complex circular imports between Core and Chat apps
+    post_id = models.CharField(max_length=255, null=True, blank=True)
+
+    content_preview = models.CharField(max_length=150, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.sender.username} {self.notification_type} - {self.recipient.username}"
+
+
 
 @receiver(post_save, sender=GroupInvitation)
 def notify_invitation(sender, instance, created, **kwargs):
     if created:
-        channel_layer = get_channel_layer()
-        target_id = instance.invited_student.user.id
-
-        # Calculate total unread count
-        profile = instance.invited_student
-        unread_count = (
-                profile.received_invitations.filter(is_read=False).count() +
-                profile.received_matches.filter(is_read=False).count()
+        # Use our new central helper function
+        trigger_notification_update(
+            instance.invited_student.user,
+            f"New invite for {instance.group.name}"
         )
-
-        async_to_sync(channel_layer.group_send)(
-            f"user_notifications_{target_id}",
-            {
-                "type": "send_notification",
-                "count": unread_count,
-                "invitation_id": str(instance.id),
-                "group_name": instance.group.name,
-                "sender_name": instance.invited_by.user.username,
-                "message": f"New invite for {instance.group.name}"
-            }
-        )
-

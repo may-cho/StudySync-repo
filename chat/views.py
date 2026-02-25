@@ -11,26 +11,60 @@ from django.http import JsonResponse
 from django.db.models import Count
 from django.http import HttpResponseForbidden
 from django.contrib.auth.models import User
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.contrib import messages
+
+from django.utils import timezone
+from django.db.models import Count
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import ChatRoom, Message, SharedFile
+from core.models import StudyGroup, GroupMembership
 
 
 @login_required
 def group_chat(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
-    is_member = GroupMembership.objects.filter(group=group, student__user=request.user).exists()
 
-    if not is_member:
+    # 1. Fetch membership and handle unread count logic
+    membership = GroupMembership.objects.filter(
+        group=group,
+        student__user=request.user
+    ).first()
+
+    if not membership:
         return redirect('dashboard')
 
+    # Update timestamp so the unread badge clears
+    membership.last_chat_view = timezone.now()
+    membership.save()
+
+    # 2. Get or Create ChatRoom
     chat_room, created = ChatRoom.objects.get_or_create(group=group)
 
-    if request.method == 'POST' and 'content' in request.POST:
-        content = request.POST.get('content')
-        if content:
-            Message.objects.create(room=chat_room, sender=request.user, content=content)
-        return redirect(request.path_info)
+    # ---------------------------
+    # ✅ IMPROVED VIDEO CALL LOGIC
+    # ---------------------------
+    now = timezone.localtime(timezone.now())
 
-    # Fetch messages and count reactions
-    chat_messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
+    # Using strftime('%a') ensures 'Mon', 'Tue' etc matches your group.study_day exactly
+    current_day_str = now.strftime('%a')
+    is_timetable_active = False
+
+    if group.study_day == current_day_str:
+        if group.start_time and group.end_time:
+            # Direct time comparison
+            current_time = now.time()
+            if group.start_time <= current_time <= group.end_time:
+                is_timetable_active = True
+
+    # ---------------------------
+    # 3. Fetch messages and reactions
+    # ---------------------------
+    chat_messages = Message.objects.filter(room=chat_room) \
+        .prefetch_related('reactions') \
+        .order_by('timestamp')
+
     for message in chat_messages:
         message.reaction_counts = (
             message.reactions.values('emoji')
@@ -44,7 +78,10 @@ def group_chat(request, group_id):
         'chat_room': chat_room,
         'chat_messages': chat_messages,
         'files': files,
+        'is_timetable_active': is_timetable_active,
+        'is_creator': (group.creator.user == request.user),
     })
+
 
 
 @login_required
@@ -65,35 +102,27 @@ def edit_message(request, message_id):
 def delete_message(request, message_id):
     message = get_object_or_404(Message, id=message_id)
 
-    # Security: Only sender can delete
     if message.sender != request.user:
         return HttpResponseForbidden("You cannot delete this message")
 
-    # --- NEW: Logic to also delete the associated file ---
-    # We check if the message is a file notification by looking for the pipe symbol
-    if "📎 Shared a file:" in message.content and "|" in message.content:
+    if "|" in message.content:
         try:
-            # Extract the URL part from "Filename | URL"
             file_url = message.content.split('|')[1].strip()
-
-            # Find the SharedFile object where the file field matches the URL path
-            # We use __icontains to match the file path stored in the database
             filename_part = file_url.split('/')[-1]
+            # Precise filtering to ensure we don't delete the wrong file
+            from core.models import SharedFile
             shared_file = SharedFile.objects.filter(
                 room=message.room,
                 file__icontains=filename_part
             ).first()
 
             if shared_file:
-                # Use your existing deletion logic: delete from storage first
                 if shared_file.file and os.path.isfile(shared_file.file.path):
                     os.remove(shared_file.file.path)
-                # Then delete the record (removes it from Resources sidebar)
                 shared_file.delete()
         except Exception as e:
-            print(f"Error deleting associated file: {e}")
+            print(f"File deletion error: {e}")
 
-    # Delete the message (removes it from Chatroom)
     message.delete()
     return JsonResponse({'success': True})
 
@@ -105,7 +134,6 @@ def upload_file(request, room_id):
         chat_room, _ = ChatRoom.objects.get_or_create(group=group)
         uploaded_file = request.FILES['file']
 
-        # 1. Create the SharedFile record
         shared_instance = SharedFile.objects.create(
             room=chat_room,
             uploader=request.user,
@@ -113,15 +141,34 @@ def upload_file(request, room_id):
             filename=uploaded_file.name
         )
 
-        # 2. Create a notification message that includes the URL
-        # Format: 📎 Shared a file: FILENAME | FILE_URL
-        Message.objects.create(
+        file_msg = f"📎 Shared a file: {uploaded_file.name}|{shared_instance.file.url}"
+
+        message = Message.objects.create(
             room=chat_room,
             sender=request.user,
-            content=f"📎 Shared a file: {uploaded_file.name}|{shared_instance.file.url}"
+            content=file_msg
         )
 
-        return JsonResponse({'success': True})
+        # ✅ NEW: Broadcast to the WebSocket group so everyone sees it instantly
+        channel_layer = get_channel_layer()
+        profile_pic = None
+        if hasattr(request.user, 'profile') and request.user.profile.image:
+            profile_pic = request.user.profile.image.url
+
+        async_to_sync(channel_layer.group_send)(
+            f'chat_{room_id}',  # Must match the room_group_name in your Consumer
+            {
+                'type': 'chat_message',
+                'action': 'new_message',
+                'msgId': str(message.id),
+                'username': request.user.username,
+                'profile_pic': profile_pic,
+                'content': file_msg,
+                'timestamp': 'Just now'
+            }
+        )
+
+        return JsonResponse({'success': True, 'message': file_msg})
 
     return JsonResponse({'success': False, 'error': 'Invalid request'})
 
@@ -202,35 +249,67 @@ def toggle_reaction(request, message_id):
     return JsonResponse({'success': False})
 
 
+from django.utils import timezone
+from core.models import GroupMembership, ActivityNotification
+from core.utils import trigger_notification_update  # Using the helper we created
 
 
 @login_required
 def group_posts(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
 
-    # Updated membership check based on your core models (StudentProfile relationship)
-    is_member = GroupMembership.objects.filter(
+    # 1. Fetch the specific membership object
+    membership = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
-    ).exists()
+    ).first()
 
-    if not is_member:
+    if not membership:
         return redirect('group_detail', group_id=group.id)
 
+    # 2. ✅ CLEAR UNREAD BADGE: Update the last_feed_view timestamp
+    membership.last_feed_view = timezone.now()
+    membership.save()
+
+    # 3. Handle New Post Creation
     if request.method == 'POST':
         content = request.POST.get('content')
-        image = request.FILES.get('image') # Handle the image file
+        image = request.FILES.get('image')
 
         if content or image:
-            GroupPost.objects.create(
+            new_post = GroupPost.objects.create(
                 group=group,
                 author=request.user,
                 content=content,
                 image=image
             )
+
+            # 4. ✅ NOTIFY MEMBERS: Create notifications for all other members
+            other_memberships = group.memberships.exclude(student__user=request.user)
+
+            for member_ship in other_memberships:
+                # Optional: Only notify via ActivityNotification model if you want
+                # posts to show up in the "All Notifications" list
+                ActivityNotification.objects.create(
+                    recipient=member_ship.student.user,
+                    sender=request.user,
+                    notification_type='comment',  # Or add 'post' to your TYPES
+                    group_id=group.id,
+                    post_id=str(new_post.id),
+                    content_preview=f"New post: {content[:30]}" if content else "Shared an image"
+                )
+
+                # Trigger live WebSocket update for each member
+                trigger_notification_update(
+                    member_ship.student.user,
+                    f"{request.user.username} posted in {group.name}"
+                )
+
         return redirect('group_posts', group_id=group.id)
 
+    # 5. Fetch existing posts
     posts = GroupPost.objects.filter(group=group).order_by('-created_at')
+
     return render(request, 'chat/group_posts.html', {
         'group': group,
         'posts': posts,
@@ -258,18 +337,39 @@ def add_comment(request, post_id):
                 author=request.user,
                 content=content
             )
+            # ✅ NEW: Notify post author about the comment
+            if post.author != request.user:
+                ActivityNotification.objects.create(
+                    recipient=post.author,
+                    sender=request.user,
+                    notification_type='comment',
+                    group=post.group,
+                    content_preview=content[:30],
+                    is_read=False
+                )
+                # Trigger live update
+                trigger_notification_update(post.author, f"{request.user.username} commented on your post.")
 
     return redirect('group_posts', group_id=post.group.id)
+
 
 @login_required
 def delete_post(request, post_id):
     post = get_object_or_404(GroupPost, id=post_id)
+    group = post.group
 
-    if post.author != request.user:
-        return redirect('group_posts', group_id=post.group.id)
+    # Permission Check: Allow deletion if user is the Author OR the Group Creator
+    # (Assuming group.creator is a StudentProfile and request.user has a .studentprofile)
+    is_author = (post.author == request.user)
+    is_group_creator = (group.creator.user == request.user)
 
-    post.delete()
-    return redirect('group_posts', group_id=post.group.id)
+    if is_author or is_group_creator:
+        post.delete()
+        messages.success(request, "Post has been removed.")
+    else:
+        messages.error(request, "You do not have permission to take down this post.")
+
+    return redirect('group_posts', group_id=group.id)
 
 @login_required
 def edit_post(request, post_id):
@@ -320,6 +420,20 @@ def toggle_post_like(request, post_id):
         post.likes.remove(request.user)
     else:
         post.likes.add(request.user)
+
+        # ✅ NEW: Create notification for the post author
+        if post.author != request.user:
+            ActivityNotification.objects.create(
+                recipient=post.author,
+                sender=request.user,
+                notification_type='like',
+                group=post.group,
+                content_preview=post.content[:30] if post.content else "Liked your photo",
+                is_read=False
+            )
+            # Trigger real-time WebSocket update
+            trigger_notification_update(post.author, f"{request.user.username} liked your post.")
+
     return redirect('group_posts', group_id=post.group.id)
 
 

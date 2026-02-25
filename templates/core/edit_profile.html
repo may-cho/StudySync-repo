@@ -69,6 +69,29 @@
                             </div>
                         </div>
 
+                        <div class="card border-0 shadow-sm rounded-4 p-4 mt-4">
+                            <h5 class="fw-bold mb-2 text-primary"><i class="bi bi-tags-fill me-2"></i>My Interests</h5>
+                            <p class="text-muted small mb-4">Select the topics and vibes you want to be known for.</p>
+
+                            <div class="interest-grid-edit">
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for interest in form.interests.field.queryset %}
+                                        <div class="interest-pill">
+                                            <input type="checkbox" name="interests" value="{{ interest.id }}"
+                                                   class="btn-check" id="int_{{ interest.id }}"
+                                                   {% if interest in profile.interests.all %}checked{% endif %}>
+                                            <label class="btn btn-outline-primary rounded-pill px-3 py-2 btn-sm" for="int_{{ interest.id }}">
+                                                <i class="bi bi-hashtag small"></i>{{ interest.name }}
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% if form.interests.errors %}
+                                <div class="text-danger small mt-2">{{ form.interests.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
                         <div class="card border-0 shadow-sm rounded-4 p-4">
                             <h5 class="fw-bold mb-4 text-primary"><i class="bi bi-clock-history me-2"></i>Study Preferences</h5>
                             <div class="row g-3">
@@ -129,6 +152,36 @@
         border: 1px solid #dee2e6 !important;
         padding: 0.75rem !important;
     }
+    /* Interest Pills */
+    .interest-pill .btn-check:checked + .btn-outline-primary {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2);
+    }
+
+    .interest-pill .btn-outline-primary {
+        border-color: #e2e8f0;
+        background: white;
+        color: #64748b;
+        transition: all 0.2s ease;
+    }
+
+    .interest-pill .btn-outline-primary:hover {
+        background-color: #f8fafc;
+        border-color: #0d6efd;
+        color: #0d6efd;
+    }
+
+    /* Fix for vertical scroll if you have 50+ interests */
+    .interest-grid-edit {
+        max-height: 300px;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+
+    .interest-grid-edit::-webkit-scrollbar { width: 4px; }
+    .interest-grid-edit::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 </style>
 
 <script>

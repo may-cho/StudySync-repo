@@ -57,15 +57,22 @@
                     </div>
                 </div>
 
-                {% if post.author == user %}
+                {% if post.author == user or group.creator.user == user %}
                 <div class="dropdown">
                     <button class="btn btn-light btn-sm rounded-circle" type="button" data-bs-toggle="dropdown">
                         <i class="bi bi-three-dots"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm">
+                        {% if post.author == user %}
                         <li><a class="dropdown-item" href="{% url 'edit_post' post.id %}"><i class="bi bi-pencil me-2"></i>Edit Post</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="{% url 'delete_post' post.id %}" onclick="return confirm('Delete this post?')"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                        {% endif %}
+
+                        <li>
+                            <a class="dropdown-item text-danger" href="{% url 'delete_post' post.id %}" onclick="return confirm('{% if post.author == user %}Delete your post?{% else %}Remove this post as group creator?{% endif %}')">
+                                <i class="bi bi-trash me-2"></i>{% if post.author == user %}Delete{% else %}Take Down{% endif %}
+                            </a>
+                        </li>
                     </ul>
                 </div>
                 {% endif %}
@@ -163,11 +170,10 @@
 </div>
 
 <script>
-    // Logic for Comment Edit Toggle
+    // ... (Scripts remain unchanged) ...
     function toggleEdit(commentId) {
         const displayDiv = document.getElementById(`comment-display-${commentId}`);
         const editDiv = document.getElementById(`comment-edit-${commentId}`);
-
         if (editDiv.classList.contains('d-none')) {
             editDiv.classList.remove('d-none');
             displayDiv.classList.add('d-none');
@@ -176,8 +182,6 @@
             displayDiv.classList.remove('d-none');
         }
     }
-
-    // Image Upload Preview Logic
     function previewImage(input) {
         const preview = document.getElementById('image-preview');
         const wrapper = document.getElementById('image-preview-wrapper');
@@ -190,7 +194,6 @@
             reader.readAsDataURL(input.files[0]);
         }
     }
-
     function removeImage() {
         const input = document.getElementById('image-upload');
         const wrapper = document.getElementById('image-preview-wrapper');

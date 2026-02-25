@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from .models import *
+from .models import Interest
+
 
 
 class UserRegisterForm(UserCreationForm):
@@ -82,15 +84,25 @@ class StudentProfileForm(forms.ModelForm):
         label='I agree to the Terms of Service'
     )
 
+    interests = forms.ModelMultipleChoiceField(
+        queryset=Interest.objects.all(),
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'form-check-input'
+        }),
+        required=False,
+        help_text="Select topics you're interested in."
+    )
+
     class Meta:
         model = StudentProfile
         # IMPORTANT: All fields rendered in HTML must be listed here
         fields = [
-            'major', 'year', 'semester', 'bio', 'profile_picture',
+            'major', 'year', 'semester', 'bio', 'profile_picture','interests'
         ]
         widgets = {
             'semester': forms.Select(attrs={'class': 'form-select'}),
             'weekend_study': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'interests': forms.CheckboxSelectMultiple(),
         }
 
 
@@ -128,14 +140,22 @@ class StudyGroupForm(forms.ModelForm):
         required=True
     )
 
+    interest = forms.ModelChoiceField(
+        queryset=Interest.objects.all(),
+        required=False,  # We only require it for 'general' type
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Study Interest"
+    )
+
     class Meta:
         model = StudyGroup
         fields = ['name', 'description', 'group_type', 'major', 'course', 'semester',
-                  'study_day', 'start_time', 'end_time', 'max_members']
+                  'study_day', 'start_time', 'end_time', 'max_members', 'interest']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control rounded-pill'}),
             'description': forms.Textarea(attrs={'class': 'form-control rounded-4', 'rows': 4}),
             'group_type': forms.Select(attrs={'class': 'form-select rounded-pill'}),
+            'interest': forms.Select(attrs={'class': 'form-select rounded-pill'}), # Added widget
             'major': forms.Select(attrs={'class': 'form-select rounded-pill'}),
             'course': forms.Select(attrs={'class': 'form-select rounded-pill'}),
             'semester': forms.Select(attrs={'class': 'form-select rounded-pill'}),
@@ -182,8 +202,15 @@ class StudyGroupForm(forms.ModelForm):
         if isinstance(data, list):
             return ",".join(data)
         return data
-                
-                
+
+
+class InterestForm(forms.ModelForm):
+    class Meta:
+        model = Interest
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter interest name...'}),
+        }
 
 class CourseForm(forms.ModelForm):
     class Meta:

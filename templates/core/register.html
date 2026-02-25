@@ -130,10 +130,20 @@
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="id_profile-bio" class="form-label">Bio (Optional)</label>
-                                        {{ profile_form.bio }}
+
+                                <div class="col-md-12">
+                                    <label for="id_for_label">Interest *</label><br><br>
+
+                                    <div class="interest-grid p-3 border rounded bg-light">
+
+                                        <ul class="list-unstyled d-flex flex-wrap gap-2">
+                                            {% for choice in profile_form.interests %}
+                                                <li class="interest-tag">
+                                                    {{ choice.tag }}
+                                                    <label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
                                     </div>
                                 </div>
 
@@ -151,6 +161,14 @@
                                         <label for="id_user-password2">Confirm Password *</label>
                                     </div>
                                 </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_profile-bio" class="form-label">Bio (Optional)</label>
+                                        {{ profile_form.bio }}
+                                    </div>
+                                </div>
+
                             </div>
 
                             <div class="col-md-6">
@@ -324,6 +342,62 @@
 
 {% block extra_css %}
 <style>
+
+    /* Container styling */
+.interest-grid {
+    background-color: #f8f9fa;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.interest-grid ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Individual Tag Styling */
+.interest-grid li {
+    margin: 0;
+    padding: 0;
+}
+
+.interest-grid label {
+    display: inline-block;
+    background: #ffffff;
+    border: 2px solid #dee2e6;
+    padding: 6px 16px;
+    border-radius: 50px; /* Makes it a pill shape */
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #495057;
+    transition: all 0.2s ease-in-out;
+    user-select: none;
+}
+
+/* Hide the actual checkbox square */
+.interest-grid input[type="checkbox"] {
+    display: none;
+}
+
+/* Hover State */
+.interest-grid label:hover {
+    border-color: #0d6efd;
+    background-color: #f0f7ff;
+}
+
+/* Selected/Checked State */
+.interest-grid input[type="checkbox"]:checked + label {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #ffffff;
+    font-weight: 500;
+    box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
+}
+
     .step-circle {
         width: 40px;
         height: 40px;

@@ -21,6 +21,17 @@
                             </small>
                         </div>
                     </div>
+
+                    {% if is_timetable_active %}
+                        <button id="start-call-btn" class="btn btn-sm btn-danger rounded-pill px-3">
+                            <i class="bi bi-camera-video-fill me-1"></i> Start Call
+                        </button>
+                    {% else %}
+                        <button class="btn btn-sm btn-secondary rounded-pill px-3" disabled>
+                            <i class="bi bi-camera-video-fill me-1"></i> Call Locked
+                        </button>
+                    {% endif %}
+
                 </div>
 
                 <div class="card-body overflow-auto p-4" id="chat-messages" style="background-color: #f8f9fa;">
@@ -146,9 +157,9 @@
                     <h6 class="fw-bold mb-0">Resources</h6>
                 </div>
                 <div class="card-body p-0 overflow-auto">
-                    <div class="list-group list-group-flush">
+                    <div class="list-group list-group-flush" id="resources-list">
                         {% for file in files %}
-                        <div class="list-group-item border-0 border-bottom p-3 d-flex align-items-center justify-content-between">
+                        <div class="list-group-item border-0 border-bottom p-3 d-flex align-items-center justify-content-between resource-item" data-filename="{{ file.filename }}">
                             <div class="text-truncate" style="max-width: 70%;">
                                 <h6 class="mb-0 text-truncate small fw-bold">{{ file.filename }}</h6>
                                 <small class="text-muted" style="font-size: 0.7rem;">By {{ file.uploader.username }}</small>
@@ -165,128 +176,409 @@
     </div>
 </div>
 
+<div id="video-modal" class="video-call-wrapper">
+    <div id="video-grid" class="video-grid"></div>
+    <div class="video-top-bar"><h5 class="mb-0">Group Video Call</h5></div>
+    <div class="video-controls">
+        <button id="mute-btn" onclick="toggleMute()" class="control-btn btn-warning"><i class="bi bi-mic-fill"></i></button>
+        <button id="camera-btn" onclick="toggleCamera()" class="control-btn btn-secondary"><i class="bi bi-camera-video-fill"></i></button>
+        <button id="screen-btn" onclick="toggleScreenShare()" class="control-btn btn-info"><i class="bi bi-display"></i></button>
+        <button onclick="endCall()" class="control-btn btn-danger"><i class="bi bi-telephone-x-fill"></i></button>
+    </div>
+</div>
+
 <style>
     .message-bubble { transition: all 0.1s ease; }
     .message-wrapper:hover .message-actions { display: flex !important; }
-
-    /* Hover Card Styling */
-    .user-hover-card {
-        position: absolute;
-        top: -20px; /* Align near top of avatar */
-        left: 45px; /* Slide out to the right */
-        width: 220px;
-        background: white;
-        border-radius: 15px;
-        display: none;
-        z-index: 1000;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
-        animation: fadeInRight 0.2s ease-out;
-        pointer-events: none; /* Ignore mouse so it doesn't flicker */
-    }
-
-    .avatar-container:hover .user-hover-card {
-        display: block;
-    }
-
-    .card-header-gradient {
-        height: 50px;
-        background: linear-gradient(135deg, #0d6efd 0%, #00d4ff 100%);
-        border-radius: 15px 15px 0 0;
-    }
-
-    .hover-card-img {
-        width: 60px;
-        height: 60px;
-        object-fit: cover;
-        margin-top: -30px;
-        background: white;
-    }
-
-    @keyframes fadeInRight {
-        from { opacity: 0; transform: translateX(-10px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-
+    .user-hover-card { position: absolute; top: -20px; left: 45px; width: 220px; background: white; border-radius: 15px; display: none; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; animation: fadeInRight 0.2s ease-out; pointer-events: none; }
+    .avatar-container:hover .user-hover-card { display: block; }
+    .card-header-gradient { height: 50px; background: linear-gradient(135deg, #0d6efd 0%, #00d4ff 100%); border-radius: 15px 15px 0 0; }
+    .hover-card-img { width: 60px; height: 60px; object-fit: cover; margin-top: -30px; background: white; }
+    .video-call-wrapper { display: none; position: fixed; inset: 0; background: radial-gradient(circle at center, #1c1f2b, #0f111a); z-index: 9999; overflow: hidden; }
+    .video-top-bar { position: absolute; top: 20px; left: 30px; color: white; font-weight: 500; letter-spacing: 0.5px; }
+    .video-grid { height: 100%; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; padding: 100px 80px; align-content: center; }
+    .video-container { position: relative; background: #000; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: transform 0.2s ease; }
+    .video-container:hover { transform: scale(1.02); }
+    .video-container video { width: 100%; height: 100%; object-fit: cover; }
+    .video-username { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); padding: 4px 12px; border-radius: 20px; font-size: 13px; color: white; }
+    .video-controls { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; background: rgba(255,255,255,0.08); backdrop-filter: blur(20px); padding: 15px 30px; border-radius: 50px; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+    .control-btn { width: 55px; height: 55px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; transition: all 0.2s ease; }
+    .control-btn:hover { transform: scale(1.1); }
+    @keyframes fadeInRight { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
     #chat-messages::-webkit-scrollbar { width: 5px; }
     #chat-messages::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
 </style>
 
 <script>
-    function getCSRF() {
-        return document.querySelector('[name=csrfmiddlewaretoken]').value;
-    }
+    function getCSRF() { return document.querySelector('[name=csrfmiddlewaretoken]').value; }
 
-    // Scroll to bottom on load
+    const roomId = "{{ group.chat_room.id }}";
+    const currentUser = "{{ request.user.username }}";
+    const chatSocket = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/chat/' + roomId + '/');
+
     const chatBody = document.getElementById('chat-messages');
+    const messageInput = document.getElementById('message-input');
+    const chatForm = document.getElementById('chat-form');
+
     chatBody.scrollTop = chatBody.scrollHeight;
 
-    async function handleFileUpload(input) {
-        if (!input.files[0]) return;
-        const file = input.files[0];
-        const uploadUrl = input.getAttribute('data-upload-url');
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('csrfmiddlewaretoken', getCSRF());
+    chatSocket.onmessage = async function(e) {
+        const data = JSON.parse(e.data);
 
-        try {
-            const response = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCSRF() },
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success) { location.reload(); }
-        } catch (error) {
-            console.error("Upload Error:", error);
+        if (data.action === 'new_message') {
+            addMessageToUI(data);
+            // ✅ Detection based on the pipe symbol which is unique to files
+            if (data.content && data.content.includes('|')) {
+                addFileToResourcesUI(data);
+            }
+        } else if (data.action === 'edit') {
+            const textEl = document.getElementById(`text-${data.msgId}`);
+            if (textEl) textEl.innerText = data.content;
+        } else if (data.action === 'delete') {
+            const container = document.getElementById(`msg-container-${data.msgId}`);
+            if (container) {
+                const bubble = container.querySelector('.message-bubble');
+                const bubbleText = bubble ? bubble.innerText : "";
+                if (bubbleText.includes('|') || bubbleText.toLowerCase().includes('shared')) {
+                    removeFileFromResourcesUI(bubbleText);
+                }
+                container.remove();
+            }
+        } else if (data.action === 'reaction_update') {
+            updateReactionsUI(data.msgId, data.reactions);
+        } else if (data.action === "call") {
+            document.getElementById("video-modal").style.display = "flex";
+        } else if (data.action === "webrtc_offer") {
+            await handleOffer(data.offer, data.sender);
+        } else if (data.action === "webrtc_answer") {
+            if (peerConnections[data.sender]) await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(data.answer));
+        } else if (data.action === "webrtc_ice_candidate") {
+            if (peerConnections[data.sender]) await peerConnections[data.sender].addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+    };
+
+    function addMessageToUI(data) {
+    const isMe = data.username === currentUser;
+    const msgDiv = document.createElement('div');
+    msgDiv.id = `msg-container-${data.msgId}`;
+    msgDiv.className = `mb-4 d-flex ${isMe ? 'justify-content-end' : 'justify-content-start'}`;
+
+    let innerHTML = '';
+
+    // --- FIX: Logic to show avatar for BOTH sender and receiver ---
+    // If you only want it for the "other" person, keep !isMe.
+    // If you want it for everyone, remove the "if (!isMe)" check.
+
+    let avatarHtml = data.profile_pic
+        ? `<img src="${data.profile_pic}" class="rounded-circle shadow-sm" style="width: 32px; height: 32px; object-fit: cover;">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white shadow-sm" style="width: 32px; height: 32px;">${data.username[0].toUpperCase()}</div>`;
+
+    // Only show avatar on the left for others, or on the right for me (optional)
+    if (!isMe) {
+        innerHTML += `<div class="avatar-container me-2 mt-auto">${avatarHtml}</div>`;
+    }
+
+    let bubbleContent = '';
+    if (data.content.includes('|')) {
+        const parts = data.content.split('|');
+        bubbleContent = `
+            <div class="file-display">
+                <span class="d-block mb-2" style="font-size: 0.9rem;">${parts[0].trim()}</span>
+                <a href="${parts[1].trim()}" class="btn btn-sm btn-light w-100 rounded-pill shadow-sm py-1" style="font-size: 0.75rem;" download>
+                    <i class="bi bi-download me-1"></i> Download File
+                </a>
+            </div>`;
+    } else {
+        bubbleContent = `<span class="d-block" id="text-${data.msgId}">${data.content}</span>`;
+    }
+
+    innerHTML += `
+        <div class="message-wrapper position-relative" style="max-width: 75%;">
+            ${isMe ? `<div class="message-actions position-absolute border shadow-sm rounded-pill px-2 bg-white" style="top: -25px; right: 0; z-index: 10; display: none; white-space: nowrap;"><button class="btn btn-link btn-sm p-1 text-primary border-0" onclick="startInlineEdit('${data.msgId}')"><i class="bi bi-pencil" style="font-size: 0.8rem;"></i></button><span class="text-muted">|</span><button class="btn btn-link btn-sm p-1 text-danger border-0" onclick="deleteMessage('${data.msgId}')"><i class="bi bi-trash" style="font-size: 0.8rem;"></i></button></div>` : ''}
+            <div id="bubble-${data.msgId}" class="p-3 shadow-sm message-bubble" style="border-radius: 18px; ${isMe ? 'background-color: #0d6efd; color: white; border-bottom-right-radius: 4px;' : 'background-color: white; color: #333; border-bottom-left-radius: 4px;'}" ondblclick="toggleReaction('${data.msgId}', '👍')">
+                ${bubbleContent}
+                <div class="d-flex align-items-center justify-content-between mt-1">
+                    <div id="reactions-${data.msgId}" class="d-flex gap-1"></div>
+                    <small style="font-size: 0.6rem; opacity: 0.7;">Just now</small>
+                </div>
+            </div>
+        </div>`;
+
+    // Optional: add avatar on the right for "Me"
+    if (isMe) {
+        innerHTML += `<div class="avatar-container ms-2 mt-auto">${avatarHtml}</div>`;
+    }
+
+    msgDiv.innerHTML = innerHTML;
+    chatBody.appendChild(msgDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+    function addFileToResourcesUI(data) {
+        const parts = data.content.split('|');
+        if (parts.length < 2) return;
+
+        let filename = parts[0].replace(/.*Shared a file:/i, "").trim();
+        let fileUrl = parts[1].trim();
+        const resourceList = document.getElementById('resources-list');
+
+        if (resourceList) {
+            const newItem = document.createElement('div');
+            newItem.className = "list-group-item border-0 border-bottom p-3 d-flex align-items-center justify-content-between resource-item";
+            newItem.setAttribute('data-filename', filename);
+            newItem.innerHTML = `
+                <div class="text-truncate" style="max-width: 70%;">
+                    <h6 class="mb-0 text-truncate small fw-bold">${filename}</h6>
+                    <small class="text-muted" style="font-size: 0.7rem;">By ${data.username}</small>
+                </div>
+                <a href="${fileUrl}" class="btn btn-sm btn-outline-primary rounded-circle" download>
+                    <i class="bi bi-download"></i>
+                </a>`;
+            resourceList.prepend(newItem);
         }
     }
 
-    function toggleReaction(messageId, emoji) {
-        fetch(`/chat/message/${messageId}/react/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-            body: JSON.stringify({ emoji: emoji })
-        })
-        .then(res => res.json())
-        .then(data => { if (data.success) location.reload(); });
+    function removeFileFromResourcesUI(bubbleText) {
+        const firstLine = bubbleText.split('\n')[0];
+        let filename = firstLine.replace(/.*Shared a file:/i, "").trim();
+        const items = document.querySelectorAll('.resource-item');
+        items.forEach(item => {
+            if (item.getAttribute('data-filename').trim() === filename) {
+                item.remove();
+            }
+        });
     }
 
-    function startInlineEdit(messageId) {
-        const textSpan = document.getElementById(`text-${messageId}`);
-        if(!textSpan) return;
+    function updateReactionsUI(msgId, reactions) {
+    const container = document.getElementById(`reactions-${msgId}`);
+    if (!container) return;
 
-        const bubble = document.getElementById(`bubble-${messageId}`);
-        const originalContent = textSpan.innerText;
-
-        bubble.innerHTML = `
-            <textarea id="edit-input-${messageId}" class="form-control form-control-sm mb-2 border-0 shadow-none" style="background: rgba(255,255,255,0.9); min-height: 80px;">${originalContent}</textarea>
-            <div class="d-flex justify-content-end gap-2">
-                <button onclick="location.reload()" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;">Cancel</button>
-                <button onclick="saveEdit('${messageId}')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 0.7rem;">Save</button>
-            </div>
-        `;
+    if (!reactions || reactions.length === 0) {
+        container.innerHTML = '';
+        return;
     }
+
+    container.innerHTML = reactions.map(r => `
+        <span class="badge bg-white text-dark rounded-pill border shadow-sm"
+              style="font-size: 0.65rem; padding: 2px 8px; margin-top: 4px; cursor: pointer;"
+              onclick="toggleReaction('${msgId}', '${r.emoji}')">
+            ${r.emoji} ${r.total}
+        </span>
+    `).join('');
+}
+
+    chatForm.onsubmit = function(e) {
+        e.preventDefault();
+        if (messageInput.value.trim()) {
+            chatSocket.send(JSON.stringify({ action: 'send', content: messageInput.value }));
+            messageInput.value = '';
+        }
+    };
 
     function saveEdit(messageId) {
         const newContent = document.getElementById(`edit-input-${messageId}`).value;
-        fetch(`/chat/message/${messageId}/edit/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-            body: JSON.stringify({ content: newContent })
-        })
-        .then(res => res.json())
-        .then(data => { if (data.success) location.reload(); });
+        chatSocket.send(JSON.stringify({ action: 'edit', msgId: messageId, content: newContent }));
+        location.reload();
     }
 
     function deleteMessage(messageId) {
         if(confirm("Delete this message?")) {
-            fetch(`/chat/message/${messageId}/delete/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCSRF() }
-            })
-            .then(res => res.json())
-            .then(data => { if (data.success) location.reload(); });
+            chatSocket.send(JSON.stringify({ action: 'delete', msgId: messageId }));
         }
+    }
+
+    function toggleReaction(messageId, emoji) {
+    // Send via WebSocket to trigger the backend Consumer
+    chatSocket.send(JSON.stringify({
+        action: 'react',
+        msgId: messageId,
+        emoji: emoji
+    }));
+}
+
+    async function handleFileUpload(input) {
+    if (!input.files[0]) return;
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+    formData.append('csrfmiddlewaretoken', getCSRF());
+
+    try {
+        const response = await fetch(input.getAttribute('data-upload-url'), {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            input.value = ''; // Clear input, wait for WebSocket to update UI
+        }
+    } catch (error) {
+        console.error("Upload Error:", error);
+    }
+}
+
+    function startInlineEdit(messageId) {
+        const textSpan = document.getElementById(`text-${messageId}`);
+        const bubble = document.getElementById(`bubble-${messageId}`);
+        const originalContent = textSpan.innerText;
+        bubble.innerHTML = `<textarea id="edit-input-${messageId}" class="form-control form-control-sm mb-2 border-0 shadow-none" style="background: rgba(255,255,255,0.9); min-height: 80px;">${originalContent}</textarea><div class="d-flex justify-content-end gap-2"><button onclick="location.reload()" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;">Cancel</button><button onclick="saveEdit('${messageId}')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 0.7rem;">Save</button></div>`;
+    }
+
+    // --- WebRTC Video Logic (Unchanged) ---
+    let localStream, peerConnections = {};
+    const configuration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    const startCallBtn = document.getElementById('start-call-btn');
+    const videoGrid = document.getElementById("video-grid");
+
+    if (startCallBtn) {
+        startCallBtn.onclick = async function () {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById("video-modal").style.display = "flex";
+            addVideoStream("local", localStream, true);
+            chatSocket.send(JSON.stringify({ action: "call", data: "start" }));
+        };
+    }
+
+    async function createPeerConnection(userId) {
+        const pc = new RTCPeerConnection(configuration);
+        peerConnections[userId] = pc;
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        pc.ontrack = (event) => addVideoStream(userId, event.streams[0]);
+        pc.onicecandidate = (event) => {
+            if (event.candidate) chatSocket.send(JSON.stringify({ action: "webrtc_ice_candidate", candidate: event.candidate }));
+        };
+        return pc;
+    }
+
+    async function handleOffer(offer, senderId) {
+        const pc = await createPeerConnection(senderId);
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        chatSocket.send(JSON.stringify({ action: "webrtc_answer", answer: answer }));
+    }
+
+    function addVideoStream(userId, stream, muted = false) {
+        let container = document.getElementById("container-" + userId);
+        if (!container) {
+            container = document.createElement("div");
+            container.id = "container-" + userId;
+            container.className = "video-container";
+            const video = document.createElement("video");
+            video.id = "video-" + userId;
+            video.autoplay = true; video.playsInline = true; video.muted = muted;
+            const nameLabel = document.createElement("div");
+            nameLabel.className = "video-username";
+            nameLabel.innerText = userId === "local" ? "You" : "Peer";
+            container.appendChild(video); container.appendChild(nameLabel);
+            videoGrid.appendChild(container);
+        }
+        document.getElementById("video-" + userId).srcObject = stream;
+    }
+
+    let screenStream = null;
+let isScreenSharing = false;
+
+async function toggleScreenShare() {
+
+    if (!localStream) return;
+
+    // START SCREEN SHARE
+    if (!isScreenSharing) {
+        try {
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true
+            });
+
+            const screenTrack = screenStream.getVideoTracks()[0];
+
+            // Replace video track in all peer connections
+            Object.values(peerConnections).forEach(pc => {
+                const sender = pc.getSenders().find(s =>
+                    s.track && s.track.kind === "video"
+                );
+                if (sender) {
+                    sender.replaceTrack(screenTrack);
+                }
+            });
+
+            // Show screen locally
+            document.getElementById("video-local").srcObject = screenStream;
+
+            // When user stops sharing from browser UI
+            screenTrack.onended = () => {
+                stopScreenShare();
+            };
+
+            isScreenSharing = true;
+
+            const btn = document.getElementById("screen-btn");
+            if (btn) {
+                btn.classList.remove("btn-info");
+                btn.classList.add("btn-success");
+            }
+
+        } catch (err) {
+            console.error("Screen share cancelled");
+        }
+    }
+
+    // STOP SCREEN SHARE
+    else {
+        stopScreenShare();
+    }
+}
+
+function stopScreenShare() {
+
+    if (!screenStream || !localStream) return;
+
+    const cameraTrack = localStream.getVideoTracks()[0];
+
+    // Restore camera track in peer connections
+    Object.values(peerConnections).forEach(pc => {
+        const sender = pc.getSenders().find(s =>
+            s.track && s.track.kind === "video"
+        );
+        if (sender) {
+            sender.replaceTrack(cameraTrack);
+        }
+    });
+
+    // Restore local preview
+    document.getElementById("video-local").srcObject = localStream;
+
+    screenStream.getTracks().forEach(track => track.stop());
+
+    screenStream = null;
+    isScreenSharing = false;
+
+    const btn = document.getElementById("screen-btn");
+    if (btn) {
+        btn.classList.remove("btn-success");
+        btn.classList.add("btn-info");
+    }
+}
+
+    function toggleMute() {
+        if(!localStream) return;
+        localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled;
+        const btn = document.getElementById("mute-btn");
+        btn.classList.toggle("btn-warning"); btn.classList.toggle("btn-success");
+    }
+
+    function toggleCamera() {
+        if(!localStream) return;
+        localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled;
+        const btn = document.getElementById("camera-btn");
+        btn.classList.toggle("btn-secondary"); btn.classList.toggle("btn-success");
+    }
+
+    function endCall() {
+        Object.values(peerConnections).forEach(pc => pc.close());
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        videoGrid.innerHTML = "";
+        document.getElementById("video-modal").style.display = "none";
     }
 </script>
 {% endblock %}
