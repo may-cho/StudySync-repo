@@ -7,9 +7,6 @@ import faStyles from "@fortawesome/fontawesome-free/css/all.min.css?inline";
 import GalleryCard from "./components/GalleryCard.ce.vue";
 import GalleryManager from "./components/GalleryManager.ce.vue";
 import GalleryCardCompact from "./components/GalleryCardCompat.ce.vue";
-import NavbarCe from "./components/Navbar.ce.vue";
-import ProfileCe from "./components/Profile.ce.vue";
-import TimetableCe from "./components/Timetable.ce.vue";
 
 const defineSafeElement = (name, component) => {
   const internalStyles = component.styles || [];
@@ -25,6 +22,3 @@ const defineSafeElement = (name, component) => {
 defineSafeElement("gallery-card", GalleryCard);
 defineSafeElement("find-partner-view", GalleryManager);
 defineSafeElement("gallery-card-compact", GalleryCardCompact);
-// defineSafeElement("nav-bar", NavbarCe);
-// defineSafeElement("profile", ProfileCe);
-defineSafeElement("time-table", TimetableCe);

@@ -38,9 +38,10 @@ def dashboard(request):
         profile = StudentProfile.objects.get(user=request.user)
     except StudentProfile.DoesNotExist:
         # Create a default profile if it doesn't exist
+        default_major = Major.objects.filter(id=1).first() or Major.objects.first()
         profile = StudentProfile.objects.create(
             user=request.user,
-            major='SE',  # Default major
+            major=default_major,  
             year=1  # Default year
         )
         messages.info(request, 'A default profile has been created for you.')
@@ -240,7 +241,7 @@ def timetable_view(request):
         'timetable_slots': slots,
         'courses' : courses
     }
-    return render(request, 'core/testing.html', context)
+    return render(request, 'core/timetable.html', context)
 
 @login_required
 def add_timetable_slot(request):
