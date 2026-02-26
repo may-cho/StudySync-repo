@@ -67,7 +67,7 @@ def admin_dashboard_api(request):
                     if (timezone.now() - a.created_at).total_seconds() < 60 
                     else f"{timesince(a.created_at, timezone.now()).split(',')[0]} ago"
                 )
-            } for a in ActivityNotification.objects.filter(notification_type__in=['register','create','delete','approve','deny']).order_by('-created_at')[:10]
+            } for a in ActivityNotification.objects.filter(recipient=request.user,notification_type__in=['register','create','delete','approve','deny']).order_by('-created_at')[:10]
         ]
     }
     return JsonResponse(data)
@@ -149,14 +149,32 @@ def approve_group_request(request,group_id):
     group.status = 'APPROVED'
     group.save()
     
-    #notify admins
-    ActivityNotification.objects.create(
+    
+    notifications = []
+    #notify user
+    notifications = [ActivityNotification(
         notification_type='approve',
         sender=request.user,
         recipient=group.creator.user,
         group=group,
         content_preview=f"Your group '{group.name}' has been approved."
+    )]
+    
+    all_admins = AdminProfile.objects.select_related('user').all();
+    for admin in all_admins:
+        notifications.append(
+            ActivityNotification(
+                notification_type='approve',
+                sender=request.user,
+                recipient=admin.user,
+                group=group,
+                content_preview=f"{request.user} approved group {group.name}"
+        )
     )
+    
+    
+    if notifications:
+        ActivityNotification.objects.bulk_create(notifications)
     # ✅ TRIGGER REAL - TIME NOTIFICATION
     trigger_notification_update(
         group.creator.user,
@@ -177,14 +195,31 @@ def deny_group_request(request,group_id):
     group.status = 'REJECTED'
     group.save()
     
-    #notify admins
-    ActivityNotification.objects.create(
+    notifications = []
+    #notify user
+    notifications = [ActivityNotification(
         notification_type='deny',
         sender=request.user,
         recipient=group.creator.user,
         group=group,
         content_preview=f"Your group '{group.name}' has been denied."
+    )]
+    
+    all_admins = AdminProfile.objects.select_related('user').all();
+    for admin in all_admins:
+        notifications.append(
+            ActivityNotification(
+                notification_type='deny',
+                sender=request.user,
+                recipient=admin.user,
+                group=group,
+                content_preview=f"{request.user} denied the group {group.name}"
+        )
     )
+    
+    
+    if notifications:
+        ActivityNotification.objects.bulk_create(notifications)
 
     # TRIGGER REAL-TIME NOTIFICATION
     trigger_notification_update(
@@ -506,7 +541,7 @@ def create_study_group(request):
             
             #notify creator and all admins    
             all_admins = AdminProfile.objects.select_related("user").all();
-        
+            
             notifications = [];
 
             #notify to creator
@@ -519,6 +554,7 @@ def create_study_group(request):
                         content_preview=f"Your request for '{group.name}' has been submitted for approval. ⏳"
                     )
             ]
+
             for admin in all_admins:
                 notifications.append(
                     ActivityNotification(
