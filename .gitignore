@@ -9,6 +9,7 @@ db.sqlite3
 .env
 settings.py
 .idea/
+media/
 
 
 # Vue/Node dependencies

@@ -20,13 +20,82 @@ from django.db.models import Count
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import ChatRoom, Message, SharedFile
 from core.models import StudyGroup, GroupMembership
+from django.core.cache import cache
+
+
+@login_required
+def get_chat_data(request, group_id):
+    group  =  get_object_or_404(StudyGroup, id=group_id)
+    group_members = GroupMembership.objects.filter(group=group).select_related('student')
+    
+    chat_room,created = ChatRoom.objects.get_or_create(group=group)
+    messages = Message.objects.filter(room=chat_room).prefetch_related('reactions').order_by('timestamp')
+    shared_files = SharedFile.objects.filter(room=chat_room).order_by("-uploaded_at")
+    
+    #update current user's last_seen_status
+    membership = GroupMembership.objects.get(group=group,student__user=request.user)
+    membership.last_chat_view = timezone.now()
+    membership.save()
+
+    
+    members_data = []
+    
+    for mem in group.memberships.all():
+        status = get_user_status(mem.student.user.id)
+        members_data.append({
+                "id": mem.student.user.id,
+                "username": mem.student.user.username,
+                "profile": mem.student.profile_picture.url if mem.student.profile_picture else None,
+                "firstname": mem.student.user.first_name,
+                "lastname": mem.student.user.last_name,
+                "status": status
+            
+        })
+    data_json = {
+        'members': members_data,
+        'group_name': group.name,
+        'messages': [
+            {
+                "id" : message.id,
+                "sender": message.sender.username,
+                "message": message.content,
+                "message_type": message.type,
+                "time": message.timestamp,
+                "file_url": message.file_url,
+                "file_name": message.file_name,
+                "file_type": message.file_type,
+                "file_size": message.file_size
+            } for message in messages
+        ],
+        'shared_files': [
+            {
+                "id": file.id,
+                "file_name": file.filename,
+                "file_type" : file.file_type,
+                "uploader": file.uploader.username,
+                "file_url": file.file.url,
+                "file_size": file.file_size,
+                "uploaded_at": file.uploaded_at
+            } for file in shared_files
+        ]
+    }    
+    data_json.update({
+        'status': 200,'message': 'success'
+    })
+    return JsonResponse(data_json)
+def get_user_status(user_id):
+    is_present = cache.get(f'presence_{user_id}')
+    
+    if is_present == "online":
+        return "online"
+    return "offline"
 
 
 @login_required
 def group_chat(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
-
-    # 1. Fetch membership and handle unread count logic
+    
+    
     membership = GroupMembership.objects.filter(
         group=group,
         student__user=request.user
@@ -34,6 +103,8 @@ def group_chat(request, group_id):
 
     if not membership:
         return redirect('dashboard')
+
+    group_members = GroupMembership.objects.filter(group=group)
 
     # Update timestamp so the unread badge clears
     membership.last_chat_view = timezone.now()
@@ -61,11 +132,9 @@ def group_chat(request, group_id):
     # ---------------------------
     # 3. Fetch messages and reactions
     # ---------------------------
-    chat_messages = Message.objects.filter(room=chat_room) \
-        .prefetch_related('reactions') \
-        .order_by('timestamp')
+    messages = Message.objects.filter(room=chat_room).prefetch_related('reactions') .order_by('timestamp')
 
-    for message in chat_messages:
+    for message in messages:
         message.reaction_counts = (
             message.reactions.values('emoji')
             .annotate(total=Count('id'))
@@ -76,11 +145,13 @@ def group_chat(request, group_id):
     return render(request, 'chat/group_chat.html', {
         'group': group,
         'chat_room': chat_room,
-        'chat_messages': chat_messages,
+        'chat-messages': messages,
         'files': files,
         'is_timetable_active': is_timetable_active,
         'is_creator': (group.creator.user == request.user),
     })
+
+
 
 
 
@@ -128,47 +199,48 @@ def delete_message(request, message_id):
 
 
 @login_required
-def upload_file(request, room_id):
+def upload_file(request):
     if request.method == 'POST' and request.FILES.get('file'):
-        group = get_object_or_404(StudyGroup, id=room_id)
-        chat_room, _ = ChatRoom.objects.get_or_create(group=group)
+        group_id = request.POST.get('group_id')
+        group = get_object_or_404(StudyGroup, id=group_id)
+        chat_room = get_object_or_404(ChatRoom, group=group)
         uploaded_file = request.FILES['file']
+        
+        ext = os.path.splitext(uploaded_file.name)[1].lower()
+        
+        print(f" here is {ext}");
+        type_map = {
+        '.pdf': 'pdf',
+        '.docx': 'doc', '.doc': 'doc',
+        '.jpg': 'image', '.png': 'image', '.jpeg': 'image',
+        '.zip': 'archive', '.rar': 'archive',
+        '.pptx': 'presentation','.ppt': 'presentation','.xlsx': 'spreadsheet',
+        '.xls': 'spreadsheet','.csv': 'spreadsheet',
+        '.mp3' : 'audio','.wav': 'audio','.mp4': 'video',
+        '.mkv': 'video'
+        
+        }
+        final_type = type_map.get(ext,'other')
+        
+        
 
         shared_instance = SharedFile.objects.create(
             room=chat_room,
             uploader=request.user,
             file=uploaded_file,
-            filename=uploaded_file.name
+            filename=uploaded_file.name,
+            file_type=final_type,
+            file_size=uploaded_file.size
         )
+        
+        data_json = {
+            'file_name': shared_instance.filename,
+            'file_url': shared_instance.file.url,
+            'file_type': shared_instance.file_type,
+            'file_size': shared_instance.file_size 
+        }
 
-        file_msg = f"📎 Shared a file: {uploaded_file.name}|{shared_instance.file.url}"
-
-        message = Message.objects.create(
-            room=chat_room,
-            sender=request.user,
-            content=file_msg
-        )
-
-        # ✅ NEW: Broadcast to the WebSocket group so everyone sees it instantly
-        channel_layer = get_channel_layer()
-        profile_pic = None
-        if hasattr(request.user, 'profile') and request.user.profile.image:
-            profile_pic = request.user.profile.image.url
-
-        async_to_sync(channel_layer.group_send)(
-            f'chat_{room_id}',  # Must match the room_group_name in your Consumer
-            {
-                'type': 'chat_message',
-                'action': 'new_message',
-                'msgId': str(message.id),
-                'username': request.user.username,
-                'profile_pic': profile_pic,
-                'content': file_msg,
-                'timestamp': 'Just now'
-            }
-        )
-
-        return JsonResponse({'success': True, 'message': file_msg})
+        return JsonResponse({'success': True,'data': data_json})
 
     return JsonResponse({'success': False, 'error': 'Invalid request'})
 

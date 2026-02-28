@@ -181,6 +181,7 @@ class StudentProfile(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    last_seen = models.DateTimeField(default=timezone.now)
     # university = models.ForeignKey(University, on_delete=models.CASCADE)
     major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
     year = models.IntegerField(choices=YEAR_CHOICES)
@@ -189,6 +190,7 @@ class StudentProfile(models.Model):
     bio = models.TextField(blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
 
     # Study preferences
     preferred_study_days = models.CharField(max_length=100, default='Mon,Tue,Wed,Thu,Fri')
@@ -206,6 +208,13 @@ class StudentProfile(models.Model):
     def get_courses(self):
         """Get all courses this student is taking"""
         return Course.objects.filter(studentcourse__student=self).distinct()
+    
+    @property
+    def is_online(self) :
+       if self.last_seen:
+            # Consider online if active in the last 5 minutes
+            return timezone.now() < self.last_seen + timedelta(minutes=5)
+       return False 
 
 
 class Course(models.Model):

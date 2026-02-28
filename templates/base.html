@@ -19,7 +19,7 @@
 <body>
     {% include 'core/partials/navbar.html' %}
 
-    <div class="container mt-3">
+    <div class="container">
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -74,8 +74,6 @@
     {% block extra_js %}{% endblock %}
 </body>
 <style>
-    .django-content {
-        margin-top: 20px; 
-    }
+  
 </style>
 </html>

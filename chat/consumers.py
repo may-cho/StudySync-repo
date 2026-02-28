@@ -4,24 +4,66 @@ from channels.db import database_sync_to_async
 from django.utils import timezone
 from django.db.models import Count
 from .models import ChatRoom, Message, SharedFile, Reaction
-
+from django.core.cache import cache
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.room_id = self.scope['url_route']['kwargs']['room_id']
-        self.room_group_name = f'chat_{self.room_id}'
+        self.group_id = self.scope['url_route']['kwargs']['group_id']
+        self.room_group_name = f'chat_{self.group_id}'
+        self.user =  self.scope['user']
 
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept()
+        if self.user.is_authenticated:
+            cache.set(f'presence_{self.user.id}',"online",300)
+        
+            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+            await self.accept()
+            
+            await self.channel_layer.group_send(self.room_group_name,{
+                "type": "user_status_change",
+                "user_id": self.user.id,
+                'status': 'online'
+            })
+        else: 
+            self.close()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        print(f"--- DISCONNECT TRIGGERED: {self.user.username} with code {close_code} ---")
+       
+        try:
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+            cache.delete(f'presence_{self.user.id}')
+            await self.save_user_last_seen()
+            
+            await self.channel_layer.group_send(self.room_group_name, {
+                "type": "user_status_change",
+                "user_id": self.user.id,
+                'status': 'offline'
+            })
+        except Exception as e:
+            print(f"Error during disconnect: {e}")
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        action = data.get('action')
-        user = self.scope['user']
-
+        print(data)
+        # action = data.get('action')
+        # user = self.scope['user']
+        message = await self.db_create_message(data)
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'id': str(message.id),
+                'type' : 'chat_message_handler',
+                'message': data.get('message',''),
+                'sender': data['sender'],
+                'time' : data.get('time','Just now'),
+                'message_type': data.get('message_type','text'),
+                'file_url': data.get('file_url',''),
+                'file_name': data.get('file_name',''),
+                'file_type': data.get('file_type',''),
+                'file_size': data.get('file_size','')
+            }
+        )
+        return 
         # -----------------------
         # SEND MESSAGE
         # -----------------------
@@ -153,14 +195,41 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def handle_webrtc_ice_candidate(self, event):
         if self.scope["user"].id != event["sender"]:
             await self.send(text_data=json.dumps({"action": "webrtc_ice_candidate", **event["data"]}))
+    async def user_status_change(self, event):
+        # Send the status update to the Vue frontend
+        await self.send(text_data=json.dumps({
+            "message_type": "status_update",
+            "type": event['type'],
+            "user_id": event["user_id"],
+            "status": event["status"]
+        }))
 
     # ------------------------------------------------------------------
     # DATABASE ACCESS (SYNC TO ASYNC)
     # ------------------------------------------------------------------
     @database_sync_to_async
-    def db_create_message(self, content):
-        room = ChatRoom.objects.get(id=self.room_id)
-        return Message.objects.create(room=room, sender=self.scope['user'], content=content)
+    def db_create_message(self,data):
+        print(data)
+        room = ChatRoom.objects.get(group__id=self.group_id)
+        
+        if data['message_type'] == 'file':
+            return Message.objects.create(
+                room=room,
+                sender = self.scope['user'],
+                content = data['file_name'],
+                type =  data['message_type'],
+                file_name = data['file_name'],
+                file_url =  data['file_url'],
+                file_size = data['file_size'],
+                file_type = data['file_type']
+            )
+        else: 
+            return Message.objects.create(
+                room=room, 
+                sender=self.scope['user'], 
+                content=data['message'],
+                type=data['message_type']
+            )
 
     @database_sync_to_async
     def is_call_allowed(self):
@@ -189,6 +258,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except:
             return False
 
+    @database_sync_to_async
+    def save_user_last_seen(self):
+        from core.models import StudentProfile
+        StudentProfile.objects.filter(user=self.user).update(last_seen=timezone.now())
+    
     @database_sync_to_async
     def db_edit_message(self, msg_id, user, content):
         return Message.objects.filter(id=msg_id, sender=user).update(content=content)
