@@ -477,7 +477,7 @@
         <div class="notif-card-header">
             <div>
                 <h5>Notifications</h5>
-                <p>You have 3 unread messages</p>
+                <p>You have {{ unread_notifications_count|length }} unread messages</p>
             </div>
            <button class="btn-close-svg" onclick="toggleNotif()" aria-label="Close">
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -491,30 +491,127 @@
         </div>
 
         <div class="notif-scroll-area">
-            <div class="notif-row unread">
-                <div class="icon-box blue">
-                    <i class="bi bi-chat-left-text"></i>
+            {% for n in notifications %}
+<!--            -->
+            <div class="list-group-item p-4 {% if not n.is_read %}unread{% endif %} border-start-0 border-end-0">
+            <div class="d-flex align-items-start">
+
+                <div class="flex-shrink-0 me-3">
+                    {% if n.notification_type == 'request' %}
+                        <div class="rounded-circle bg-warning-subtle p-3 text-warning"><i class="fas fa-user-clock fa-lg"></i></div>
+                    {% elif n.notification_type == 'accept' or n.notification_type ==  'approve' %}
+                        <div class="rounded-circle bg-success-subtle p-3 text-success"><i class="fas fa-check-circle fa-lg"></i></div>
+                    {% elif n.notification_type == 'deny' or n.notification_type == 'decline' %}
+                        <div class="rounded-circle bg-danger-subtle p-3 text-danger"><i class="fas fa-times-circle fa-lg"></i></div>
+                    {% elif n.invited_by %}
+                        <div class="rounded-circle bg-primary-subtle p-3 text-primary"><i class="fas fa-users fa-lg"></i></div>
+                    {% elif n.initiator %}
+                        <div class="rounded-circle bg-info-subtle p-3 text-info"><i class="fas fa-bolt fa-lg"></i></div>
+                    {% else %}
+                        {% if n.notification_type == 'like' %}
+                            <div class="rounded-circle bg-danger-subtle p-3 text-danger"><i class="fas fa-heart fa-lg"></i></div>
+                        {% elif n.notification_type == 'comment' or n.notification_type == 'reply' %}
+                            <div class="rounded-circle bg-success-subtle p-3 text-success"><i class="fas fa-comment fa-lg"></i></div>
+                        {% else %}
+                            <div class="rounded-circle bg-secondary-subtle p-3 text-secondary"><i class="fas fa-bell fa-lg"></i></div>
+                        {% endif %}
+                    {% endif %}
                 </div>
-                <div class="notif-body">
-                    <span class="notif-title">New Comment</span>
-                    <p><strong>Aung Kyaw</strong> mentioned you in "Physics 101"</p>
-                    <span class="notif-date">2m ago</span>
-                </div>
-            </div>
-            <div class="notif-row">
-                <div class="icon-box purple">
-                    <i class="bi bi-star"></i>
-                </div>
-                <div class="notif-body">
-                    <span class="notif-title">Group Achievement</span>
-                    <p>Your study group reached <strong>Level 5</strong>!</p>
-                    <span class="notif-date">1h ago</span>
+
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <small class="text-muted">{{ n.created_at|timesince }} ago</small>
+                        {% if not n.is_read %}<span class="badge rounded-pill bg-primary" style="font-size: 0.6rem;">NEW</span>{% endif %}
+                    </div>
+
+                    {% if n.notification_type == 'request' %}
+                        <p class="mb-2"><strong>{{ n.sender.username }}</strong> requested to join <strong>{{ n.group.name }}</strong></p>
+                        <div class="mt-2">
+                            <a href="{% url 'group_manage' n.group.id %}" class="btn btn-primary btn-sm">Manage Requests</a>
+                        </div>
+
+                    {% elif n.notification_type == 'accept' %}
+                        <p class="mb-2 text-success fw-bold">Request Approved!</p>
+                        <p class="mb-2">You have been accepted into <strong>{{ n.group.name }}</strong>.</p>
+                        <div class="mt-2">
+                            <a href="{% url 'group_detail' n.group.id %}" class="btn btn-success btn-sm">Go to Group</a>
+                        </div>
+
+                    {% elif n.notification_type == 'decline' %}
+                        <p class="mb-2 text-danger fw-bold">Request Declined</p>
+                        <p class="mb-0">Your request to join <strong>{{ n.group.name }}</strong> was not approved at this time.</p>
+
+                    {% elif n.notification_type == 'create'%}
+                        <p class="mb-2 text-info fw-bold">Group Proposal</p>
+                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been requested.</p>
+                    {% elif n.notification_type == 'approve'%}
+                         <p class="mb-2 text-success fw-bold">Group Approved</p>
+                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been approved.</p>
+                        <div class="mt-2">
+                            <a href="{% url 'group_detail' n.group.id %}" class="btn btn-success btn-sm">Go to Group</a>
+                        </div>
+
+                    {% elif n.notification_type == 'deny' %}
+                         <p class="mb-2 text-danger fw-bold">Group Rejected</p>
+                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been denied.</p>
+                    {% elif n.invited_by %}
+
+                        <p class="mb-2"><strong>{{ n.invited_by.user.username }}</strong> invited you to <strong>{{ n.group.name }}</strong></p>
+                        <div class="mt-2">
+                            <a href="{% url 'accept_invitation' n.id %}" class="btn btn-success btn-sm">Accept</a>
+                            <a href="{% url 'decline_invitation' n.id %}" class="btn btn-outline-secondary btn-sm">Decline</a>
+                        </div>
+
+                    {% elif n.initiator %}
+                        <p class="mb-2">Match! <strong>{{ n.initiator.user.username }}</strong> is taking <strong>{{ n.course.code }}</strong></p>
+                        <div class="mt-2">
+                            <a href="{% url 'respond_invite' n.id 'accept' %}" class="btn btn-primary btn-sm">Connect</a>
+                        </div>
+
+                    {% else %}
+                        <p class="mb-1">
+                            <strong>{{ n.sender.username }}</strong>
+                            {% if n.notification_type == 'like' %}liked your post
+                            {% elif n.notification_type == 'comment' %}commented on your post
+                            {% elif n.notification_type == 'reply' %}replied to your comment
+                            {% else %}posted an update
+                            {% endif %}
+                            in <strong>{{ n.group.name }}</strong>
+                        </p>
+                        {% if n.content_preview %}
+                            <p class="text-muted small italic">"{{ n.content_preview }}"</p>
+                        {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>
+<!--            -->
+
+<!--            <div class="notif-row unread">-->
+<!--                <div class="icon-box blue">-->
+<!--                    <i class="bi bi-chat-left-text"></i>-->
+<!--                </div>-->
+<!--                <div class="notif-body">-->
+<!--                    <span class="notif-title">New Comment</span>-->
+<!--                    <p><strong>Aung Kyaw</strong> mentioned you in "Physics 101"</p>-->
+<!--                    <span class="notif-date">2m ago</span>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="notif-row">-->
+<!--                <div class="icon-box purple">-->
+<!--                    <i class="bi bi-star"></i>-->
+<!--                </div>-->
+<!--                <div class="notif-body">-->
+<!--                    <span class="notif-title">Group Achievement</span>-->
+<!--                    <p>Your study group reached <strong>Level 5</strong>!</p>-->
+<!--                    <span class="notif-date">1h ago</span>-->
+<!--                </div>-->
+<!--            </div>-->
+            {% endfor %}
+        </div>
 
         <div class="notif-card-footer">
-            <a href="#">See all activity</a>
+            <a href="{% url 'all_notifications' %}">See all activity</a>
         </div>
     </div>
 </div>
