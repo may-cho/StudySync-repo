@@ -311,7 +311,6 @@ const isLoading = ref(true);
 const rootContainer = ref(null);
 
 const fetchData = async () => {
-  console.log("called again");
   try {
     const response = await axios.get("/api/admin/dashboard-data");
     pendingGroups.value = response.data.pendingGroups || [];

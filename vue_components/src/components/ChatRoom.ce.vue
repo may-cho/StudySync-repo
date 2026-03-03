@@ -1,378 +1,237 @@
 <template>
-  <div class="chat-container">
-    <div class="chat-layout">
-      <!-- Left Sidebar - Members Only -->
-      <aside class="chat-sidebar">
-        <div class="sidebar-brand">
-          <div class="brand-icon">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              stroke-width="2.5"
-            >
-              <path
-                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              />
-            </svg>
+  <div class="bento-chat-container">
+    <div class="bento-layout">
+      <!-- Left Sidebar - Members Only (Bento Card) -->
+      <aside class="bento-sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-brand">
+            <div class="brand-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                stroke-width="2.5"
+              >
+                <path
+                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                />
+              </svg>
+            </div>
+            <span class="brand-name">StudySync</span>
           </div>
-          <span class="brand-name">StudySync</span>
+          <div class="sidebar-badge">{{ groupMembers?.length }} members</div>
         </div>
 
         <div class="sidebar-section">
-          <div class="section-title">MEMBERS</div>
-          <div
-            v-for="member in groupMembers"
-            :key="member.id"
-            class="member-row"
-          >
-            <div class="member-avatar">
-              <div class="avatar-initials">
-                {{ member.username.charAt(0).toUpperCase() }}
+          <div class="section-header">
+            <span class="section-title">MEMBERS</span>
+            <span class="online-count">{{ online_count }} online</span>
+          </div>
+          <div class="members-list">
+            <div
+              v-for="member in groupMembers"
+              :key="member.id"
+              class="member-card"
+            >
+              <div class="member-avatar-wrapper">
+                <div
+                  class="member-avatar"
+                  :style="{ backgroundColor: getAvatarColor(member.username) }"
+                >
+                  {{ member.username.charAt(0).toUpperCase() }}
+                </div>
+                <div :class="['status-dot', member.status]"></div>
               </div>
-              <div :class="['status-indicator', member.status]"></div>
-            </div>
-            <div class="member-info">
-              <div class="member-name">{{ member.username }}</div>
-              <div class="member-status">
-                {{ member.status === "online" ? "Online" : "Away" }}
+              <div class="member-details">
+                <div class="member-name">{{ member.username }}</div>
+                <div class="member-status-text">
+                  {{ member.status === "online" ? "Online" : "Away" }}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </aside>
 
-      <!-- Main Chat Area -->
-      <main class="chat-main">
+      <!-- Main Chat Area (Bento Card) -->
+      <main class="bento-main">
         <!-- Chat Header -->
-        <header class="chat-header">
-          <div class="header-channel">
-            <h1>{{ groupName }}</h1>
-            <div class="channel-meta">
-              <span class="meta-badge"
-                >{{ groupMembers?.length }} members ∙ {{ online_count }} online
+        <div class="chat-header">
+          <div class="header-info">
+            <h1 class="group-name">{{ groupName }}</h1>
+            <div class="group-meta">
+              <span class="meta-item">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                {{ groupMembers?.length }} members
+              </span>
+              <span class="meta-item online">
+                <span class="online-dot"></span>
+                {{ online_count }} online
               </span>
             </div>
           </div>
-          <div class="header-actions">
-            <!-- Video Call Icon -->
-            <button
-              class="video-call-button"
-              @click="startVideoCall"
-              title="Start Video Call"
+          <button
+            class="video-button"
+            @click="startVideoCall"
+            title="Start Video Call"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
             >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                stroke-width="2"
-              >
-                <path d="M23 7L16 12L23 17V7Z" />
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-              </svg>
-            </button>
-          </div>
-        </header>
+              <path d="M23 7L16 12L23 17V7Z" />
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+            </svg>
+          </button>
+        </div>
 
         <!-- Messages Area -->
-        <div class="messages-container">
-          <div class="messages-area" ref="messagesContainer">
-            <div v-for="msg in messages" :key="msg.id" class="message-group">
-              <div
-                :class="[
-                  'message-wrapper',
-                  msg.sender === currentUser ? 'own-message' : 'peer-message',
-                ]"
-              >
-                <div class="message-content">
-                  <div class="message-header">
-                    <span class="message-sender">{{ msg.sender }}</span>
-                    <span class="message-time">{{ formatTime(msg.time) }}</span>
-                  </div>
+        <div class="messages-container" ref="messagesContainer">
+          <div v-for="msg in messages" :key="msg.id" class="message-group">
+            <div
+              :class="[
+                'message-row',
+                msg.sender === currentUser ? 'own-message' : 'peer-message',
+              ]"
+            >
+              <div class="message-bubble">
+                <div class="message-header">
+                  <span class="message-sender">{{ msg.sender }}</span>
+                  <span class="message-time">{{ formatTime(msg.time) }}</span>
+                </div>
 
-                  <!-- Text Message -->
-                  <div v-if="msg.message_type === 'text'" class="text-bubble">
-                    {{ msg.message }}
-                  </div>
+                <!-- Text Message -->
+                <div v-if="msg.message_type === 'text'" class="text-content">
+                  {{ msg.message }}
+                </div>
 
-                  <!-- File Message -->
-                  <a
-                    v-else-if="msg.message_type === 'file'"
-                    :href="'http://127.0.0.1:8000' + msg.file_url"
-                    :download="msg.file_name"
-                    target="_blank"
-                    class="file-link"
+                <!-- File Message -->
+                <a
+                  v-else-if="msg.message_type === 'file'"
+                  :href="'http://127.0.0.1:8000' + msg.file_url"
+                  :download="msg.file_name"
+                  target="_blank"
+                  class="file-link"
+                >
+                  <div
+                    class="file-preview"
+                    :class="{ 'own-file': msg.sender === currentUser }"
                   >
                     <div
-                      class="file-bubble"
-                      :class="{ 'own-file': msg.sender === currentUser }"
-                      :data-type="msg.file_type?.toLowerCase()"
+                      class="file-icon-wrapper"
+                      :class="msg.file_type?.toLowerCase()"
                     >
-                      <div
-                        class="file-icon"
-                        :class="[
-                          msg.file_type,
-                          { 'own-file-icon': msg.sender === currentUser },
-                        ]"
+                      <!-- Image files -->
+                      <svg
+                        v-if="msg.file_type == 'image'"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
                       >
-                        <!-- Image files -->
-                        <svg
-                          v-if="msg.file_type == 'image'"
+                        <rect
+                          x="2"
+                          y="2"
                           width="20"
                           height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <rect
-                            x="2"
-                            y="2"
-                            width="20"
-                            height="20"
-                            rx="2"
-                            ry="2"
-                          ></rect>
-                          <circle
-                            cx="8.5"
-                            cy="8.5"
-                            r="1.5"
-                            fill="currentColor"
-                          ></circle>
-                          <polyline points="21 15 16 10 5 21"></polyline>
-                        </svg>
+                          rx="2"
+                          ry="2"
+                        />
+                        <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
 
-                        <!-- PDF files -->
-                        <svg
-                          v-else-if="msg.file_type === 'pdf'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <path d="M9 15h6"></path>
-                          <path d="M9 18h4"></path>
-                          <circle
-                            cx="16"
-                            cy="15"
-                            r="1"
-                            fill="currentColor"
-                          ></circle>
-                        </svg>
+                      <!-- PDF files -->
+                      <svg
+                        v-else-if="msg.file_type === 'pdf'"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                        />
+                        <polyline points="14 2 14 8 20 8" />
+                        <path d="M9 15h6" />
+                        <path d="M9 18h4" />
+                        <circle cx="16" cy="15" r="1" fill="currentColor" />
+                      </svg>
 
-                        <!-- Word/Document files -->
-                        <svg
-                          v-else-if="msg.file_type == 'document'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <line x1="16" y1="13" x2="8" y2="13"></line>
-                          <line x1="16" y1="17" x2="8" y2="17"></line>
-                          <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-
-                        <!-- PowerPoint/Presentation files -->
-                        <svg
-                          v-else-if="msg.file_type == 'presentation'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <path d="M8 13h8"></path>
-                          <path d="M8 17h5"></path>
-                          <circle
-                            cx="15.5"
-                            cy="15.5"
-                            r="1.5"
-                            fill="currentColor"
-                          ></circle>
-                        </svg>
-
-                        <!-- Excel/Spreadsheet files -->
-                        <svg
-                          v-else-if="msg.file_type == 'spreadsheet'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <line x1="8" y1="16" x2="12" y2="16"></line>
-                          <line x1="8" y1="12" x2="16" y2="12"></line>
-                          <line x1="8" y1="8" x2="10" y2="8"></line>
-                        </svg>
-
-                        <!-- ZIP/Archive files -->
-                        <svg
-                          v-else-if="msg.file_type == 'archive'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <line x1="12" y1="12" x2="12" y2="16"></line>
-                          <line x1="9" y1="13" x2="15" y2="13"></line>
-                        </svg>
-
-                        <!-- Audio files -->
-                        <svg
-                          v-else-if="msg.file_type == 'audio'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <path d="M9 15v-3a3 3 0 1 1 6 0v3"></path>
-                          <circle
-                            cx="12"
-                            cy="16"
-                            r="2"
-                            fill="currentColor"
-                          ></circle>
-                        </svg>
-
-                        <!-- Video files -->
-                        <svg
-                          v-else-if="msg.file_type == 'video'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <polygon
-                            points="9 13 15 10 15 18 9 15 9 13"
-                          ></polygon>
-                        </svg>
-
-                        <!-- Code files -->
-                        <svg
-                          v-else-if="msg.file_type == 'code'"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <polyline points="9 13 6 16 9 19"></polyline>
-                          <polyline points="15 13 18 16 15 19"></polyline>
-                        </svg>
-
-                        <!-- Default file -->
-                        <svg
-                          v-else
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                          ></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <line x1="16" y1="13" x2="8" y2="13"></line>
-                          <line x1="16" y1="17" x2="8" y2="17"></line>
-                          <circle
-                            cx="10.5"
-                            cy="15.5"
-                            r="0.5"
-                            fill="currentColor"
-                          ></circle>
-                        </svg>
-                      </div>
-                      <div class="file-details">
-                        <div class="file-name">{{ msg.file_name }}</div>
-                        <div class="file-meta">
-                          {{ msg.file_type?.toUpperCase() }} •
-                          {{ formatSize(msg.file_size) }}
-                        </div>
-                      </div>
-                      <div class="file-download">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="7 10 12 15 17 10" />
-                          <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
+                      <!-- Default file -->
+                      <svg
+                        v-else
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"
+                        />
+                        <polyline points="13 2 13 9 20 9" />
+                      </svg>
+                    </div>
+                    <div class="file-details">
+                      <div class="file-name">{{ msg.file_name }}</div>
+                      <div class="file-meta">
+                        {{ msg.file_type?.toUpperCase() }} •
+                        {{ formatSize(msg.file_size) }}
                       </div>
                     </div>
-                  </a>
-                </div>
+                    <div class="file-download-icon">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    </div>
+                  </div>
+                </a>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Input Area -->
-        <div class="input-container">
+        <div class="input-area">
           <div class="input-wrapper">
-            <button class="attach-button" @click="triggerFileUpload">
+            <button class="attach-btn" @click="triggerFileUpload">
               <svg
                 width="20"
                 height="20"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#6366f1"
+                stroke="currentColor"
                 stroke-width="2"
               >
                 <path
@@ -384,7 +243,7 @@
             <input
               type="file"
               ref="fileInput"
-              class="file-input-hidden"
+              class="file-input"
               @change="handleFileSelected"
             />
             <input
@@ -394,13 +253,13 @@
               placeholder="Type a message..."
               class="message-input"
             />
-            <button class="send-button" @click="send">
+            <button class="send-btn" @click="send">
               <svg
                 width="18"
                 height="18"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="white"
+                stroke="currentColor"
                 stroke-width="2.5"
               >
                 <line x1="22" y1="2" x2="11" y2="13" />
@@ -411,8 +270,8 @@
         </div>
       </main>
 
-      <!-- Right Sidebar - Resources Only -->
-      <aside class="resources-sidebar">
+      <!-- Right Sidebar - Resources Only (Bento Card) -->
+      <aside class="bento-resources">
         <div class="resources-header">
           <div class="resources-title">
             <svg
@@ -420,7 +279,7 @@
               height="20"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#6366f1"
+              stroke="currentColor"
               stroke-width="2"
             >
               <path
@@ -435,11 +294,11 @@
         <div class="resources-list">
           <a
             v-for="file in resources"
+            :key="file.id"
+            :href="'http://127.0.0.1:8000' + file.file_url"
             :download="file.file_name"
             target="_blank"
-            :href="'http://127.0.0.1:8000' + file.file_url"
-            :key="file.id"
-            class="resource-card file-link"
+            class="resource-item"
           >
             <div class="resource-icon" :class="file.file_type?.toLowerCase()">
               <svg
@@ -465,7 +324,7 @@
                 }}</span>
               </div>
             </div>
-            <button class="resource-download">
+            <div class="resource-download">
               <svg
                 width="16"
                 height="16"
@@ -478,7 +337,7 @@
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-            </button>
+            </div>
           </a>
         </div>
       </aside>
@@ -496,9 +355,11 @@ import {
   nextTick,
   computed,
 } from "vue";
+
 axios.defaults.xsrfCookieName = "csrftoken";
 axios.defaults.xsrfHeaderName = "X-CSRFToken";
 axios.defaults.withCredentials = true;
+
 let chatSocket = shallowRef(null);
 const groupId = ref(null);
 const fileInput = ref(null);
@@ -509,6 +370,25 @@ const resources = ref([]);
 const props = defineProps({ currentUser: [String] });
 const newMessage = ref("");
 const messagesContainer = ref(null);
+
+// Helper function to generate consistent avatar colors
+const getAvatarColor = (username) => {
+  const colors = [
+    "#4158D0",
+    "#C850C0",
+    "#0093E9",
+    "#80D0C7",
+    "#8EC5FC",
+    "#E0C3FC",
+  ];
+  const index = (username?.length || 0) % colors.length;
+  return colors[index];
+};
+
+// Simple back function without router
+const goBack = () => {
+  window.history.back();
+};
 
 const formatSize = (bytes) => {
   if (!bytes || bytes === 0) return "0 Bytes";
@@ -545,8 +425,6 @@ const handleFileSelected = async (event) => {
     );
     if (response.status === 201 || response.status === 200) {
       const fileData = response.data.data;
-
-      console.log({ fileData });
       chatSocket.value.send(
         JSON.stringify({
           message_type: "file",
@@ -577,11 +455,9 @@ const fetchData = async (url) => {
       groupName.value = data.group_name;
 
       const me = groupMembers.value.find((m) => {
-        console.log(m.username, props.currentUser);
-        String(m.username) === String(props.currentUser);
+        return String(m.username) === String(props.currentUser);
       });
 
-      console.log(me);
       if (me) {
         me.status = "online";
       }
@@ -611,6 +487,7 @@ const startVideoCall = () => {
   console.log("Starting video call...");
   alert("Video call feature coming soon!");
 };
+
 const online_count = computed(() => {
   return groupMembers.value.filter((member) => member.status === "online")
     .length;
@@ -630,7 +507,6 @@ onMounted(() => {
       const member = groupMembers.value.find(
         (m) => String(m.id) === String(data.user_id),
       );
-
       if (member) {
         member.status = data.status;
       }
@@ -675,66 +551,122 @@ const send = () => {
 </script>
 
 <style scoped>
+/* BENTO GRID STYLING */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-.chat-container {
+.bento-chat-container {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f5f7fa;
   font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  overflow: hidden;
 }
 
-.chat-layout {
+/* Main Layout */
+.bento-layout {
   display: grid;
-  grid-template-columns: 260px 1fr 300px;
+  grid-template-columns: 280px 1fr 320px;
   height: 100vh;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  padding: 20px;
+  gap: 20px;
 }
 
-/* Left Sidebar - Members Only */
-.chat-sidebar {
-  background: #ffffff;
-  border-right: 1px solid #f0f2f5;
-  padding: 28px 20px;
-  overflow-y: auto;
-  height: 100vh;
+/* Bento Cards - Common Styles */
+.bento-sidebar,
+.bento-main,
+.bento-resources {
+  background: white;
+  border-radius: 32px;
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.03),
+    0 0 0 1px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+}
+
+/* Left Sidebar */
+.bento-sidebar {
+  padding: 0;
+}
+
+.sidebar-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 40px;
-  padding: 0 8px;
+  margin-bottom: 12px;
 }
 
 .brand-icon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border-radius: 12px;
+  background: #1e3a5f;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.3);
+  color: white;
 }
 
 .brand-name {
   font-size: 18px;
   font-weight: 700;
-  background: linear-gradient(135deg, #1e293b, #6366f1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #0f172a;
+}
+
+.sidebar-badge {
+  background: #f1f5f9;
+  padding: 4px 12px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e3a5f;
+  display: inline-block;
+}
+
+.sidebar-section {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar-section::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-section::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.sidebar-section::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
 .section-title {
@@ -742,46 +674,57 @@ const send = () => {
   font-weight: 600;
   color: #94a3b8;
   letter-spacing: 0.5px;
-  margin-bottom: 16px;
-  padding: 0 8px;
+  text-transform: uppercase;
 }
 
-.member-row {
+.online-count {
+  font-size: 11px;
+  color: #10b981;
+  font-weight: 600;
+  background: #d1fae5;
+  padding: 2px 8px;
+  border-radius: 30px;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.member-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  padding: 10px;
+  border-radius: 16px;
   transition: all 0.2s;
-  cursor: pointer;
 }
 
-.member-row:hover {
+.member-card:hover {
   background: #f8fafc;
-  transform: translateX(4px);
+}
+
+.member-avatar-wrapper {
+  position: relative;
+  width: 44px;
+  height: 44px;
 }
 
 .member-avatar {
-  position: relative;
-  width: 40px;
-  height: 40px;
-}
-
-.avatar-initials {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #e2e8f0, #f1f5f9);
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  color: #475569;
-  border: 2px solid white;
+  font-size: 1.1rem;
+  color: white;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
 }
 
-.status-indicator {
+.status-dot {
   position: absolute;
   bottom: -2px;
   right: -2px;
@@ -791,122 +734,123 @@ const send = () => {
   border: 2px solid white;
 }
 
-.status-indicator.online {
+.status-dot.online {
   background: #10b981;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
-.status-indicator.away {
+.status-dot.away {
   background: #f59e0b;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
 }
 
-.member-info {
+.member-details {
   flex: 1;
 }
 
 .member-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1e293b;
+  color: #0f172a;
   margin-bottom: 2px;
 }
 
-.member-status {
+.member-status-text {
   font-size: 11px;
   color: #94a3b8;
 }
 
 /* Main Chat Area */
-.chat-main {
+.bento-main {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background: #ffffff;
-  overflow: hidden;
+  background: white;
 }
 
-/* Chat Header */
 .chat-header {
-  padding: 20px 32px;
-  background: #ffffff;
-  border-bottom: 1px solid #f0f2f5;
+  padding: 24px 28px;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-shrink: 0;
 }
 
-.header-channel h1 {
-  font-size: 20px;
+.group-name {
+  font-size: 22px;
   font-weight: 700;
   color: #0f172a;
   margin-bottom: 6px;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.02em;
 }
 
-.channel-meta {
+.group-meta {
   display: flex;
-  gap: 12px;
+  gap: 16px;
 }
 
-.meta-badge {
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.meta-badge.online {
-  color: #10b981;
+.meta-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
 }
 
-/* Video Call Button */
-.video-call-button {
+.meta-item.online {
+  color: #10b981;
+}
+
+.online-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.video-button {
   width: 48px;
   height: 48px;
-  border: none;
   border-radius: 16px;
+  background: #1e3a5f;
+  border: none;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background-color: #2563eb;
   transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.2);
+}
+
+.video-button:hover {
+  background: #14273f;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(30, 58, 95, 0.3);
 }
 
 /* Messages Container */
 .messages-container {
   flex: 1;
-  overflow: hidden;
-  background: #fafbfc;
-}
-
-.messages-area {
-  height: 100%;
   overflow-y: auto;
-  padding: 24px 32px;
-  scroll-behavior: smooth;
+  padding: 28px;
+  background: #f8fafc;
 }
 
-.messages-area::-webkit-scrollbar {
+.messages-container::-webkit-scrollbar {
   width: 4px;
 }
 
-.messages-area::-webkit-scrollbar-track {
+.messages-container::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
 
-.messages-area::-webkit-scrollbar-thumb {
+.messages-container::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 10px;
 }
 
 .message-group {
   margin-bottom: 20px;
-  animation: slideIn 0.3s ease;
+  animation: slideIn 0.2s ease;
 }
 
 @keyframes slideIn {
@@ -920,7 +864,7 @@ const send = () => {
   }
 }
 
-.message-wrapper {
+.message-row {
   display: flex;
   max-width: 70%;
 }
@@ -935,6 +879,19 @@ const send = () => {
   justify-content: flex-start;
 }
 
+.message-bubble {
+  background: white;
+  border-radius: 20px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  border: 1px solid #f1f5f9;
+}
+
+.own-message .message-bubble {
+  background: #1e3a5f;
+  border-color: #1e3a5f;
+}
+
 .message-header {
   display: flex;
   align-items: center;
@@ -942,195 +899,122 @@ const send = () => {
   margin-bottom: 6px;
 }
 
-.message-sender {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.message-time {
-  font-size: 11px;
-  color: #94a3b8;
-}
-
 .own-message .message-header {
-  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.message-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e3a5f;
 }
 
 .own-message .message-sender {
-  color: #6366f1;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-/* Text Bubble */
-.text-bubble {
-  padding: 12px 18px;
+.message-time {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.own-message .message-time {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.text-content {
   font-size: 14px;
   line-height: 1.6;
-  border-radius: 18px;
+  color: #1a2e35;
   word-wrap: break-word;
-  max-width: 100%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
-.peer-message .text-bubble {
-  background: #ffffff;
-  border: 1px solid #f0f2f5;
-  border-bottom-left-radius: 4px;
-  color: #334155;
-}
-
-.own-message .text-bubble {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+.own-message .text-content {
   color: white;
-  border-bottom-right-radius: 4px;
-  box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.3);
 }
 
-/* File Link */
+/* File Preview */
 .file-link {
   text-decoration: none;
   display: block;
 }
 
-/* File Bubble */
-.file-bubble {
+.file-preview {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
-  background: #ffffff;
-  border: 1px solid #f0f2f5;
-  border-radius: 18px;
-  min-width: 280px;
-  max-width: 320px;
+  gap: 12px;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 16px;
+  min-width: 260px;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
-.peer-message .file-bubble {
-  border-bottom-left-radius: 4px;
+.file-preview:hover {
+  background: #f1f5f9;
 }
 
-.own-message .file-bubble {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border: none;
-  border-bottom-right-radius: 4px;
-  box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.3);
+.own-message .file-preview {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.file-bubble:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
-}
-
-.own-message .file-bubble:hover {
-  box-shadow: 0 12px 24px -8px rgba(99, 102, 241, 0.4);
-}
-
-.file-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+.file-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-/* Peer message file icon colors - Unique for each type */
-.peer-message .file-icon.image {
+/* File icon colors */
+.file-icon-wrapper.image {
   background: #dcfce7;
   color: #16a34a;
 }
-
-.peer-message .file-icon.pdf {
+.file-icon-wrapper.pdf {
   background: #fee2e2;
   color: #dc2626;
 }
-
-.peer-message .file-icon.document {
+.file-icon-wrapper.document {
   background: #dbeafe;
   color: #2563eb;
 }
-
-.peer-message .file-icon.presentation {
+.file-icon-wrapper.presentation {
   background: #fed7aa;
   color: #c2410c;
 }
-
-.peer-message .file-icon.spreadsheet {
+.file-icon-wrapper.spreadsheet {
   background: #dcfce7;
   color: #059669;
 }
-
-.peer-message .file-icon.archive {
+.file-icon-wrapper.archive {
   background: #fef9c3;
   color: #ca8a04;
 }
-
-.peer-message .file-icon.audio {
+.file-icon-wrapper.audio {
   background: #fae8ff;
   color: #a21caf;
 }
-
-.peer-message .file-icon.video {
+.file-icon-wrapper.video {
   background: #ffe4e6;
   color: #be123c;
 }
-
-.peer-message .file-icon.code {
+.file-icon-wrapper.code {
   background: #e0f2fe;
   color: #0369a1;
 }
-
-.peer-message
-  .file-icon:not(.image):not(.pdf):not(.document):not(.presentation):not(
+.file-icon-wrapper:not(.image):not(.pdf):not(.document):not(.presentation):not(
     .spreadsheet
   ):not(.archive):not(.audio):not(.video):not(.code) {
   background: #f1f5f9;
   color: #64748b;
 }
 
-/* Own message file icon - White with subtle colored background */
-.own-message .file-icon {
+.own-message .file-icon-wrapper {
   background: rgba(255, 255, 255, 0.2);
   color: white;
-}
-
-.own-message .file-icon.image {
-  background: rgba(22, 163, 74, 0.25);
-}
-
-.own-message .file-icon.pdf {
-  background: rgba(220, 38, 38, 0.25);
-}
-
-.own-message .file-icon.document {
-  background: rgba(37, 99, 235, 0.25);
-}
-
-.own-message .file-icon.presentation {
-  background: rgba(194, 65, 12, 0.25);
-}
-
-.own-message .file-icon.spreadsheet {
-  background: rgba(5, 150, 105, 0.25);
-}
-
-.own-message .file-icon.archive {
-  background: rgba(202, 138, 4, 0.25);
-}
-
-.own-message .file-icon.audio {
-  background: rgba(162, 28, 175, 0.25);
-}
-
-.own-message .file-icon.video {
-  background: rgba(190, 18, 60, 0.25);
-}
-
-.own-message .file-icon.code {
-  background: rgba(3, 105, 161, 0.25);
 }
 
 .file-details {
@@ -1139,9 +1023,9 @@ const send = () => {
 }
 
 .file-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: #0f172a;
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -1153,45 +1037,38 @@ const send = () => {
 }
 
 .file-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: #94a3b8;
 }
 
 .own-message .file-meta {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.file-download {
+.file-download-icon {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  background: #f1f5f9;
+  border-radius: 10px;
+  background: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366f1;
+  color: #1e3a5f;
   opacity: 0;
-  transform: scale(0.8);
+  transform: scale(0.9);
   transition: all 0.2s;
-  flex-shrink: 0;
 }
 
-.own-message .file-download {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.file-bubble:hover .file-download {
+.file-preview:hover .file-download-icon {
   opacity: 1;
   transform: scale(1);
 }
 
-/* Input Container */
-.input-container {
-  padding: 20px 32px;
-  background: #ffffff;
-  border-top: 1px solid #f0f2f5;
-  flex-shrink: 0;
+/* Input Area */
+.input-area {
+  padding: 20px 28px;
+  background: white;
+  border-top: 1px solid #f1f5f9;
 }
 
 .input-wrapper {
@@ -1199,38 +1076,38 @@ const send = () => {
   align-items: center;
   gap: 12px;
   background: #f8fafc;
-  border: 1px solid #f0f2f5;
-  border-radius: 30px;
-  padding: 6px 6px 6px 16px;
+  border: 1px solid #f1f5f9;
+  border-radius: 40px;
+  padding: 4px 4px 4px 16px;
   transition: all 0.2s;
 }
 
 .input-wrapper:focus-within {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-  background: #ffffff;
+  border-color: #1e3a5f;
+  box-shadow: 0 0 0 4px rgba(30, 58, 95, 0.1);
+  background: white;
 }
 
-.attach-button {
+.attach-btn {
   width: 40px;
   height: 40px;
+  border-radius: 20px;
   border: none;
   background: transparent;
-  border-radius: 50%;
+  color: #1e3a5f;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #6366f1;
   transition: all 0.2s;
 }
 
-.attach-button:hover {
-  background: #eff6ff;
+.attach-btn:hover {
+  background: #f1f5f9;
   transform: scale(1.1);
 }
 
-.file-input-hidden {
+.file-input {
   display: none;
 }
 
@@ -1240,7 +1117,7 @@ const send = () => {
   background: transparent;
   outline: none;
   font-size: 14px;
-  color: #1e293b;
+  color: #0f172a;
   padding: 10px 0;
 }
 
@@ -1248,39 +1125,34 @@ const send = () => {
   color: #94a3b8;
 }
 
-.send-button {
+.send-btn {
   width: 44px;
   height: 44px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 22px;
   border: none;
-  border-radius: 50%;
+  background: #1e3a5f;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.2);
 }
 
-.send-button:hover {
-  transform: scale(1.1) rotate(5deg);
-  box-shadow: 0 8px 16px rgba(99, 102, 241, 0.4);
+.send-btn:hover {
+  background: #14273f;
+  transform: scale(1.05);
 }
 
-/* Right Sidebar - Resources Only */
-.resources-sidebar {
-  width: 300px;
-  background: #ffffff;
-  border-left: 1px solid #f0f2f5;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+/* Right Sidebar - Resources */
+.bento-resources {
+  padding: 0;
 }
 
 .resources-header {
   padding: 24px 20px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1292,20 +1164,24 @@ const send = () => {
   gap: 10px;
 }
 
+.resources-title svg {
+  color: #1e3a5f;
+}
+
 .resources-title h3 {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   color: #0f172a;
   margin: 0;
 }
 
 .resources-count {
   background: #f1f5f9;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 30px;
   font-size: 12px;
   font-weight: 600;
-  color: #6366f1;
+  color: #1e3a5f;
 }
 
 .resources-list {
@@ -1330,78 +1206,71 @@ const send = () => {
   border-radius: 10px;
 }
 
-.resource-card {
+.resource-item {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px;
   background: #f8fafc;
-  border-radius: 14px;
+  border-radius: 18px;
   transition: all 0.2s;
   cursor: pointer;
+  text-decoration: none;
+  color: inherit;
 }
 
-.resource-card:hover {
+.resource-item:hover {
   background: #f1f5f9;
   transform: translateX(4px);
 }
 
 .resource-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-/* Resource icon colors - Matching message file icons */
+/* Resource icon colors - matching file icons */
 .resource-icon.image {
   background: #dcfce7;
   color: #16a34a;
 }
-
 .resource-icon.pdf {
   background: #fee2e2;
   color: #dc2626;
 }
-
 .resource-icon.document {
   background: #dbeafe;
   color: #2563eb;
 }
-
 .resource-icon.presentation {
   background: #fed7aa;
   color: #c2410c;
 }
-
 .resource-icon.spreadsheet {
   background: #dcfce7;
   color: #059669;
 }
-
 .resource-icon.archive {
   background: #fef9c3;
   color: #ca8a04;
 }
-
 .resource-icon.audio {
   background: #fae8ff;
   color: #a21caf;
 }
-
 .resource-icon.video {
   background: #ffe4e6;
   color: #be123c;
 }
-
 .resource-icon.code {
   background: #e0f2fe;
   color: #0369a1;
 }
-
 .resource-icon:not(.image):not(.pdf):not(.document):not(.presentation):not(
     .spreadsheet
   ):not(.archive):not(.audio):not(.video):not(.code) {
@@ -1417,7 +1286,7 @@ const send = () => {
 .resource-name {
   font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: #0f172a;
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -1427,11 +1296,11 @@ const send = () => {
 .resource-meta {
   display: flex;
   gap: 8px;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .resource-uploader {
-  color: #6366f1;
+  color: #1e3a5f;
   font-weight: 500;
 }
 
@@ -1442,25 +1311,52 @@ const send = () => {
 .resource-download {
   width: 32px;
   height: 32px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
+  border-radius: 10px;
+  background: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
-  cursor: pointer;
+  color: #1e3a5f;
   opacity: 0;
   transition: all 0.2s;
 }
 
-.resource-card:hover .resource-download {
+.resource-item:hover .resource-download {
   opacity: 1;
 }
 
 .resource-download:hover {
-  background: #ffffff;
-  color: #6366f1;
+  background: #1e3a5f;
+  color: white;
   transform: scale(1.1);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .bento-layout {
+    grid-template-columns: 240px 1fr 280px;
+  }
+}
+
+@media (max-width: 900px) {
+  .bento-layout {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  .bento-sidebar,
+  .bento-resources {
+    display: none;
+  }
+
+  .back-button-container {
+    bottom: 20px;
+    left: 20px;
+  }
+
+  .back-button {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
 }
 </style>

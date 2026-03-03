@@ -44,6 +44,19 @@ urlpatterns = [
     path('groups/', views.group_list, name='group_list'),
     path('groups/create/', views.create_study_group, name='create_study_group'),
     path('groups/<uuid:group_id>/', views.group_detail, name='group_detail'),
+    path('api/groups/<uuid:group_id>/',views.get_group_data,name="get_group_data"),
+    path('groups/<uuid:group_id>/post/create', views.create_group_post,name="create_group_post"),
+    
+    #api for posts
+    path('api/posts/<uuid:post_id>/like', views.toggle_post_like, name='toggle_post_like'),
+    path('api/posts/<uuid:post_id>/comment', views.add_comment, name='add_comment'),
+    path('api/posts/<uuid:post_id>/delete', views.delete_post, name='delete_post'),
+    path('api/posts/<uuid:post_id>/edit', views.edit_post, name='edit_post'),
+    #api for comments
+    path('api/comments/<uuid:comment_id>/like', views.toggle_comment_like, name='toggle_comment_like'),
+    path('api/comments/<uuid:comment_id>/delete', views.delete_comment, name='delete_comment'),
+    path('api/comments/<uuid:comment_id>/edit', views.edit_comment, name='edit_comment'),
+
     path('groups/<uuid:group_id>/join/', views.join_group, name='join_group'),
     path('groups/<uuid:group_id>/leave/', views.leave_group, name='leave_group'),
     path('groups/<uuid:group_id>/edit/', views.edit_group, name='edit_group'),

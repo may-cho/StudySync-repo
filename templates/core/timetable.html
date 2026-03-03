@@ -5,19 +5,12 @@
 {% endblock %}
 {% block title %}Timetable - StudySync{% endblock %}
   {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4 p-2">
-  <div>
-    <h2 class="fw-bold mb-0" style="color: var(--text-main)">
-      <i class="fas fa-calendar-alt me-2 text-primary"></i>My Timetable
-    </h2>
-    <p class="text-muted small mb-0">Organize your weekly study sessions</p>
-  </div>
-</div>
+
 
 <div class="calendar-container">
   <div class="calendar-header">
     <div class="spacer"></div>
-      <div class="days-row">
+    <div class="days-row">
         <div class="day-label">Mon</div>
         <div class="day-label">Tue</div>
         <div class="day-label">Wed</div>
@@ -75,7 +68,7 @@
         data-title="{{slot.custom_name}}"
         data-slot-type="{{slot.slot_type}}"
         data-day-index="{{slot.day_index}}"
-        style="{{ slot.get_styles }}; background-color: {{ slot.get_color }}20;"
+        style="{{ slot.get_styles }}; background-color: {{ slot.get_color }}15;"
       >
         {%if slot.slot_type == 'class'%} 
         <p class="time-block-label">{{ slot.course.code }}</p>
@@ -164,7 +157,7 @@
   >
     <div class="mini-modal">
       <div class="mini-modal-header">
-        <span class="warning-dot"></span>
+    <span class="warning-dot"></span>
         <p>Remove Session?</p>
       </div>
       <div class="modal-actions">

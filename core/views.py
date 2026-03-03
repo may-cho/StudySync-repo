@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from datetime import datetime, date, time, timedelta
 import json
-from .models import StudyGroup, StudentProfile, GroupMembership
+from .models import StudyGroup, StudentProfile, GroupMembership,Post,Comment
 from .forms import StudyGroupForm
 from django.db.models import Prefetch
 from django.utils.timesince import timesince
@@ -20,7 +20,7 @@ from django.db.models import Q, Count
 from .models import *
 from .forms import *
 from django.db import transaction
-
+from django.http import HttpResponseForbidden
 
 from django.http import JsonResponse
 
@@ -616,6 +616,53 @@ def load_courses(request):
 
 from django.utils import timezone
 
+
+@login_required
+def get_group_data(request,group_id) :
+     group = get_object_or_404(StudyGroup, id=group_id)
+     profile = get_object_or_404(StudentProfile, user=request.user)
+     all_memberships = group.memberships.all().select_related('student__user')
+     
+     
+     json_data = {
+         'group': {
+             'id': group.id,
+             'name': group.name,
+             'group_type': group.group_type,
+             'member_count': all_memberships.count(),
+             'max_members': group.max_members,
+             'is_active': True,
+             'creator': {
+                 'id': group.creator.user.id,
+                 'username': group.creator.user.username
+                 },
+             'study_day': group.study_day,
+             'start_time': group.start_time,
+             'end_time': group.end_time,
+             'created_at': group.created_at
+         },
+         'members': [
+            {
+                'id': mem.id,
+                'username': mem.student.user.username,
+                #TODO: change this to real data
+                'isOnline': False,
+                'role': mem.role
+            } for mem in all_memberships
+             
+         ],
+         'current_user': {
+             'id' : request.user.id,
+             'username': request.user.username,
+         }
+         
+             
+    
+         
+     }
+     
+     return JsonResponse(json_data)
+     
 @login_required
 def group_detail(request, group_id):
     group = get_object_or_404(StudyGroup, id=group_id)
@@ -635,28 +682,15 @@ def group_detail(request, group_id):
         messages.error(request, 'You are not a member of this group')
         return redirect('group_list')
 
-    # 2. Get counts based on the user's last view timestamps
-    chat_room = getattr(group, 'chat_room', None)
-    new_messages_count = 0
-    if chat_room:
-        new_messages_count = chat_room.messages.filter(
-            timestamp__gt=user_mem.last_chat_view
-        ).count()
-
-    new_posts_count = group.posts.filter(
-        created_at__gt=user_mem.last_feed_view
-    ).count()
-
-    # 3. Fetch ALL memberships for the members list card
+    
     all_memberships = group.memberships.all().select_related('student__user')
 
     context = {
         'group': group,
-        'memberships': all_memberships, # Used for the loop in HTML
+        'memberships': all_memberships,
         'is_admin': group.is_admin(request.user),
         'is_creator': (group.creator == profile),
-        'new_messages_count': new_messages_count,
-        'new_posts_count': new_posts_count,
+        
     }
     return render(request, 'core/group_detail.html', context)
 
@@ -1974,3 +2008,229 @@ def mark_notifications_read(request):
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+ 
+@login_required
+def create_group_post(request,group_id):
+    if request.method == 'POST':
+        content = request.POST.get('content')
+        image_file = request.FILES.get('image')
+        
+        group = get_object_or_404(StudyGroup,id=group_id);
+        
+        post_data = []
+        if content or image_file:
+            new_post = Post.objects.create(
+                author = request.user,
+                content = content,
+                image = image_file,
+                # tags = tags
+            )
+            
+            post_data = [{
+                'id': new_post.id,
+                'author': new_post.author,
+                'content': new_post.content,
+                'likes': new_post.likes,
+                'image_url' : new_post.image.url,
+                'likes_count': new_post.likes.count,
+                'is_approved': new_post.is_approved,
+                'created_at': new_post.created_at,
+            }]
+        
+
+            notifications = []
+            
+            #notify to creator
+            notifications = [
+                 ActivityNotification(
+                        recipient=request.user, 
+                        sender=request.user,  
+                        notification_type='post-create',
+                        group=group,
+                        content_preview=f"Your post has been submitted for approval. ⏳"
+                    )
+            ]
+            
+            notifications.append(
+               ActivityNotification(
+                        recipient=group.creator,
+                        sender=request.user,
+                        notification_type='post-create',
+                        group=group,
+                        content_preview=f"New post request is waiting for your approval. ⏳"
+                    )
+            )
+            
+            if notifications:
+                ActivityNotification.objects.bulk_create(notifications)
+                
+            
+            messages.success(request,
+                             'Your post has been submitted to review.')
+        
+        
+        return JsonResponse(post_data)
+    
+    return JsonResponse({  "status": 400,
+                "message": "failed"})
+        
+
+@login_required
+def add_comment(request, post_id):
+    
+
+    post = get_object_or_404(Post, id=post_id)
+
+    is_member = GroupMembership.objects.filter(
+        group=post.group,
+        student__user=request.user
+    ).exists()
+
+    if not is_member:
+        return HttpResponseForbidden("Access denied")
+
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        content = data.get('content')
+        image = data.get('image',None)
+        
+        comment_data = None
+        if content:
+            comment_obj = Comment.objects.create(
+                post=post,
+                author=request.user,
+                content=content,
+                image=image
+            )
+            comment_data = {
+            "id": comment_obj.id,
+            "content": comment_obj.content,
+            "author": comment_obj.author,
+            "image": comment_obj.image,
+            "likes": comment_obj.likes,
+            "created_at": comment_obj.created_at.strftime("%Y-%m-%d %H:%M"),
+        }
+            
+            # ✅ NEW: Notify post author about the comment
+            if post.author != request.user:
+                ActivityNotification.objects.create(
+                    recipient=post.author,
+                    sender=request.user,
+                    notification_type='comment',
+                    group=post.group,
+                    content_preview=content[:30],
+                    is_read=False
+                )
+                # Trigger live update
+                trigger_notification_update(post.author, f"{request.user.username} commented on your post.")
+
+    if comment_data:
+        return JsonResponse({'status': 201,'message': 'success','data': comment_data},status=201)
+    
+    return JsonResponse({'status': 400, 'message': 'Content is required'}, status=400)
+
+
+@login_required
+def delete_post(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    group = post.group
+
+    # Permission Check: Allow deletion if user is the Author OR the Group Creator
+    # (Assuming group.creator is a StudentProfile and request.user has a .studentprofile)
+    is_author = (post.author == request.user)
+    is_group_creator = (group.creator.user == request.user)
+
+    if is_author or is_group_creator:
+        post.delete()
+        messages.success(request, "Post has been removed.")
+    else:
+        messages.error(request, "You do not have permission to take down this post.")
+
+    return JsonResponse({'status': 200,'message': 'success'})
+
+@login_required
+def edit_post(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    if post.author != request.user:
+        return redirect('group_posts', group_id=post.group.id)
+
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        content = data.get('content')
+    
+    #    image = data.get('image')
+     #   post.image = image,
+        post.content = content
+        post.save()
+        return redirect('group_posts', group_id=post.group.id)
+
+    return render(request, 'chat/edit_post.html', {'post': post})
+
+@login_required
+def delete_comment(request, comment_id):
+    comment = get_object_or_404(Comment, id=comment_id)
+
+    if comment.author != request.user:
+        return redirect('group_posts', group_id=comment.post.group.id)
+
+    comment.delete()
+    return JsonResponse({'message': 'success', 'status': 200})
+
+
+@login_required
+def edit_comment(request, comment_id):
+    comment = get_object_or_404(Comment, id=comment_id)
+
+    # Authorization
+    if comment.author != request.user:
+        return redirect('group_posts', group_id=comment.post.group.id)
+
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        content = data.get('content')
+        if content:
+            comment.content = content
+            comment.save()
+
+   
+    return JsonResponse({'status': 200, 'message': 'success'})
+
+@login_required
+def toggle_post_like(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    if request.user in post.likes.all():
+        post.likes.remove(request.user)
+    else:
+        post.likes.add(request.user)
+
+        # ✅ NEW: Create notification for the post author
+        if post.author != request.user:
+            ActivityNotification.objects.create(
+                recipient=post.author,
+                sender=request.user,
+                notification_type='like',
+                group=post.group,
+                content_preview=post.content[:30] if post.content else "Liked your photo",
+                is_read=False
+            )
+            # Trigger real-time WebSocket update
+            trigger_notification_update(post.author, f"{request.user.username} liked your post.")
+
+    return JsonResponse({'status': 200, 'message': 'success'})
+
+
+@login_required
+def toggle_comment_like(request, comment_id):
+    comment = get_object_or_404(Comment, id=comment_id)
+
+    # Toggle logic
+    if request.user in comment.likes.all():
+        comment.likes.remove(request.user)
+    else:
+        comment.likes.add(request.user)
+
+
+    return JsonResponse({'status': 200, 'message': 'success'})
+

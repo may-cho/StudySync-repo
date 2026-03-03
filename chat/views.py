@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import os
 from core.models import StudyGroup, GroupMembership
-from .models import ChatRoom, Message, SharedFile,GroupPost,PostComment, Reaction
+from .models import ChatRoom, Message, SharedFile, Reaction
 import json
 from django.http import JsonResponse
 from django.db.models import Count
@@ -208,7 +208,6 @@ def upload_file(request):
         
         ext = os.path.splitext(uploaded_file.name)[1].lower()
         
-        print(f" here is {ext}");
         type_map = {
         '.pdf': 'pdf',
         '.docx': 'doc', '.doc': 'doc',
@@ -326,201 +325,10 @@ from core.models import GroupMembership, ActivityNotification
 from core.utils import trigger_notification_update  # Using the helper we created
 
 
-@login_required
-def group_posts(request, group_id):
-    group = get_object_or_404(StudyGroup, id=group_id)
-
-    # 1. Fetch the specific membership object
-    membership = GroupMembership.objects.filter(
-        group=group,
-        student__user=request.user
-    ).first()
-
-    if not membership:
-        return redirect('group_detail', group_id=group.id)
-
-    # 2. ✅ CLEAR UNREAD BADGE: Update the last_feed_view timestamp
-    membership.last_feed_view = timezone.now()
-    membership.save()
-
-    # 3. Handle New Post Creation
-    if request.method == 'POST':
-        content = request.POST.get('content')
-        image = request.FILES.get('image')
-
-        if content or image:
-            new_post = GroupPost.objects.create(
-                group=group,
-                author=request.user,
-                content=content,
-                image=image
-            )
-
-            # 4. ✅ NOTIFY MEMBERS: Create notifications for all other members
-            other_memberships = group.memberships.exclude(student__user=request.user)
-
-            for member_ship in other_memberships:
-                # Optional: Only notify via ActivityNotification model if you want
-                # posts to show up in the "All Notifications" list
-                ActivityNotification.objects.create(
-                    recipient=member_ship.student.user,
-                    sender=request.user,
-                    notification_type='comment',  # Or add 'post' to your TYPES
-                    group_id=group.id,
-                    post_id=str(new_post.id),
-                    content_preview=f"New post: {content[:30]}" if content else "Shared an image"
-                )
-
-                # Trigger live WebSocket update for each member
-                trigger_notification_update(
-                    member_ship.student.user,
-                    f"{request.user.username} posted in {group.name}"
-                )
-
-        return redirect('group_posts', group_id=group.id)
-
-    # 5. Fetch existing posts
-    posts = GroupPost.objects.filter(group=group).order_by('-created_at')
-
-    return render(request, 'chat/group_posts.html', {
-        'group': group,
-        'posts': posts,
-        'user': request.user
-    })
 
 
 @login_required
-def add_comment(request, post_id):
-    post = get_object_or_404(GroupPost, id=post_id)
-
-    is_member = GroupMembership.objects.filter(
-        group=post.group,
-        student__user=request.user
-    ).exists()
-
-    if not is_member:
-        return HttpResponseForbidden("Access denied")
-
-    if request.method == 'POST':
-        content = request.POST.get('content')
-        if content:
-            PostComment.objects.create(
-                post=post,
-                author=request.user,
-                content=content
-            )
-            # ✅ NEW: Notify post author about the comment
-            if post.author != request.user:
-                ActivityNotification.objects.create(
-                    recipient=post.author,
-                    sender=request.user,
-                    notification_type='comment',
-                    group=post.group,
-                    content_preview=content[:30],
-                    is_read=False
-                )
-                # Trigger live update
-                trigger_notification_update(post.author, f"{request.user.username} commented on your post.")
-
-    return redirect('group_posts', group_id=post.group.id)
-
-
-@login_required
-def delete_post(request, post_id):
-    post = get_object_or_404(GroupPost, id=post_id)
-    group = post.group
-
-    # Permission Check: Allow deletion if user is the Author OR the Group Creator
-    # (Assuming group.creator is a StudentProfile and request.user has a .studentprofile)
-    is_author = (post.author == request.user)
-    is_group_creator = (group.creator.user == request.user)
-
-    if is_author or is_group_creator:
-        post.delete()
-        messages.success(request, "Post has been removed.")
-    else:
-        messages.error(request, "You do not have permission to take down this post.")
-
-    return redirect('group_posts', group_id=group.id)
-
-@login_required
-def edit_post(request, post_id):
-    post = get_object_or_404(GroupPost, id=post_id)
-
-    if post.author != request.user:
-        return redirect('group_posts', group_id=post.group.id)
-
-    if request.method == 'POST':
-        post.content = request.POST.get('content')
-        post.save()
-        return redirect('group_posts', group_id=post.group.id)
-
-    return render(request, 'chat/edit_post.html', {'post': post})
-
-@login_required
-def delete_comment(request, comment_id):
-    comment = get_object_or_404(PostComment, id=comment_id)
-
-    if comment.author != request.user:
-        return redirect('group_posts', group_id=comment.post.group.id)
-
-    comment.delete()
-    return redirect('group_posts', group_id=comment.post.group.id)
-
-
-@login_required
-def edit_comment(request, comment_id):
-    comment = get_object_or_404(PostComment, id=comment_id)
-
-    # Authorization
-    if comment.author != request.user:
-        return redirect('group_posts', group_id=comment.post.group.id)
-
-    if request.method == 'POST':
-        content = request.POST.get('content')
-        if content:
-            comment.content = content
-            comment.save()
-
-    # Always redirect back to the group feed
-    return redirect('group_posts', group_id=comment.post.group.id)
-
-@login_required
-def toggle_post_like(request, post_id):
-    post = get_object_or_404(GroupPost, id=post_id)
-    if request.user in post.likes.all():
-        post.likes.remove(request.user)
-    else:
-        post.likes.add(request.user)
-
-        # ✅ NEW: Create notification for the post author
-        if post.author != request.user:
-            ActivityNotification.objects.create(
-                recipient=post.author,
-                sender=request.user,
-                notification_type='like',
-                group=post.group,
-                content_preview=post.content[:30] if post.content else "Liked your photo",
-                is_read=False
-            )
-            # Trigger real-time WebSocket update
-            trigger_notification_update(post.author, f"{request.user.username} liked your post.")
-
-    return redirect('group_posts', group_id=post.group.id)
-
-
-@login_required
-def toggle_comment_like(request, comment_id):
-    comment = get_object_or_404(PostComment, id=comment_id)
-
-    # Toggle logic
-    if request.user in comment.likes.all():
-        comment.likes.remove(request.user)
-    else:
-        comment.likes.add(request.user)
-
-    # Redirect back to the feed
-    return redirect('group_posts', group_id=comment.post.group.id)
-
-
-
+def live_session(request,group_id):
+    
+    
+    return render(request , 'chat/live_session.html',{})

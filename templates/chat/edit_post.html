@@ -1,54 +1,55 @@
 {% extends "base.html" %}
 
+
 {% block content %}
 <div class="container mt-5" style="max-width: 800px;">
-    <div class="row justify-content-center">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm overflow-hidden">
-                <div class="bg-primary" style="height: 5px;"></div>
+<div class="row justify-content-center">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm overflow-hidden">
+            <div class="bg-primary" style="height: 5px;"></div>
 
-                <div class="card-body p-4 p-md-5">
+            <div class="card-body p-4 p-md-5">
+                <div class="mb-4">
+                    <h3 class="fw-bold text-dark mb-1">Edit Post</h3>
+                    <p class="text-muted small">Update your thoughts or image for the group.</p>
+                </div>
+
+                <form method="POST" enctype="multipart/form-data"> {% csrf_token %}
+
                     <div class="mb-4">
-                        <h3 class="fw-bold text-dark mb-1">Edit Post</h3>
-                        <p class="text-muted small">Update your thoughts or image for the group.</p>
+                        <label for="postContent" class="form-label fw-semibold text-secondary small">POST CONTENT</label>
+                        <textarea name="content"
+                                    id="postContent"
+                                    class="form-control border-0 bg-light p-3"
+                                    rows="6"
+                                    style="resize: none; font-size: 1.1rem;"
+                                    required>{{ post.content }}</textarea>
                     </div>
 
-                    <form method="POST" enctype="multipart/form-data"> {% csrf_token %}
-
-                        <div class="mb-4">
-                            <label for="postContent" class="form-label fw-semibold text-secondary small">POST CONTENT</label>
-                            <textarea name="content"
-                                      id="postContent"
-                                      class="form-control border-0 bg-light p-3"
-                                      rows="6"
-                                      style="resize: none; font-size: 1.1rem;"
-                                      required>{{ post.content }}</textarea>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold text-secondary small">ATTACHED IMAGE</label>
+                        {% if post.image %}
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1">Current Image:</small>
+                            <img src="{{ post.image.url }}" class="img-thumbnail" style="max-height: 200px;">
                         </div>
+                        {% endif %}
+                        <input type="file" name="image" class="form-control bg-light border-0" accept="image/*">
+                        <small class="text-muted">Leave empty to keep current image.</small>
+                    </div>
 
-                        <div class="mb-4">
-                            <label class="form-label fw-semibold text-secondary small">ATTACHED IMAGE</label>
-                            {% if post.image %}
-                            <div class="mb-2">
-                                <small class="text-muted d-block mb-1">Current Image:</small>
-                                <img src="{{ post.image.url }}" class="img-thumbnail" style="max-height: 200px;">
-                            </div>
-                            {% endif %}
-                            <input type="file" name="image" class="form-control bg-light border-0" accept="image/*">
-                            <small class="text-muted">Leave empty to keep current image.</small>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mt-5">
-                            <a href="{% url 'group_posts' post.group.id %}" class="btn btn-link text-muted text-decoration-none fw-semibold">
-                                <i class="bi bi-x-lg me-1"></i> Cancel
-                            </a>
-                            <button type="submit" class="btn btn-primary rounded-pill px-5 py-2 shadow-sm fw-bold">
-                                Save Changes
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    <div class="d-flex justify-content-between align-items-center mt-5">
+                        <a href="{% url 'group_posts' post.group.id %}" class="btn btn-link text-muted text-decoration-none fw-semibold">
+                            <i class="bi bi-x-lg me-1"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 py-2 shadow-sm fw-bold">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
