@@ -33,6 +33,16 @@ const parsedCourses = computed(() => {
   }
 });
 
+const parsedInterests = computed(() => {
+  if (Array.isArray(props.allInterests)) return props.allInterests;
+  try {
+    return props.allInterests ? JSON.parse(props.allInterests) : [];
+  } catch {
+    console.error("Failed to parse interests");
+    return [];
+  }
+});
+
 const timeSlots = computed(() => {
   if (Array.isArray(props.timeSlots)) return props.timeSlots;
   try {

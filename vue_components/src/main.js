@@ -22,6 +22,12 @@ const ChatRoomElement = defineCustomElement(ChatRoomCe);
 const PostCardElement = defineCustomElement(PostCardCe);
 const GroupPageElement = defineCustomElement(GroupPageCe);
 const PostDetailsElement = defineCustomElement(PostDetailsCe);
+// This function runs when the Vue button is clicked
+const handleConnect = (studentId) => {
+  // Leave this empty or just log it.
+  // The GalleryCard.ce.vue is handling the logic now.
+  console.log("Connect initiated for profile:", studentId);
+};
 
 customElements.define("gallery-card", GalleryCardElement);
 customElements.define("find-partner-view", GalleryManagerElement);

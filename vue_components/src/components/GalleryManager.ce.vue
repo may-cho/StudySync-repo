@@ -100,7 +100,6 @@
             :overlap-hours="data.overlap_hours"
             :overlap-courses="data.overlap_courses"
             :time-slots="data.daily_schedules"
-            @connect="handleConnect"
           />
 
           <GalleryCardHorizontal
@@ -112,7 +111,6 @@
             :overlap-hours="data.overlap_hours"
             :overlap-courses="data.overlap_courses"
             :time-slots="data.daily_schedules"
-            @connect="handleConnect"
           />
         </div>
 
@@ -233,10 +231,12 @@ const filteredResults = computed(() => {
   return results;
 });
 
+// In GalleryManager.ce.vue
 const handleConnect = (username) => {
-  console.log(`Connecting with ${username}`);
+  // DELETE the axios call and the alert from here!
+  // Just leave a log so you know the button was pressed.
+  console.log("Card is now handling the form for:", username);
 };
-
 const resetFilters = () => {
   searchQuery.value = "";
   activeTab.value = "all";
@@ -255,6 +255,37 @@ watch(parsedResults, (newResults) => {
   font-family: "Inter", sans-serif;
   overflow-y: auto;
   height: 100vh;
+}
+
+/* Styling for the Connect button inside the Gallery Cards */
+:deep(.connect-btn) {
+  width: 100%;
+  padding: 0.6rem;
+  background: #3b82f6; /* Accent color from your root */
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: auto; /* Pushes button to bottom of card */
+}
+
+:deep(.connect-btn:hover) {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+:deep(.connect-btn:active) {
+  transform: translateY(0);
+}
+
+/* Loading state for the button */
+:deep(.connect-btn.loading) {
+  background: #94a3b8;
+  cursor: wait;
 }
 
 /* Header - Compact with no overlap */
@@ -548,6 +579,19 @@ watch(parsedResults, (newResults) => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw; /* Full width */
+  height: 100vh; /* Full height */
+  background: rgba(0, 0, 0, 0.7); /* Darker background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999 !important; /* Forces it to the very front */
 }
 
 /* Responsive breakpoints */

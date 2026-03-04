@@ -1,6 +1,5 @@
 <template>
   <div class="grid-card">
-    <!-- Avatar + Name Row -->
     <div class="grid-row">
       <div class="grid-avatar" :style="avatarStyle">{{ avatarInitials }}</div>
       <div class="grid-info">
@@ -12,7 +11,6 @@
       <div class="grid-match">{{ matchPercent }}%</div>
     </div>
 
-    <!-- Stats Row -->
     <div class="grid-stats">
       <div class="grid-stat">
         <span>📚</span>
@@ -27,7 +25,6 @@
       </div>
     </div>
 
-    <!-- Schedule Chips -->
     <div v-if="hasSchedule" class="grid-chips">
       <span
         v-for="slot in visibleTimeSlots.slice(0, 2)"
@@ -42,7 +39,6 @@
     </div>
     <div v-else class="grid-empty-chip">No schedule</div>
 
-    <!-- Course Chips -->
     <div v-if="parsedCourses.length" class="grid-chips">
       <span
         v-for="course in parsedCourses.slice(0, 2)"
@@ -57,23 +53,84 @@
     </div>
     <div v-else class="grid-empty-chip">No courses match</div>
 
-    <!-- Actions - Only View Profile Button -->
     <div class="grid-actions">
       <button class="grid-btn primary" @click="viewProfile">
         View Profile
       </button>
+      <button class="connect-btn" @click.stop="openConnectForm">
+        Connect with {{ parsedProfile.username }}
+      </button>
+      <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
+  <div class="modal-content">
+    <h3>Setup Study Group</h3>
+
+    <div class="form-group">
+      <label>Group Name</label>
+      <input v-model="formData.group_name" placeholder="Name your group..." class="modal-input" />
+    </div>
+
+    <div class="form-group">
+      <label>Group Category</label>
+      <select v-model="formData.group_type" class="modal-input" required>
+        <option value="" disabled>-- Choose a category --</option>
+        <option value="course">Course-Based (Focus on a subject)</option>
+        <option value="major">Major-Based (Connect with your department)</option>
+        <option value="general">General Study (Casual study session)</option>
+      </select>
+    </div>
+
+    <div v-if="formData.group_type === 'course'" class="form-group animate-fade-in">
+      <label>Which course are you studying?</label>
+      <select v-model="formData.course" class="modal-input">
+        <option value="" disabled>Select a course</option>
+        <option v-for="course in parsedCourses" :key="course" :value="course">
+          {{ course }}
+        </option>
+      </select>
+    </div>
+    <div v-if="formData.group_type === 'major'" class="form-group animate-fade-in">
+      <label>Target Major</label>
+      <select v-model="formData.major" class="modal-input">
+        <option value="" disabled>Confirm major</option>
+        <option :value="parsedProfile.major">{{ parsedProfile.major }}</option>
+      </select>
+    </div>
+
+    <div v-if="formData.group_type === 'general'" class="form-group animate-fade-in">
+      <label>Select Primary Interest</label>
+      <select v-model="formData.interest" class="modal-input">
+        <option value="" disabled>What is the focus?</option>
+        <option v-for="item in parsedInterests" :key="item.id" :value="item.id">
+          {{ item.name || item.interest_name }}
+        </option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea v-model="formData.group_description" placeholder="Describe the goal..." class="modal-input"></textarea>
+    </div>
+
+    <div class="modal-btns">
+      <button @click="showModal = false" class="cancel-btn">Cancel</button>
+      <button class="grid-btn primary" @click="submitConnection">Create & Invite</button>
+    </div>
+  </div>
+</div>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, inject } from "vue";
+import { ref, computed } from "vue";
+import axios from "axios";
 
 const props = defineProps({
   profile: [Object, String],
   matchPercent: [Number, String],
   overlapHours: [Number, String],
   overlapCourses: [Array, String],
+  allInterests: [Array, String],
   timeSlots: {
     type: [Array, String],
     default: () => [],
@@ -84,6 +141,7 @@ const props = defineProps({
   },
 });
 
+// --- Computed Properties ---
 const parsedProfile = computed(() => {
   if (typeof props.profile === "object") return props.profile;
   try {
@@ -102,7 +160,17 @@ const parsedCourses = computed(() => {
   }
 });
 
-const timeSlots = computed(() => {
+const parsedInterests = computed(() => {
+  if (Array.isArray(props.allInterests)) return props.allInterests;
+  try {
+    return props.allInterests ? JSON.parse(props.allInterests) : [];
+  } catch {
+    console.error("Failed to parse interests");
+    return [];
+  }
+});
+
+const internalTimeSlots = computed(() => {
   if (Array.isArray(props.timeSlots)) return props.timeSlots;
   try {
     return props.timeSlots ? JSON.parse(props.timeSlots) : [];
@@ -122,7 +190,7 @@ const avatarStyle = computed(() => {
   return { backgroundColor: colors[index] };
 });
 
-const hasSchedule = computed(() => timeSlots.value.length > 0);
+const hasSchedule = computed(() => internalTimeSlots.value.length > 0);
 
 const formatTime = (time) => {
   if (!time) return "";
@@ -134,7 +202,7 @@ const formatTime = (time) => {
 };
 
 const visibleTimeSlots = computed(() => {
-  return timeSlots.value.slice(0, 3).map((slot) => ({
+  return internalTimeSlots.value.slice(0, 3).map((slot) => ({
     dayShort: slot.day?.substring(0, 3) || "Any",
     timeRange: slot.start_time
       ? `${formatTime(slot.start_time)}-${formatTime(slot.end_time)}`
@@ -143,8 +211,8 @@ const visibleTimeSlots = computed(() => {
 });
 
 const timeEmoji = computed(() => {
-  if (timeSlots.value.length === 0) return "🔄";
-  const slot = timeSlots.value[0];
+  if (internalTimeSlots.value.length === 0) return "🔄";
+  const slot = internalTimeSlots.value[0];
   if (!slot.start_time) return "🔄";
   const hour = parseInt(slot.start_time.split(":")[0]);
   if (hour < 12) return "🌅";
@@ -152,53 +220,118 @@ const timeEmoji = computed(() => {
   return "🌙";
 });
 
+// --- Actions ---
 const viewProfile = () => {
   window.location.href = `/profile/${parsedProfile.value.id}/`;
 };
-</script>
 
+// --- Modal & Connection Logic ---
+const showModal = ref(false);
+
+// SINGLE DEFINITION OF FORMDATA
+const formData = ref({
+  group_name: '',
+  group_description: '',
+  group_type: '',
+  major: '',
+  interest: '',
+  course: '',
+  message: ''
+});
+
+const openConnectForm = () => {
+  // Reset form when opening
+  formData.value = {
+    group_name: '',
+    group_description: '',
+    group_type: '',
+    course: parsedCourses.value.length > 0 ? parsedCourses.value[0] : '',
+    major: '',
+    interest: '',
+    message: ''
+  };
+  showModal.value = true;
+};
+
+const submitConnection = async () => {
+  if (!formData.value.group_type) {
+    alert("Please select a Group Type (Course, Major, or General).");
+    return;
+  }
+  if (!formData.value.group_name || !formData.value.group_description) {
+    alert("Please provide a name and description for the group.");
+    return;
+  }
+
+  const data = new FormData();
+  data.append('group_name', formData.value.group_name);
+  data.append('group_description', formData.value.group_description);
+  data.append('group_type', formData.value.group_type);
+  data.append('course_name', formData.value.course);
+  data.append('invite_message', formData.value.message || `Hi! I'd like to study together.`);
+
+  if (formData.value.group_type === 'course') data.append('course_name', formData.value.course);
+  if (formData.value.group_type === 'major') data.append('major_name', formData.value.major);
+  if (formData.value.group_type === 'general') data.append('interest', formData.value.interest); // Sending the ID
+
+  try {
+    const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+
+    await axios.post(`/student/${parsedProfile.value.id}/create-group/`, data, {
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    alert("Invite sent! Awaiting Admin approval.");
+    showModal.value = false;
+  } catch (err) {
+    console.error(err);
+    alert("Connection failed. Please check your inputs.");
+  }
+};
+</script>
 <style scoped>
 .grid-card {
   background: white;
   border-radius: 24px;
-  padding: 1.25rem;
-  border: 1px solid #f0f2f5;
+  padding: 1.5rem;
+  border: 1px solid #f1f5f9;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  transition: all 0.2s;
+  gap: 1.25rem;
+  transition: all 0.3s ease;
 
-  /* Fixed dimensions */
-  height: 280px;
-  width: 100px;
-
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  /* FIXED: Height auto allows content to fit, min-height ensures consistency */
+  width: 100%;
+  min-height: 420px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .grid-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  border-color: #3b82f6;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
 }
 
 .grid-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0; /* Prevent shrinking */
+  gap: 1rem;
 }
 
 .grid-avatar {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 1.3rem;
+  font-weight: 700;
+  font-size: 1.4rem;
   color: white;
   flex-shrink: 0;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 .grid-info {
@@ -207,192 +340,141 @@ const viewProfile = () => {
 }
 
 .grid-name {
-  font-weight: 600;
-  font-size: 1rem;
-  color: #1a2634;
-  margin-bottom: 0.2rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .grid-meta {
-  font-size: 0.7rem;
-  color: #8a99aa;
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .grid-match {
-  background: #f8fafc;
-  padding: 0.25rem 0.75rem;
-  border-radius: 40px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #1a2634;
-  border: 1px solid #edf2f7;
-  white-space: nowrap;
-  flex-shrink: 0;
+  background: #f0f9ff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0369a1;
+  border: 1px solid #e0f2fe;
 }
 
 .grid-stats {
   display: flex;
-  gap: 1.5rem;
+  justify-content: space-between;
   padding: 0.75rem 0;
-  border-top: 1px solid #edf2f7;
-  border-bottom: 1px solid #edf2f7;
-  flex-shrink: 0; /* Prevent shrinking */
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .grid-stat {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.8rem;
-  color: #4a5a6e;
-}
-
-.grid-stat span:first-child {
-  opacity: 0.8;
-}
-
-.grid-stat span:last-child {
-  font-weight: 500;
+  font-size: 0.85rem;
+  color: #475569;
 }
 
 .grid-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  min-height: 32px; /* Consistent height even when empty */
-  flex-shrink: 0; /* Prevent shrinking */
+  gap: 0.4rem;
+  min-height: 32px;
 }
 
 .grid-chip {
   background: #f8fafc;
-  padding: 0.3rem 0.8rem;
-  border-radius: 40px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
   font-size: 0.7rem;
-  color: #4a5a6e;
-  border: 1px solid #edf2f7;
-  white-space: nowrap;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
+  font-weight: 500;
+  color: #475569;
+  border: 1px solid #e2e8f0;
 }
 
 .grid-chip.course {
-  background: #ffffff;
-  border-color: #e0e5eb;
-}
-
-.grid-chip.more {
-  background: transparent;
-  border: 1px dashed #cbd5e1;
-  color: #94a3b8;
-}
-
-.grid-chip:hover {
-  background: #ffffff;
-  border-color: #cbd5e1;
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #dbeafe;
 }
 
 .grid-empty-chip {
-  background: #f8fafc;
-  padding: 0.3rem 0.8rem;
-  border-radius: 40px;
   font-size: 0.7rem;
   color: #94a3b8;
-  border: 1px dashed #e0e5eb;
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  width: fit-content;
-}
-
-.grid-empty {
-  font-size: 0.75rem;
-  color: #a0aec0;
-  padding: 0.5rem 0;
+  padding: 0.3rem;
   font-style: italic;
-  height: 28px;
-  display: flex;
-  align-items: center;
 }
 
 .grid-actions {
-  margin-top: auto; /* Pushes button to bottom */
-  flex-shrink: 0;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .grid-btn {
   width: 100%;
-  height: 40px;
-  border-radius: 40px;
+  height: 42px;
+  border-radius: 12px;
   border: none;
-  background: #1a2634;
+  background: #0f172a;
   color: white;
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: 0 4px 10px rgba(26, 38, 52, 0.1);
+  transition: background 0.2s;
 }
 
 .grid-btn:hover {
-  background: #2d3a4a;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(26, 38, 52, 0.15);
+  background: #1e293b;
 }
 
-.grid-btn:active {
-  transform: translateY(0);
+.connect-btn {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-/* Responsive */
+.connect-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white; padding: 2rem; border-radius: 20px;
+  width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 1rem;
+}
+.modal-content select, .modal-content textarea {
+  padding: 0.5rem; border: 1px solid #ddd; border-radius: 8px;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @media (max-width: 640px) {
   .grid-card {
-    padding: 1rem;
-    height: 320px; /* Slightly smaller on mobile */
-  }
-
-  .grid-avatar {
-    width: 42px;
-    height: 42px;
-    font-size: 1.1rem;
-  }
-
-  .grid-name {
-    font-size: 0.9rem;
-  }
-
-  .grid-meta {
-    font-size: 0.65rem;
-  }
-
-  .grid-match {
-    font-size: 0.7rem;
-    padding: 0.2rem 0.6rem;
-  }
-
-  .grid-stat {
-    font-size: 0.7rem;
-    gap: 0.3rem;
-  }
-
-  .grid-chip,
-  .grid-empty-chip {
-    font-size: 0.65rem;
-    padding: 0.2rem 0.7rem;
-    height: 26px;
-  }
-
-  .grid-btn {
-    height: 36px;
-    font-size: 0.8rem;
+    min-height: 400px;
   }
 }
 </style>
