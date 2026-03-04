@@ -528,6 +528,7 @@ class GroupInvitation(models.Model):
     invited_student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='received_invitations')
     message = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    is_admin_approved = models.BooleanField(default=False)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
@@ -569,11 +570,17 @@ class GroupMembership(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name='memberships')
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='group_memberships')
+    is_admin_approved= is_admin_approved = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
     joined_at = models.DateTimeField(auto_now_add=True)
     last_chat_view = models.DateTimeField(auto_now_add=True)
     last_feed_view = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def is_ready_for_user(self):
+        if self.group.is_admin(self.invited_by.user):
+            return True
+        return self.is_admin_approved
     class Meta:
         unique_together = ['group', 'student']
 
@@ -715,6 +722,7 @@ class ActivityNotification(models.Model):
         ('accept', 'Request Accepted'),   # Student -> Group Creator
         ('request', 'Join Request'),      # Creator -> Student
         ('decline', 'Request Declined'),  # Creator -> Student
+        ('invite','Invite to Group'),
         
        # Group Lifecycle (Admin <-> Student)
         ('create', 'Group Proposal'),     # Student -> Admin

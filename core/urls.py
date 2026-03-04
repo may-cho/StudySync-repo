@@ -6,7 +6,7 @@ urlpatterns = [
     # Home & Authentication
     path('', views.home, name='home'),
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='home'), name='logout'),
     path('register/', views.register, name='register'),
     path('redirect-user', views.login_success_redirect,name="login_success_redirect"),
     # Dashboard & Profile
@@ -46,6 +46,11 @@ urlpatterns = [
     path('groups/<uuid:group_id>/', views.group_detail, name='group_detail'),
     path('api/groups/<uuid:group_id>/',views.get_group_data,name="get_group_data"),
     path('groups/<uuid:group_id>/post/create', views.create_group_post,name="create_group_post"),
+    path('api/groups/<uuid:group_id>/uninvited-profiles/',views.get_uninvited_users,name="get_uninvited_users"),
+    path('api/groups/<uuid:group_id>/invitations/',views.invite_user,name = "invite_user"),
+    path('api/invitations/<uuid:invitation_id>/approve/',views.approve_invitation,name="approve_invitation"),
+    path('api/invitations/<uuid:invitation_id>/reject/',views.reject_invitation,name="reject_invitation"),
+    path('api/groups/<uuid:group_id>/members/<int:member_id>/kick/', views.kick_member, name="kick_member"),
     
     #api for posts
     path('api/posts/<uuid:post_id>/approve',views.approve_post,name="approve_post"),

@@ -20,7 +20,7 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Cormorant+Garamond:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
 
     <style>
         :root {
@@ -28,52 +28,46 @@
             --navy-light: #2d4b75;
             --navy-subtle: rgba(30, 58, 95, 0.05);
             --navy-soft: rgba(30, 58, 95, 0.03);
-            --cream: #fdfaf7;
-            --text-primary: #2c2c2c;
-            --text-secondary: #5a5a5a;
-            --text-tertiary: #8a8a8a;
-            --border-light: rgba(0, 0, 0, 0.05);
-            --border-elegant: rgba(30, 58, 95, 0.15);
+            --cream: #f8fafc;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #94a3b8;
+            --border-light: #e2e8f0;
+            --border-elegant: rgba(30, 58, 95, 0.2);
             --font-serif: 'Cormorant Garamond', serif;
             --font-sans: 'Inter', sans-serif;
-            --shadow-soft: 0 10px 30px -20px rgba(0, 0, 0, 0.1);
-            --shadow-bento: 0 4px 20px rgba(30, 58, 95, 0.08);
-            --bento-radius: 1.5rem;
+            --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.02);
+            --shadow-bento: 0 8px 24px rgba(30, 58, 95, 0.06);
+            --bento-radius: 24px;
         }
 
         body {
-            background: var(--cream);
+            background: linear-gradient(135deg, #f1f5f9 0%, #eef2f6 100%);
             font-family: var(--font-sans);
             color: var(--text-primary);
             min-height: 100vh;
             display: flex;
             align-items: center;
+            justify-content: center;
             margin: 0;
-            padding: 0;
+            padding: 1rem;
         }
 
         .login-container {
-            max-width: 450px;
-            margin: 0 auto;
-            padding: 1.5rem;
+            max-width: 400px;
             width: 100%;
         }
 
-        /* Bento Card */
+        /* Compact Bento Card */
         .bento-card {
             background: white;
             border-radius: var(--bento-radius);
-            padding: 2.5rem;
+            padding: 2rem;
             border: 1px solid var(--border-light);
             box-shadow: var(--shadow-bento);
             position: relative;
             overflow: hidden;
             transition: all 0.3s ease;
-        }
-
-        .bento-card:hover {
-            border-color: var(--border-elegant);
-            box-shadow: 0 8px 30px rgba(30, 58, 95, 0.12);
         }
 
         .bento-card::before {
@@ -84,109 +78,111 @@
             right: 0;
             height: 4px;
             background: linear-gradient(90deg, var(--navy), var(--navy-light));
-            opacity: 0.5;
+            opacity: 0.8;
         }
 
-        /* Bento Header */
+        /* Compact Header */
         .bento-header {
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.8rem;
         }
 
         .bento-header-icon {
-            width: 64px;
-            height: 64px;
+            width: 56px;
+            height: 56px;
             background: var(--navy-subtle);
-            border-radius: 1.2rem;
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1rem;
+            margin: 0 auto 0.8rem;
             border: 1px solid var(--border-elegant);
         }
 
         .bento-header-icon svg {
-            width: 2rem;
-            height: 2rem;
+            width: 28px;
+            height: 28px;
             stroke: var(--navy);
         }
 
         .bento-header h2 {
             font-family: var(--font-serif);
-            font-size: 2rem;
-            font-weight: 400;
+            font-size: 1.8rem;
+            font-weight: 500;
             color: var(--navy);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.2rem;
+            letter-spacing: -0.02em;
         }
 
         .bento-header p {
             color: var(--text-secondary);
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             margin: 0;
         }
 
-        /* Form Fields */
+        /* Compact Form Fields */
         .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.2rem;
         }
 
         .form-label {
             display: flex;
             align-items: center;
             gap: 0.4rem;
-            font-size: 0.85rem;
-            font-weight: 500;
+            font-size: 0.75rem;
+            font-weight: 600;
             color: var(--text-secondary);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         .form-label svg {
-            width: 1rem;
-            height: 1rem;
+            width: 0.9rem;
+            height: 0.9rem;
             stroke: var(--navy);
-            opacity: 0.7;
+            opacity: 0.8;
         }
 
         /* Elegant Input Fields */
         .form-control {
             width: 100%;
-            padding: 0.9rem 1.2rem;
-            background: var(--cream);
-            border: 1px solid var(--border-light);
-            border-radius: 1.2rem;
-            font-size: 0.95rem;
+            padding: 0.8rem 1.2rem;
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            font-size: 0.9rem;
             font-family: var(--font-sans);
             color: var(--text-primary);
-            transition: all 0.3s ease;
-            box-sizing: border-box;
+            transition: all 0.2s ease;
         }
 
         .form-control:focus {
             outline: none;
             border-color: var(--navy);
             background: white;
-            box-shadow: 0 0 0 3px var(--navy-subtle);
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
         }
 
         .form-control::placeholder {
             color: var(--text-tertiary);
             font-weight: 300;
-            opacity: 0.7;
+            font-size: 0.85rem;
         }
 
-        /* Checkbox styling */
+        /* Compact Checkbox */
         .form-check {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            margin-bottom: 1.5rem;
+            margin: 1.2rem 0 1.5rem;
         }
 
         .form-check-input {
-            width: 1.2rem;
-            height: 1.2rem;
-            border: 2px solid var(--border-elegant);
-            border-radius: 0.3rem;
+            width: 1.1rem;
+            height: 1.1rem;
+            border: 2px solid #cbd5e1;
+            border-radius: 4px;
             cursor: pointer;
             margin: 0;
             background: white;
@@ -196,19 +192,20 @@
         .form-check-input:checked {
             background-color: var(--navy);
             border-color: var(--navy);
+            box-shadow: 0 2px 6px rgba(30, 58, 95, 0.2);
         }
 
         .form-check-label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
             cursor: pointer;
         }
 
-        /* Buttons */
+        /* Compact Buttons */
         .d-grid {
             display: grid;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            gap: 0.8rem;
+            margin-bottom: 1.2rem;
         }
 
         .btn-bento {
@@ -216,52 +213,52 @@
             align-items: center;
             justify-content: center;
             gap: 0.6rem;
-            padding: 0.9rem 1.8rem;
-            border-radius: 1.2rem;
-            font-size: 0.95rem;
+            padding: 0.8rem 1.5rem;
+            border-radius: 40px;
+            font-size: 0.9rem;
             font-weight: 500;
             text-decoration: none;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             border: 1px solid transparent;
             cursor: pointer;
             width: 100%;
         }
 
         .btn-bento svg {
-            width: 1.2rem;
-            height: 1.2rem;
+            width: 1.1rem;
+            height: 1.1rem;
             stroke: currentColor;
         }
 
         .btn-bento-primary {
             background: var(--navy);
             color: white;
-            box-shadow: 0 4px 12px rgba(30, 58, 95, 0.15);
+            box-shadow: 0 4px 10px -2px rgba(30, 58, 95, 0.3);
         }
 
         .btn-bento-primary:hover {
             background: var(--navy-light);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(30, 58, 95, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px -2px rgba(30, 58, 95, 0.4);
         }
 
         .btn-bento-outline {
             background: transparent;
-            border: 1px solid var(--border-elegant);
+            border: 1.5px solid #e2e8f0;
             color: var(--navy);
         }
 
         .btn-bento-outline:hover {
             border-color: var(--navy);
             background: var(--navy-subtle);
-            transform: translateY(-2px);
+            transform: translateY(-1px);
         }
 
-        /* Divider */
+        /* Compact Divider */
         .bento-divider {
             position: relative;
             text-align: center;
-            margin: 2rem 0;
+            margin: 1.2rem 0;
         }
 
         .bento-divider::before {
@@ -271,114 +268,42 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, var(--border-elegant), transparent);
+            background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
         }
 
         .bento-divider span {
             background: white;
-            padding: 0 1rem;
+            padding: 0 0.8rem;
             color: var(--text-tertiary);
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.5px;
             position: relative;
             z-index: 1;
         }
 
-        /* Links */
+        /* Forgot Link */
         .forgot-link {
             text-align: center;
-            margin-top: 1.5rem;
+            margin-top: 1rem;
         }
 
         .forgot-link a {
             color: var(--text-tertiary);
             text-decoration: none;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             transition: color 0.2s ease;
         }
 
         .forgot-link a:hover {
             color: var(--navy);
-            text-decoration: underline;
-        }
-
-        /* Demo Accounts Card */
-        .demo-card {
-            background: white;
-            border-radius: 1.2rem;
-            padding: 1.2rem;
-            border: 1px solid var(--border-light);
-            margin-top: 1.5rem;
-        }
-
-        .demo-title {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--navy);
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border-light);
-        }
-
-        .demo-title svg {
-            width: 1rem;
-            height: 1rem;
-            stroke: var(--navy);
-        }
-
-        .demo-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        .demo-item {
-            background: var(--navy-subtle);
-            border-radius: 1rem;
-            padding: 0.8rem;
-        }
-
-        .demo-item strong {
-            display: block;
-            color: var(--navy);
-            font-size: 0.8rem;
-            margin-bottom: 0.3rem;
-        }
-
-        .demo-item code {
-            display: block;
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            background: rgba(255, 255, 255, 0.5);
-            padding: 0.2rem 0.4rem;
-            border-radius: 0.4rem;
-            margin-bottom: 0.2rem;
-        }
-
-        /* Responsive */
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 1rem;
-            }
-            
-            .bento-card {
-                padding: 1.8rem;
-            }
-            
-            .demo-grid {
-                grid-template-columns: 1fr;
-            }
         }
 
         /* Animation */
-        @keyframes fadeUp {
+        @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(10px);
             }
             to {
                 opacity: 1;
@@ -387,7 +312,18 @@
         }
 
         .fade-up {
-            animation: fadeUp 0.5s ease-out forwards;
+            animation: slideUp 0.4s ease-out forwards;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .bento-card {
+                padding: 1.5rem;
+            }
+            
+            .bento-header h2 {
+                font-size: 1.6rem;
+            }
         }
     </style>
 
@@ -407,24 +343,11 @@
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </symbol>
-            <symbol id="icon-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-            </symbol>
             <symbol id="icon-user-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
                 <line x1="19" y1="8" x2="19" y2="14"/>
                 <line x1="22" y1="11" x2="16" y2="11"/>
-            </symbol>
-            <symbol id="icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="16" x2="12" y2="12"/>
-                <circle cx="12" cy="8" r="0.5" fill="currentColor"/>
-            </symbol>
-            <symbol id="icon-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
             </symbol>
         </defs>
     </svg>
@@ -434,13 +357,13 @@
 {% block content %}
 <div class="login-container">
     <div class="bento-card fade-up">
-        <!-- Header -->
+        <!-- Compact Header -->
         <div class="bento-header">
             <div class="bento-header-icon">
                 <svg><use href="#icon-sign-in"/></svg>
             </div>
             <h2>Welcome Back</h2>
-            <p>Sign in to continue your study journey</p>
+            <p>Sign in to continue</p>
         </div>
 
         <!-- Login Form -->
@@ -467,7 +390,7 @@
 
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
-                <label class="form-check-label" for="remember_me">Remember me</label>
+                <label class="form-check-label" for="remember_me">Keep me signed in</label>
             </div>
 
             <div class="d-grid">
@@ -478,7 +401,7 @@
             </div>
         </form>
 
-        <!-- Divider -->
+        <!-- Compact Divider -->
         <div class="bento-divider">
             <span>New here?</span>
         </div>
@@ -487,17 +410,15 @@
         <div style="text-align: center;">
             <a href="{% url 'register' %}" class="btn-bento btn-bento-outline">
                 <svg><use href="#icon-user-plus"/></svg>
-                Create New Account
+                Create Account
             </a>
         </div>
 
         <!-- Forgot Password -->
         <div class="forgot-link">
-            <a href="#">Forgot your password?</a>
+            <a href="#">Forgot password?</a>
         </div>
     </div>
-
-    
 </div>
 {% endblock %}
 </body>

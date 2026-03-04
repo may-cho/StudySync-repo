@@ -104,7 +104,7 @@ def dashboard(request):
     study_groups = StudyGroup.objects.filter(
         memberships__student=profile,
         is_approved=True
-    )[:5]
+    )
 
     # Get course matches
     course_matches = CourseGroupMatch.objects.filter(
@@ -656,7 +656,9 @@ def get_group_data(request,group_id) :
     
      all_memberships = group.memberships.all().select_related('student__user')
      
-     
+    
+     invitations = GroupInvitation.objects.filter(group=group,status='pending',is_admin_approved=False).select_related('group','invited_by','invited_student')
+
      json_data = {
         
          'group': {
@@ -678,7 +680,10 @@ def get_group_data(request,group_id) :
          'members': [
             {
                 'id': mem.id,
-                'username': mem.student.user.username,
+                'user': {
+                    'id' : mem.student.user.id,
+                    'username': mem.student.user.username,
+                },
                 #TODO: change this to real data
                 'isOnline': False,
                 'role': mem.role
@@ -704,7 +709,30 @@ def get_group_data(request,group_id) :
              'username': request.user.username,
              'is_admin': is_admin
              
-         }
+         },
+         'pending_invitations': [{
+             'id': invitation.id,
+             'sender': {
+                 'id':  invitation.invited_by.user.id,
+                 'username': invitation.invited_by.user.username,
+                 'isOnline': False,
+                'profile_picture': invitation.invited_by.profile_picture.url if invitation.invited_by.profile_picture else None
+             },
+             'invitee': {
+                  'id':  invitation.invited_student.user.id,
+                 'username': invitation.invited_student.user.username,
+                 'email': invitation.invited_student.user.email
+             },
+             'group' : {
+                 'id' : group.id,
+                 'name': group.name
+             },
+             'created_at': invitation.created_at,
+             'message': invitation.message,
+              
+         }for invitation in invitations
+                                 
+        ]
          
              
     
@@ -778,7 +806,41 @@ def group_list(request):
     }
     return render(request, 'core/group_list.html', context)
 
+def kick_member(request,group_id,member_id) :
+    
 
+    # 1. Get the group and the specific membership
+    group = get_object_or_404(StudyGroup, id=group_id)
+    profile = get_object_or_404(StudentProfile,user_id = member_id)
+   
+    print(profile);
+    # 2. Security Check: Only the creator or a group admin can kick
+    if not group.is_admin(request.user):
+        return JsonResponse({'error': 'You do not have permission to kick members.'}, status=403)
+
+    # 3. Find the membership record
+    # We use filter().delete() to avoid a DoesNotExist error if already removed
+    membership = GroupMembership.objects.filter(group=group,student=profile)
+    
+
+    if membership.exists():
+        membership.delete()
+    
+        print('rr')
+        
+        # 4. Optional: Trigger your central notification system
+        # trigger_notification_update(target_user, "You were removed from the group")
+        
+        ActivityNotification.objects.create(
+            recipient=profile.user,
+            sender = request.user,
+            notification_type= 'kick',
+            content_preview= f"You have been kicked out of {group.name}"
+        )
+        return JsonResponse({'status': 'success', 'message': 'Member removed.'},status=200)
+    
+    return JsonResponse({'error': 'Member not found in this group.'}, status=404)
+    
 @login_required
 def join_group(request, group_id):
     profile = get_object_or_404(StudentProfile, user=request.user)
@@ -801,35 +863,7 @@ def join_group(request, group_id):
         defaults={'status': 'pending'}
     )
 
-    if created or join_request.status == 'pending':
-        # Create a database notification for the creator
-        ActivityNotification.objects.create(
-            recipient=group.creator.user,
-            sender=request.user,
-            notification_type='request',  # Ensure 'request' is in your model choices
-            group=group,
-            content_preview=f"{request.user.username} wants to join {group.name}",
-            is_read=False
-        )
-
-        # Trigger live WebSocket update for the CREATOR
-        from .utils import trigger_notification_update
-        trigger_notification_update(
-            group.creator.user,
-            f"New join request from {request.user.username} for {group.name}"
-        )
-
-    if not created:
-        if join_request.status == 'pending':
-            messages.warning(request, 'You already have a pending join request for this group.')
-            return redirect('group_list')
-        elif join_request.status == 'denied':
-            # If they were denied before, reset the status to pending to try again
-            join_request.status = 'pending'
-            join_request.save()
-        else:
-            # Fallback for 'approved' or other statuses
-            return redirect('group_detail', group_id=group_id)
+   
 
     days = group.study_day.split(",")
     days_list = [d.strip() for d in days]
@@ -1608,9 +1642,108 @@ def create_group_with_student(request, student_id):
 
 from django.utils import timezone
 from datetime import timedelta
-from django.db import IntegrityError
 
 
+def get_uninvited_users(request,group_id): 
+    group = get_object_or_404(StudyGroup,id=group_id)
+    existing_member_ids = GroupMembership.objects.filter(group=group).values_list('student_id', flat=True)
+
+    users = StudentProfile.objects.select_related("user", "major") \
+        .exclude(user=request.user) \
+        .exclude(id__in=existing_member_ids)
+        
+    data = [
+        {
+            'id': user.user.id,
+            'username' : user.user.username,
+            'email': user.user.email,
+            'isOnline': False,
+            'major': user.major.name,
+            'semester': user.semester,
+            'year': user.year,
+            'profile_picture': user.profile_picture.url if user.profile_picture else None
+            
+            
+            
+        } for user in users
+    ]
+    return JsonResponse(data,safe=False)
+
+def invite_user(request, group_id) :
+    data =  json.loads(request.body)
+    target_student_id = data.get("invited_student_id")
+    content = data.get('message')
+    print(f"here {target_student_id} {content} {group_id}")
+    group = get_object_or_404(StudyGroup, id=group_id)
+    sender_profile = request.user.studentprofile
+    target_student = get_object_or_404(StudentProfile,user_id=target_student_id)
+    print('after')
+    # 1. Create the invitation
+    invitation, created = GroupInvitation.objects.get_or_create(
+        group=group,
+        invited_student=target_student,
+        defaults={'invited_by': sender_profile}
+    )
+
+    # 2. Check Role and Apply Conditions
+    if group.is_admin(request.user):
+        # Admin is inviting: Auto-approve so student sees it immediately
+        invitation.is_admin_approved = True
+        invitation.message = f"Our group admin, {request.user.username}, would like you to join '{group.name}'!"
+        invitation.save()
+        
+        ActivityNotification.objects.create(
+            recipient = target_student.user,
+            sender = request.user,
+            notification_type = 'invite',
+            content_preview= content if content else f"I would like to invite to our group {group.name}",
+            is_read =False
+        )
+    else:
+        # Member is inviting: Admin needs to see this first
+        invitation.is_admin_approved = False
+        invitation.message = f"I would like you to join our group {group.name}!"
+        invitation.save()
+        # Notify Group Creator/Admins to approve the recommendation
+        ActivityNotification.objects.create(
+            recipient = group.creator.user,
+            sender = request.user,
+            notification_type = 'request',
+            content_preview= f"{request.user.username} waiting for approval to invite a new member {target_student.user.username}",
+            is_read =False
+        )
+
+    return JsonResponse({"status": "sent", "needs_admin": not invitation.is_admin_approved})
+     
+    
+def approve_invitation(request,invitation_id):
+    invitation = get_object_or_404(GroupInvitation, id=invitation_id)
+    
+    if invitation.group.is_admin(request.user):
+        invitation.is_admin_approved = True
+        invitation.save()
+        
+        # NOW the invited student gets the notification
+        trigger_notification_update(
+            invitation.invited_student.user, 
+            f"You've been invited to join {invitation.group.name}!"
+        )
+        return JsonResponse({"status": "User will now see the invite"})   
+def reject_invitation(request,invitation_id):
+    invitation = get_object_or_404(GroupInvitation, id=invitation_id)
+    
+    if invitation.group.is_admin(request.user):
+        invitation.is_admin_approved = False
+        invitation.save()
+        
+        ActivityNotification.objects.create(
+            recipient=invitation.invited_by,
+            sender = request.user,
+            notification_type = "decline",
+            content_preview = f"Your request to invite {invitation.invited_student.user.username} has rejected."
+        )
+        return JsonResponse({"status": "Rejected by the admin"}) 
+      
 @login_required
 def invite_to_existing_group(request, student_id):
     """Invite student with graceful warnings instead of crashes"""
