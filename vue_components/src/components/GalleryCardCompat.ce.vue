@@ -34,13 +34,19 @@ const parsedCourses = computed(() => {
 });
 
 const parsedInterests = computed(() => {
+  // 1. If it's already an array, return it
   if (Array.isArray(props.allInterests)) return props.allInterests;
-  try {
-    return props.allInterests ? JSON.parse(props.allInterests) : [];
-  } catch {
-    console.error("Failed to parse interests");
-    return [];
+
+  // 2. If it's a string, try to parse it
+  if (typeof props.allInterests === 'string' && props.allInterests.trim() !== "") {
+    try {
+      return JSON.parse(props.allInterests);
+    } catch (e) {
+      console.error("JSON Parse Error for interests:", e);
+      return [];
+    }
   }
+  return [];
 });
 
 const timeSlots = computed(() => {

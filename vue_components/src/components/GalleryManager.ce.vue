@@ -100,6 +100,7 @@
             :overlap-hours="data.overlap_hours"
             :overlap-courses="data.overlap_courses"
             :time-slots="data.daily_schedules"
+            :all-interests="data.shared_interests"
           />
 
           <GalleryCardHorizontal
@@ -136,6 +137,7 @@ const props = defineProps({
   topMatches: String,
   sameMajor: String,
   sameCourse: String,
+  allInterests: String,
 });
 
 const viewMode = ref("grid");
@@ -155,6 +157,7 @@ const parsedData = computed(() => {
     }, 0);
     const parsedSameMajor = JSON.parse(props.sameMajor);
     const parsedSameCourse = JSON.parse(props.sameCourse);
+    const parsedSameInterest = JSON.parse(props.sameInterest || "[]");
 
     return {
       all: parsedTopMatches.length,
@@ -162,6 +165,7 @@ const parsedData = computed(() => {
       schedule: scheduleMatches,
       major: parsedSameMajor.length,
       course: parsedSameCourse.length,
+      interestCount: parsedSameInterest.length,
     };
   } catch (e) {
     console.error(e);
@@ -171,6 +175,7 @@ const parsedData = computed(() => {
 
 const tabs = [
   { id: "all", name: "All", icon: "👥", count: parsedData.value.all },
+  { id: "interests", name: "Interests", icon: "🎨", count: parsedData.value.interestCount }, // <--- New Tab
   { id: "high", name: "Best", icon: "⭐", count: parsedData.value.best },
   {
     id: "schedule",
@@ -190,6 +195,7 @@ const tabs = [
 const currentDataString = computed(() => {
   if (activeTab.value === "major") return props.sameMajor;
   if (activeTab.value === "courses") return props.sameCourse;
+  if (activeTab.value === "interests") return props.sameInterest;
   return props.topMatches;
 });
 
