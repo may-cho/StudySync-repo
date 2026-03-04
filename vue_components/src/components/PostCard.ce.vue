@@ -51,42 +51,11 @@
       <p>{{ post.content }}</p>
     </div>
 
-    <div v-if="post.image" class="post-media-improved">
-      <div class="media-icon-improved">
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
-          <circle cx="8.5" cy="8.5" r="1.5"></circle>
-          <polyline points="21 15 16 10 5 21"></polyline>
-        </svg>
-      </div>
-      <div class="media-info-improved">
-        <h5>Image</h5>
-        <p>Click to view full size</p>
-      </div>
-      <div class="media-action-improved">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <polyline points="9 21 3 21 3 15"></polyline>
-          <line x1="21" y1="3" x2="14" y2="10"></line>
-          <line x1="3" y1="21" x2="10" y2="14"></line>
-        </svg>
+    <div v-if="post.image" class="post-media-container" @click="viewFullImage">
+      <div class="image-wrapper">
+        <img :src="post.image" :alt="post.content" class="actual-post-image" />
       </div>
     </div>
-
     <div v-if="post.tags && post.tags.length" class="post-tags-improved">
       <span v-for="tag in post.tags" :key="tag" class="tag-improved"
         >#{{ tag }}</span
@@ -145,6 +114,7 @@
 </template>
 
 <script setup>
+import { watch } from "vue";
 const props = defineProps({
   post: { type: Object, required: true },
   currentUser: { type: Object, required: true },
@@ -153,7 +123,12 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["like", "delete", "view-comments"]);
+import { ref } from "vue";
 
+const isModalOpen = ref(false);
+watch(isModalOpen, (val) => {
+  document.body.style.overflow = val ? "hidden" : "auto";
+});
 const getAvatarColor = (username) => {
   const colors = [
     "#FF6B6B",
@@ -273,6 +248,7 @@ const viewComments = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin-top: 0.1rem;
 }
 
 .post-badge-improved {
@@ -308,7 +284,67 @@ const viewComments = () => {
   line-height: 1.6;
   margin-bottom: 0.8rem;
 }
+.post-media-container {
+  margin: 1rem 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s ease;
+}
 
+.post-media-container:hover {
+  transform: scale(1.01);
+}
+
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  max-height: 450px; /* Limits very tall images */
+  display: flex;
+  background: #f8fafc;
+}
+
+.actual-post-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover; /* Keeps image proportions nice */
+  display: block;
+}
+
+/* Glassmorphism Overlay */
+.image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(30, 58, 95, 0.4); /* StudySync Blue with transparency */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.post-media-container:hover .image-overlay {
+  opacity: 1;
+}
+
+.expand-btn {
+  background: white;
+  padding: 0.6rem 1.2rem;
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #1e3a5f;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
 .post-media-improved {
   display: flex;
   align-items: center;
