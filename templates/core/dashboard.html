@@ -4,359 +4,1334 @@
 {% block title %}Dashboard - StudySync{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Welcome Section -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card bg-light border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h2 class="mb-1">Welcome, {{ profile.user.first_name|default:profile.user.username }}!</h2>
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-graduation-cap me-1"></i> {{ profile.get_major_display }} Year {{ profile.year }}
-                                <i class="fas fa-graduation-cap me-1"></i> Semester {{ profile.semester }}
+<style>
+    /* BENTO GRID - Navy Accent */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-                            </p>
-                        </div>
-                        <div>
-                            {% if user.is_superuser %}
-                            <span class="badge bg-warning p-2">
-                                <i class="fas fa-crown me-1"></i> Project Admin
-                            </span>
-                            {% endif %}
-                            <span class="badge bg-primary p-2 ms-2">
-                                <i class="fas fa-user-friends me-1"></i> {{ study_groups.count|default:0 }} Groups
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
 
-    <!-- Quick Stats -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card text-white bg-primary shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h3 class="mb-0">{{ today_slots.count|default:0 }}</h3>
-                            <p class="mb-0">Today's Schedule</p>
-                        </div>
-                        <i class="fas fa-calendar-day fa-3x opacity-50"></i>
-                    </div>
-                </div>
-                <div class="card-footer bg-primary bg-gradient border-0">
-                    <small><a href="{% url 'timetable_view' %}" class="text-white text-decoration-none">View Full Timetable →</a></small>
-                </div>
-            </div>
-        </div>
+    body {
+        background: #F8FAF9;
+        font-family: 'Inter', sans-serif;
+        color: #1A2E35;
+    }
 
-        <div class="col-md-3">
-            <div class="card text-white bg-success shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h3 class="mb-0">{{ courses.count|default:0 }}</h3>
-                            <p class="mb-0">Your Courses</p>
-                        </div>
-                        <i class="fas fa-book fa-3x opacity-50"></i>
-                    </div>
-                </div>
-                <div class="card-footer bg-success bg-gradient border-0">
-                    <small><a href="{% url 'profile' %}" class="text-white text-decoration-none">Manage Courses →</a></small>
-                </div>
-            </div>
-        </div>
+    .dashboard {
+        max-width: 1600px;
+        margin: 2rem auto;
 
-        <div class="col-md-3">
-            <div class="card text-white bg-warning shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h3 class="mb-0">{{ study_groups.count|default:0 }}</h3>
-                            <p class="mb-0">Study Groups</p>
-                        </div>
-                        <i class="fas fa-users fa-3x opacity-50"></i>
-                    </div>
-                </div>
-                <div class="card-footer bg-warning bg-gradient border-0">
-                    <small><a href="{% url 'group_list' %}" class="text-white text-decoration-none">View All Groups →</a></small>
-                </div>
-            </div>
-        </div>
+    }
 
-        <div class="col-md-3">
-            <div class="card text-white bg-info shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h3 class="mb-0">{{ course_matches_count }}</h3>
-                            <p class="mb-0">Available Partners</p>
-                        </div>
-                        <i class="fas fa-user-friends fa-3x opacity-50"></i>
-                    </div>
-                </div>
-                <div class="card-footer bg-info bg-gradient border-0">
-                    <small><a href="{% url 'find_study_partners_view' %}" class="text-white text-decoration-none">Find Partners →</a></small>
-                </div>
-            </div>
-        </div>
-    </div>
+    /* BENTO GRID LAYOUT */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 1.5rem;
+    }
 
-    <!-- Today's Schedule & Quick Actions -->
-    <div class="row mb-4">
-        <!-- Today's Schedule -->
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-calendar-day me-2"></i>Today's Schedule
-                        </h5>
-                        <span class="badge bg-light text-primary">
-                            {{ current_date|date:"l, F j, Y" }}
+    /* Left Column - Profile & Utilities */
+    .left-column {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    /* Right Column - Main Content */
+    .right-column {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    /* SVG Icon Styles */
+    .icon-svg {
+        width: 20px;
+        height: 20px;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .icon-large {
+        width: 24px;
+        height: 24px;
+    }
+
+    .icon-xl {
+        width: 28px;
+        height: 28px;
+    }
+
+    .icon-xxl {
+        width: 32px;
+        height: 32px;
+    }
+
+    /* ===== REDESIGNED PROFILE CARD ===== */
+    .profile-card-elegant {
+        background: white;
+        border-radius: 32px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
+        position: relative;
+    }
+
+    /* Cover Photo */
+    .profile-cover {
+        height: 100px;
+        background: linear-gradient(135deg, #1E3A5F, #2D4B75);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .cover-gradient {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2) 0%, transparent 60%);
+    }
+
+    .profile-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        z-index: 2;
+    }
+
+    .badge-admin {
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(4px);
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 40px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .badge-status {
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(4px);
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 40px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        background: #10B981;
+        border-radius: 50%;
+        display: inline-block;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.2); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Avatar */
+    .profile-avatar-container {
+        display: flex;
+        justify-content: center;
+        margin-top: -40px;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 5;
+    }
+
+    .profile-avatar-ring {
+        padding: 4px;
+        background: white;
+        border-radius: 50%;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+
+    .profile-avatar-large {
+        width: 90px;
+        height: 90px;
+        background: linear-gradient(135deg, #1E3A5F, #2D4B75);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .profile-avatar-large img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-initials {
+        color: white;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+
+    /* Profile Info */
+    .profile-info-elegant {
+        padding: 0 1.5rem 1.5rem;
+        text-align: center;
+    }
+
+    .profile-name-elegant {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 0.3rem;
+    }
+
+    .profile-title-elegant {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        color: #1E3A5F;
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        background: #F8FAFC;
+        padding: 0.3rem 1rem;
+        border-radius: 40px;
+        width: fit-content;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .profile-title-elegant svg {
+        stroke: #1E3A5F;
+    }
+
+    /* Meta Grid */
+    .profile-meta-grid {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+        margin-bottom: 1.2rem;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        color: #64748B;
+        font-size: 0.8rem;
+    }
+
+    .meta-item svg {
+        stroke: #1E3A5F;
+    }
+
+    /* Interests */
+    .profile-interests {
+        margin-bottom: 1.2rem;
+        text-align: left;
+    }
+
+    .interests-label {
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #94A3B8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        text-align: center;
+    }
+
+    .interest-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        justify-content: center;
+    }
+
+    .interest-pill {
+        background: #F1F5F9;
+        color: #1E3A5F;
+        padding: 0.2rem 1rem;
+        border-radius: 40px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        border: 1px solid #E2E8F0;
+    }
+
+    .interest-pill.more {
+        background: transparent;
+        border: 1px dashed #CBD5E1;
+        color: #64748B;
+    }
+
+    /* Stats */
+    .profile-stats-elegant {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+        border-top: 1px solid #F1F5F9;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .stat-elegant {
+        text-align: center;
+        flex: 1;
+    }
+
+    .stat-number {
+        display: block;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0F172A;
+        line-height: 1;
+        margin-bottom: 0.2rem;
+    }
+
+    .stat-label {
+        font-size: 0.6rem;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-divider-vertical {
+        width: 1px;
+        height: 30px;
+        background: #E2E8F0;
+    }
+
+    /* Action Buttons */
+    .profile-actions-elegant {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .btn-primary-elegant {
+        flex: 1;
+        background: #1E3A5F;
+        color: white;
+        padding: 0.6rem 1rem;
+        border-radius: 40px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        transition: all 0.2s;
+        border: none;
+    }
+
+    .btn-primary-elegant:hover {
+        background: #14273F;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(30,58,95,0.2);
+    }
+
+    .btn-outline-elegant {
+        width: 40px;
+        height: 40px;
+        background: white;
+        border: 1px solid #E2E8F0;
+        border-radius: 40px;
+        color: #1E3A5F;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .btn-outline-elegant:hover {
+        background: #1E3A5F;
+        border-color: #1E3A5F;
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    /* Welcome Card */
+    .welcome-card {
+        background: white;
+        border-radius: 32px;
+        padding: 1.8rem;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
+    }
+
+    .welcome-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .welcome-header h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1A2E35;
+    }
+
+    .welcome-header h2 span {
+        color: #1E3A5F;
+        font-weight: 700;
+    }
+
+    .badge-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .badge-navy {
+        background: #1E3A5F15;
+        color: #1E3A5F;
+        padding: 0.4rem 1rem;
+        border-radius: 40px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .badge-navy.admin {
+        background: #1E3A5F;
+        color: white;
+    }
+
+    .user-meta {
+        color: #7E8D92;
+        font-size: 0.85rem;
+        display: flex;
+        gap: 1rem;
+    }
+
+    /* Metric Row */
+    .metric-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+    }
+
+    .metric-card {
+        background: white;
+        border-radius: 32px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
+        transition: all 0.2s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 40px -15px rgba(0,0,0,0.08);
+    }
+
+    .metric-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .metric-content h3 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1A2E35;
+        line-height: 1;
+        margin-bottom: 0.3rem;
+    }
+
+    .metric-content p {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #7E8D92;
+        margin-bottom: 0;
+    }
+
+    .metric-icon {
+        color: #1E3A5F;
+        opacity: 0.5;
+    }
+
+    .metric-footer {
+        margin-top: 1rem;
+        font-size: 0.7rem;
+    }
+
+    .metric-footer a {
+        color: #1E3A5F;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    /* SIMPLIFIED SCHEDULE SECTION */
+    .schedule-section {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 1.5rem;
+    }
+
+    .schedule-card-simple {
+        background: white;
+        border-radius: 32px;
+        padding: 1.8rem;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
+    }
+
+    .schedule-header-simple {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .schedule-title-simple {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .schedule-icon {
+        width: 40px;
+        height: 40px;
+        background: #1E3A5F10;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1E3A5F;
+    }
+
+    .schedule-title-simple h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1A2E35;
+    }
+
+    .schedule-date {
+        color: #7E8D92;
+        font-size: 0.8rem;
+    }
+
+    /* Simple Schedule List */
+    .schedule-list-simple {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .schedule-row {
+        display: flex;
+        align-items: center;
+        padding: 0.8rem 1rem;
+        background: #F8FAF9;
+        border-radius: 16px;
+        transition: all 0.2s;
+    }
+
+    .schedule-row:hover {
+        background: #F0F4F3;
+    }
+
+    .schedule-row-time {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #1E3A5F;
+        min-width: 80px;
+    }
+
+    .schedule-row-title {
+        flex: 1;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #1A2E35;
+    }
+
+    .schedule-row-badge {
+        font-size: 0.6rem;
+        padding: 0.2rem 1rem;
+        border-radius: 40px;
+        background: #1E3A5F15;
+        color: #1E3A5F;
+        font-weight: 500;
+    }
+
+    .schedule-row-badge.class { background: #1E3A5F15; color: #1E3A5F; }
+    .schedule-row-badge.self_study { background: #2E8B5715; color: #2E8B57; }
+    .schedule-row-badge.break { background: #F4A26115; color: #F4A261; }
+    .schedule-row-badge.activity { background: #6B5B9515; color: #6B5B95; }
+
+    .empty-schedule {
+        text-align: center;
+        padding: 2rem;
+        color: #7E8D92;
+        background: #F8FAF9;
+        border-radius: 16px;
+    }
+
+    /* Quick Actions Grid */
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .quick-action-item {
+        background: white;
+        border-radius: 28px;
+        padding: 1.5rem 1.2rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: 1px solid #F0F4F3;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .quick-action-item:hover {
+        transform: translateY(-4px);
+        border-color: #1E3A5F30;
+        box-shadow: 0 15px 30px -10px #1E3A5F30;
+    }
+
+    .action-icon-wrapper {
+        width: 56px;
+        height: 56px;
+        background: #1E3A5F10;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1E3A5F;
+        transition: all 0.3s ease;
+    }
+
+    .quick-action-item:hover .action-icon-wrapper {
+        background: #1E3A5F;
+        color: white;
+    }
+
+    .action-content h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1A2E35;
+        margin-bottom: 0.2rem;
+    }
+
+    .action-content p {
+        font-size: 0.7rem;
+        color: #7E8D92;
+        line-height: 1.4;
+    }
+
+    .action-arrow {
+        margin-top: 0.5rem;
+        color: #1E3A5F;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        opacity: 0;
+        transform: translateX(-10px);
+        transition: all 0.3s ease;
+    }
+
+    .quick-action-item:hover .action-arrow {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    /* Partners Section */
+    .partners-section {
+        margin-top: 0;
+    }
+
+    .partners-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .partners-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1A2E35;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .partners-list-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .partner-card-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 5px 20px -8px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
+        transition: all 0.2s;
+    }
+
+    .partner-card-row:hover {
+        transform: translateX(4px);
+        border-color: #1E3A5F30;
+    }
+
+    .partner-avatar-large {
+        width: 56px;
+        height: 56px;
+        background: #1E3A5F;
+        border-radius: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.2rem;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .partner-avatar-large img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .partner-info-flex {
+        flex: 1;
+    }
+
+    .partner-info-flex h4 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #1A2E35;
+        margin-bottom: 0.2rem;
+    }
+
+    .partner-major {
+        font-size: 0.7rem;
+        color: #7E8D92;
+        margin-bottom: 0.3rem;
+    }
+
+    .partner-match-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .match-percentage {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #1E3A5F;
+        background: #1E3A5F10;
+        padding: 0.2rem 0.8rem;
+        border-radius: 40px;
+    }
+
+    .partner-time {
+        font-size: 0.6rem;
+        color: #7E8D92;
+        display: flex;
+        align-items: center;
+        gap: 0.2rem;
+    }
+
+    .connect-button {
+        width: 36px;
+        height: 36px;
+        background: #F8FAF9;
+        border: 1px solid #E0E8E5;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1E3A5F;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .connect-button:hover {
+        background: #1E3A5F;
+        border-color: #1E3A5F;
+        color: white;
+    }
+
+    /* Buttons */
+    .btn-navy {
+        padding: 0.5rem 1.5rem;
+        background: #1E3A5F;
+        border: none;
+        border-radius: 40px;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        transition: all 0.2s;
+    }
+
+    .btn-navy:hover {
+        background: #14273F;
+        transform: translateY(-2px);
+    }
+
+    .btn-navy-outline {
+        padding: 0.5rem 1.5rem;
+        background: transparent;
+        border: 1px solid #1E3A5F;
+        border-radius: 40px;
+        color: #1E3A5F;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        transition: all 0.2s;
+    }
+
+    .btn-navy-outline:hover {
+        background: #1E3A5F;
+        color: white;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #7E8D92;
+        background: white;
+        border-radius: 32px;
+    }
+
+    .view-link {
+        color: #1E3A5F;
+        text-decoration: none;
+        font-size: 0.7rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    @media (max-width: 1200px) {
+        .bento-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .metric-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .schedule-section {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="dashboard">
+    <div class="bento-grid">
+        <!-- LEFT COLUMN - Redesigned Profile Card & Quick Stats -->
+        <div class="left-column">
+            <!-- Profile Card - New Elegant Design -->
+            <div class="profile-card-elegant">
+                <!-- Cover Photo -->
+                <div class="profile-cover">
+                    <div class="cover-gradient"></div>
+                    <div class="profile-badge">
+                        {% if user.is_superuser %}
+                        <span class="badge-admin">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                            </svg>
+                            Admin
+                        </span>
+                        {% endif %}
+                        <span class="badge-status online">
+                            <span class="status-dot"></span>
+                            Active
                         </span>
                     </div>
                 </div>
-                <div class="card-body">
+                
+                <!-- Avatar - Overlapping the cover -->
+                <div class="profile-avatar-container">
+                    <div class="profile-avatar-ring">
+                        <div class="profile-avatar-large">
+                            {% if profile.profile_picture %}
+                            <img src="{{ profile.profile_picture.url }}" alt="{{ profile.user.username }}">
+                            {% else %}
+                            <span class="avatar-initials">{{ profile.user.first_name|first|upper }}{{ profile.user.last_name|first|upper }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Info -->
+                <div class="profile-info-elegant">
+                    <h2 class="profile-name-elegant">{{ profile.user.get_full_name|default:profile.user.username }}</h2>
+                    <div class="profile-title-elegant">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                        <span>{{ profile.get_major_display }}</span>
+                    </div>
+                    
+                    <div class="profile-meta-grid">
+                        <div class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            <span>Year {{ profile.year }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            <span>Sem {{ profile.semester }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Interests Pills -->
+                    {% if profile.interests.all %}
+                    <div class="profile-interests">
+                        <span class="interests-label">Interests</span>
+                        <div class="interest-pills">
+                            {% for interest in profile.interests.all|slice:":3" %}
+                            <span class="interest-pill">{{ interest.name }}</span>
+                            {% endfor %}
+                            {% if profile.interests.count > 3 %}
+                            <span class="interest-pill more">+{{ profile.interests.count|add:"-3" }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Stats in elegant row -->
+                    <div class="profile-stats-elegant">
+                        <div class="stat-elegant">
+                            <span class="stat-number">{{ study_groups.count|default:0 }}</span>
+                            <span class="stat-label">Groups</span>
+                        </div>
+                        <div class="stat-divider-vertical"></div>
+                        <div class="stat-elegant">
+                            <span class="stat-number">{{ courses.count|default:0 }}</span>
+                            <span class="stat-label">Courses</span>
+                        </div>
+                        <div class="stat-divider-vertical"></div>
+                        <div class="stat-elegant">
+                            <span class="stat-number">{{ profile.interests.count|default:0 }}</span>
+                            <span class="stat-label">Interests</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="profile-actions-elegant">
+                        <a href="{% url 'profile' %}" class="btn-primary-elegant">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            View Profile
+                        </a>
+                        <a href="{% url 'edit_profile' %}" class="btn-outline-elegant">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"></path>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats Mini -->
+            <div class="metric-row" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="metric-card" style="padding: 1.2rem;">
+                    <div class="metric-content">
+                        <div>
+                            <h3 style="font-size: 1.5rem;">{{ today_slots.count|default:0 }}</h3>
+                            <p>Today</p>
+                        </div>
+                        <svg class="metric-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div class="metric-card" style="padding: 1.2rem;">
+                    <div class="metric-content">
+                        <div>
+                            <h3 style="font-size: 1.5rem;">{{ course_matches_count }}</h3>
+                            <p>Matches</p>
+                        </div>
+                        <svg class="metric-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN - Main Content (unchanged) -->
+        <div class="right-column">
+            <!-- Welcome Card -->
+            <div class="welcome-card">
+                <div class="welcome-header">
+                    <h2>Welcome, <span>{{ profile.user.first_name|default:profile.user.username }}</span>!</h2>
+                    <div class="badge-group">
+                        {% if user.is_superuser %}
+                        <span class="badge-navy admin">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                            </svg>
+                            Admin
+                        </span>
+                        {% endif %}
+                        <span class="badge-navy">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            {{ study_groups.count|default:0 }} Groups
+                        </span>
+                    </div>
+                </div>
+                <div class="user-meta">
+                    <span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-right: 0.3rem;">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                        {{ profile.get_major_display }}
+                    </span>
+                    <span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-right: 0.3rem;">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        Year {{ profile.year }} · Semester {{ profile.semester }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Metric Row -->
+            <div class="metric-row">
+                <div class="metric-card">
+                    <div class="metric-content">
+                        <div>
+                            <h3>{{ today_slots.count|default:0 }}</h3>
+                            <p>Today's Schedule</p>
+                        </div>
+                        <svg class="metric-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                    <div class="metric-footer">
+                        <a href="{% url 'timetable_view' %}">
+                            View Full Timetable <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-content">
+                        <div>
+                            <h3>{{ courses.count|default:0 }}</h3>
+                            <p>Your Courses</p>
+                        </div>
+                        <svg class="metric-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                        </svg>
+                    </div>
+                    <div class="metric-footer">
+                        <a href="{% url 'profile' %}">
+                            Manage Courses <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-content">
+                        <div>
+                            <h3>{{ study_groups.count|default:0 }}</h3>
+                            <p>Study Groups</p>
+                        </div>
+                        <svg class="metric-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="metric-footer">
+                        <a href="{% url 'group_list' %}">
+                            View All Groups <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-content">
+                        <div>
+                            <h3>{{ course_matches_count }}</h3>
+                            <p>Available Partners</p>
+                        </div>
+                        <svg class="metric-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8 10a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                        </svg>
+                    </div>
+                    <div class="metric-footer">
+                        <a href="{% url 'find_study_partners_view' %}">
+                            Find Partners <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SIMPLIFIED SCHEDULE & QUICK ACTIONS -->
+            <div class="schedule-section">
+                <!-- Today's Schedule - Simple Row Design -->
+                <div class="schedule-card-simple">
+                    <div class="schedule-header-simple">
+                        <div class="schedule-title-simple">
+                            <div class="schedule-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                            </div>
+                            <h3>Today's Schedule</h3>
+                        </div>
+                        <span class="schedule-date">{{ current_date|date:"M j, Y" }}</span>
+                    </div>
+
                     {% if today_slots %}
-                    <div class="list-group list-group-flush">
+                    <div class="schedule-list-simple">
                         {% for slot in today_slots %}
-                        <div class="list-group-item border-0 px-0 py-2">
-                            <div class="d-flex w-100 justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <div class="slot-indicator me-3
-                                        {% if slot.slot_type == 'class' %}bg-primary
-                                        {% elif slot.slot_type == 'self_study' %}bg-success
-                                        {% elif slot.slot_type == 'break' %}bg-warning
-                                        {% elif slot.slot_type == 'activity' %}bg-info
-                                        {% else %}bg-secondary{% endif %}"
-                                        style="width: 8px; height: 40px; border-radius: 4px;">
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1">
-                                            {% if slot.slot_type == 'class' and slot.course %}
-                                            <span class="badge bg-primary">{{ slot.course.code }}</span>
-                                            {{ slot.course.name }}
-                                            {% else %}
-                                            <span class="badge bg-secondary">{{ slot.get_slot_type_display }}</span>
-                                            {{ slot.custom_name|default:slot.get_slot_type_display }}
-                                            {% endif %}
-                                        </h6>
-                                        <small class="text-muted">
-                                            <i class="far fa-clock me-1"></i>
-                                            {{ slot.start_time|time:"g:i A" }} - {{ slot.end_time|time:"g:i A" }}
-                                        </small>
-                                    </div>
-                                </div>
-                                <span class="badge
-                                    {% if slot.slot_type == 'class' %}bg-primary
-                                    {% elif slot.slot_type == 'self_study' %}bg-success
-                                    {% elif slot.slot_type == 'break' %}bg-warning
-                                    {% elif slot.slot_type == 'activity' %}bg-info
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ slot.get_slot_type_display }}
+                        <div class="schedule-row">
+                            <span class="schedule-row-time">{{ slot.start_time|time:"g:i A" }}</span>
+                            <span class="schedule-row-title">
+                                {% if slot.slot_type == 'class' and slot.course %}
+                                    {{ slot.course.name }}
+                                {% else %}
+                                    {{ slot.custom_name|default:slot.get_slot_type_display }}
+                                {% endif %}
+                            </span>
+                            <span class="schedule-row-badge {{ slot.slot_type }}">{{ slot.get_slot_type_display }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-schedule">
+                        <p>No classes scheduled</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="schedule-card-simple">
+                    <div class="schedule-header-simple">
+                        <div class="schedule-title-simple">
+                            <div class="schedule-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                                </svg>
+                            </div>
+                            <h3>Quick Actions</h3>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions-grid">
+                        <a href="{% url 'find_study_partners_view' %}" class="quick-action-item">
+                            <div class="action-icon-wrapper">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="9" cy="7" r="4"></circle>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                </svg>
+                            </div>
+                            <div class="action-content">
+                                <h4>Find Partners</h4>
+                                <p>Connect with classmates</p>
+                            </div>
+                            <div class="action-arrow">
+                                Go <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'create_study_group' %}" class="quick-action-item">
+                            <div class="action-icon-wrapper">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="9" cy="7" r="4"></circle>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    <line x1="12" y1="11" x2="12" y2="17"></line>
+                                    <line x1="9" y1="14" x2="15" y2="14"></line>
+                                </svg>
+                            </div>
+                            <div class="action-content">
+                                <h4>Create Group</h4>
+                                <p>Start a new group</p>
+                            </div>
+                            <div class="action-arrow">
+                                Create <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'add_course' %}" class="quick-action-item">
+                            <div class="action-icon-wrapper">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                                </svg>
+                            </div>
+                            <div class="action-content">
+                                <h4>Add Courses</h4>
+                                <p>Update your list</p>
+                            </div>
+                            <div class="action-arrow">
+                                Add <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'add_interest' %}" class="quick-action-item">
+                            <div class="action-icon-wrapper">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                </svg>
+                            </div>
+                            <div class="action-content">
+                                <h4>Add Interests</h4>
+                                <p>Find your people</p>
+                            </div>
+                            <div class="action-arrow">
+                                Explore <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Partners Section Only (Study Groups Removed) -->
+            <div class="partners-section">
+                <div class="partners-header">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" stroke-width="1.5">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8 10a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                        </svg>
+                        Available Partners
+                    </h3>
+                    <a href="{% url 'study_partners_list' %}" class="view-link">
+                        View All <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+
+                {% if free_time_matches %}
+                <div class="partners-list-vertical">
+                    {% for match in free_time_matches|slice:":3" %}
+                    <div class="partner-card-row">
+                        <div class="partner-avatar-large">
+                            {% if match.other_student.profile_picture %}
+                            <img src="{{ match.other_student.profile_picture.url }}" alt="{{ match.other_student.user.username }}">
+                            {% else %}
+                            {{ match.other_student.user.username|first|upper }}
+                            {% endif %}
+                        </div>
+                        <div class="partner-info-flex">
+                            <h4>{{ match.other_student.user.get_full_name|default:match.other_student.user.username }}</h4>
+                            <p class="partner-major">{{ match.other_student.get_major_display|truncatechars:30 }}</p>
+                            <div class="partner-match-row">
+                                <span class="match-percentage">{{ match.match_score }}%</span>
+                                <span class="partner-time">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                    {{ match.day }} at {{ match.start_time|time:"g:i A" }}
                                 </span>
                             </div>
                         </div>
-                        {% endfor %}
+                        <a href="{% url 'create_study_group_from_match' match.id %}" class="connect-button">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </a>
                     </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">No schedule for today</p>
-                       
-                    </div>
-                    {% endif %}
+                    {% endfor %}
                 </div>
-                <div class="card-footer bg-light">
-                    <a href="{% url 'timetable_view' %}" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-calendar-alt me-1"></i> View Full Timetable
+                {% else %}
+                <div class="empty-state" style="padding: 2rem;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E0E8E5" stroke-width="1.5">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8 10a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                    </svg>
+                    <p>No partners found</p>
+                    <a href="{% url 'find_study_partners_view' %}" class="btn-navy" style="margin-top: 0.5rem;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        Find Partners
                     </a>
-                    
                 </div>
-            </div>
-        </div>
-
-        <!-- Quick Actions & Recent Groups -->
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-bolt me-2"></i>Quick Actions
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <a href="{% url 'find_study_partners_view' %}" class="btn btn-outline-primary w-100 py-3 text-start">
-                                <i class="fas fa-user-friends fa-2x mb-2"></i>
-                                <h6>Find Study Partners</h6>
-                                <small class="text-muted">Match with classmates</small>
-                            </a>
-                        </div>
-                        <div class="col-md-6">
-                            <a href="{% url 'create_study_group' %}" class="btn btn-outline-success w-100 py-3 text-start">
-                                <i class="fas fa-users fa-2x mb-2"></i>
-                                <h6>Create Study Group</h6>
-                                <small class="text-muted">Start a new group</small>
-                            </a>
-                        </div>
-                        <div class="col-md-6">
-                            <a href="{% url 'add_course' %}" class="btn btn-outline-warning w-100 py-3 text-start">
-                                <i class="fas fa-book fa-2x mb-2"></i>
-                                <h6>Add Courses</h6>
-                                <small class="text-muted">Manage your courses</small>
-                            </a>
-                        </div>
-                        <div class="col-md-6">
-                            <a href="{% url 'add_interest' %}" class="btn btn-outline-info w-100 py-3 text-start">
-                                <i class="fas fa-book fa-2x mb-2"></i>
-                                <h6>Add Interest</h6>
-                                <small class="text-muted">Explore your interests</small>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Study Groups & Free Time Matches -->
-    <div class="row">
-        <!-- Recent Study Groups -->
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-warning text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-users me-2"></i>Your Study Groups
-                        </h5>
-                        <a href="{% url 'group_list' %}" class="text-white text-decoration-none">
-                            View All <i class="fas fa-arrow-right ms-1"></i>
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    {% if study_groups %}
-                    <div class="list-group list-group-flush">
-                        {% for group in study_groups %}
-                        <a href="{% url 'group_detail' group.id %}" class="list-group-item list-group-item-action border-0 py-3">
-                            <div class="d-flex w-100 justify-content-between">
-                                <div>
-                                    <h6 class="mb-1">{{ group.name }}</h6>
-                                    <small class="text-muted">
-                                        {{ group.description|truncatechars:60 }}
-                                    </small>
-                                    <div class="mt-2">
-                                        <span class="badge bg-primary">
-                                            <i class="fas fa-user me-1"></i> {{ group.member_count }} members
-                                        </span>
-                                        <span class="badge bg-secondary ms-1">
-                                            <i class="fas fa-calendar me-1"></i> {{ group.preferred_day }}
-                                        </span>
-                                        {% if group.is_active %}
-                                        <span class="badge bg-success ms-1">Active</span>
-                                        {% else %}
-                                        <span class="badge bg-danger ms-1">Inactive</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="text-end">
-                                    <small class="text-muted d-block">{{ group.created_at|date:"M d" }}</small>
-                                    <span class="badge bg-info">
-                                        {% if group.creator == profile %}Creator{% else %}Member{% endif %}
-                                    </span>
-                                </div>
-                            </div>
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">You haven't joined any study groups yet</p>
-                        <a href="{% url 'create_study_group' %}" class="btn btn-outline-warning">
-                            <i class="fas fa-plus me-1"></i> Create Your First Group
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Free Time Matches -->
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-user-friends me-2"></i>Available Partners
-                        </h5>
-                        <a href="{% url 'study_partners_list' %}" class="text-white text-decoration-none">
-                            View All <i class="fas fa-arrow-right ms-1"></i>
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    {% if free_time_matches %}
-                    <div class="list-group list-group-flush">
-                        {% for match in free_time_matches %}
-                        <div class="list-group-item border-0 py-3">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-shrink-0">
-                                    {% if match.other_student.profile_picture %}
-                                    <img src="{{ match.other_student.profile_picture.url }}"
-                                         class="rounded-circle"
-                                         width="50"
-                                         height="50"
-                                         alt="{{ match.other_student.user.username }}">
-                                    {% else %}
-                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
-                                         style="width: 50px; height: 50px;">
-                                        <i class="fas fa-user text-white"></i>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                <div class="flex-grow-1 ms-3">
-                                    <h6 class="mb-1">{{ match.other_student.user.get_full_name|default:match.other_student.user.username }}</h6>
-                                    <small class="text-muted">
-                                        {{ match.other_student.get_major_display }} |
-                                        Match Score: {{ match.match_score }}%
-                                    </small>
-                                    <div class="mt-2">
-                                        <span class="badge bg-primary">
-                                            <i class="fas fa-calendar-day me-1"></i> {{ match.day }}
-                                        </span>
-                                        <span class="badge bg-success ms-1">
-                                            <i class="far fa-clock me-1"></i>
-                                            {{ match.start_time|time:"g:i A" }} - {{ match.end_time|time:"g:i A" }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <a href="{% url 'create_study_group_from_match' match.id %}"
-                                       class="btn btn-outline-primary btn-sm">
-                                        <i class="fas fa-plus me-1"></i> Create Group
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-user-friends fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">No available study partners found</p>
-                        <a href="{% url 'find_study_partners_view' %}" class="btn btn-outline-info">
-                            <i class="fas fa-search me-1"></i> Find Partners
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
+                {% endif %}
             </div>
         </div>
     </div>

@@ -624,11 +624,11 @@ window.onload = () => {
   });
 
   const typeColorMap = {
-    class: "#6366f1",
-    self_study: "#8b5cf6",
-    break: "#10b981",
-    activity: "#f59e0b",
-    free: "#3b82f6",
+    class: "#6366F1",
+    self_study: "#8B5CF6",
+    break: "#14B8A6",
+    activity: "#F59E0B",
+    free: "#3B82F6",
   };
 
   slotTypeSelect.addEventListener("change", (e) => {
@@ -644,7 +644,7 @@ window.onload = () => {
     }
 
     if (activeColor && activeElement) {
-      activeElement.style.backgroundColor = activeColor + "40";
+      activeElement.style.backgroundColor = activeColor + "80";
       activeElement.style.borderColor = activeColor;
       activeElement.dataset.slotType = selectedType;
     }

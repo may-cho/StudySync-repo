@@ -2,114 +2,1006 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4" style="max-width: 1100px;">
+<style>
+    /* BENTO GRID - Full Screen Elegant Design */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h2 class="fw-bold mb-0">Study Hub</h2>
-            <p class="text-muted mb-0">Find your tribe and ace your exams together.</p>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background: #F5F7FA;
+        font-family: 'Inter', sans-serif;
+        color: #1A2E35;
+        min-height: 100vh;
+    }
+
+    .bento-container {
+        width: 100%;
+        min-height: 100vh;
+        padding: 2rem 2.5rem;
+    }
+
+    /* Elegant Header */
+    .bento-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2.5rem;
+        background: white;
+        border-radius: 40px;
+        padding: 1.2rem 2rem;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02);
+        width: 100%;
+    }
+
+    .header-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .header-icon {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #1E3A5F, #2D4B75);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        box-shadow: 0 8px 16px -4px rgba(30,58,95,0.2);
+    }
+
+    .header-text h1 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #0F172A;
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+    }
+
+    .header-text p {
+        color: #64748B;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .create-btn {
+        background: #1E3A5F;
+        color: white;
+        border: none;
+        border-radius: 40px;
+        padding: 0.8rem 2rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        box-shadow: 0 8px 16px -4px rgba(30,58,95,0.3);
+    }
+
+    .create-btn:hover {
+        background: #14273F;
+        transform: translateY(-2px);
+        box-shadow: 0 12px 20px -6px rgba(30,58,95,0.4);
+    }
+
+    /* Bento Grid Layout - Full Width */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    /* Elegant Cards */
+    .bento-card {
+        background: white;
+        border-radius: 32px;
+        padding: 2rem;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .bento-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px -15px rgba(30,58,95,0.1), 0 0 0 1px rgba(30,58,95,0.1);
+    }
+
+    .bento-card.large {
+        grid-row: span 2;
+    }
+
+    /* Section Headers */
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #F1F5F9;
+        position: relative;
+    }
+
+    .section-header::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 60px;
+        height: 2px;
+        background: linear-gradient(90deg, #1E3A5F, #4F6AF5);
+        border-radius: 2px;
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .header-icon-wrapper {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #1E3A5F10, #4F6AF510);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1E3A5F;
+        font-size: 1.1rem;
+        border: 1px solid rgba(30,58,95,0.1);
+    }
+
+    .header-left h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0F172A;
+        letter-spacing: -0.01em;
+    }
+
+    .header-left h3 span {
+        font-weight: 400;
+        color: #64748B;
+        font-size: 0.9rem;
+        margin-left: 0.5rem;
+    }
+
+    .header-link {
+        color: #1E3A5F;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.4rem 1rem;
+        border-radius: 40px;
+        background: #F8FAFC;
+        transition: all 0.2s;
+        border: 1px solid #E2E8F0;
+    }
+
+    .header-link:hover {
+        background: #1E3A5F;
+        color: white;
+        border-color: #1E3A5F;
+    }
+
+    /* REDESIGNED LIVE SESSION HEADER - More Elegant */
+    .live-session-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+        padding: 1rem 1.2rem;
+        border-radius: 24px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 4px 12px -4px rgba(0,0,0,0.05);
+    }
+
+    .live-session-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #1E3A5F, #2D4B75);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.3rem;
+        box-shadow: 0 8px 16px -4px rgba(30,58,95,0.25);
+    }
+
+    .live-session-text h4 {
+        font-size: 0.85rem;
+        color: #64748B;
+        font-weight: 500;
+        margin-bottom: 0.2rem;
+        letter-spacing: 0.3px;
+    }
+
+    .live-session-text h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0F172A;
+        letter-spacing: -0.01em;
+    }
+
+    .live-session-badge {
+        margin-left: auto;
+        background: #FEF2F2;
+        color: #DC2626;
+        padding: 0.4rem 1.2rem;
+        border-radius: 40px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid #FECACA;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .live-pulse {
+        width: 8px;
+        height: 8px;
+        background: #DC2626;
+        border-radius: 50%;
+        display: inline-block;
+        animation: softPulse 2s infinite;
+    }
+
+    @keyframes softPulse {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.1); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* REDESIGNED LIVE CLASS CARDS - Clean & Modern */
+    .live-class-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .live-class-card {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+        padding: 1.2rem;
+        background: #F8FAFC;
+        border-radius: 24px;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+
+    .live-class-card:hover {
+        background: white;
+        border-color: #E2E8F0;
+        box-shadow: 0 8px 16px -8px rgba(0,0,0,0.1);
+        transform: translateX(4px);
+    }
+
+    .live-class-avatar {
+        width: 52px;
+        height: 52px;
+        background: white;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1E3A5F;
+        font-size: 1.3rem;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 4px 8px -4px rgba(0,0,0,0.05);
+        flex-shrink: 0;
+    }
+
+    .live-class-details {
+        flex: 1;
+    }
+
+    .live-class-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .live-class-title h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0F172A;
+    }
+
+    .live-tag {
+        background: #FEF2F2;
+        color: #DC2626;
+        font-size: 0.6rem;
+        font-weight: 600;
+        padding: 0.15rem 0.6rem;
+        border-radius: 40px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+    }
+
+    .live-class-meta {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.7rem;
+        color: #64748B;
+    }
+
+    .meta-item i {
+        color: #1E3A5F;
+        font-size: 0.8rem;
+    }
+
+    .live-participants {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .participant-strip {
+        display: flex;
+    }
+
+    .participant-avatar-sm {
+        width: 24px;
+        height: 24px;
+        background: #E2E8F0;
+        border-radius: 50%;
+        border: 2px solid white;
+        margin-left: -8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.55rem;
+        font-weight: 600;
+        color: #1E3A5F;
+    }
+
+    .participant-avatar-sm:first-child {
+        margin-left: 0;
+    }
+
+    .participant-count {
+        font-size: 0.65rem;
+        color: #64748B;
+    }
+
+    .join-session-btn {
+        background: white;
+        color: #1E3A5F;
+        padding: 0.5rem 1.2rem;
+        border-radius: 40px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        border: 1px solid #E2E8F0;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .join-session-btn:hover {
+        background: #1E3A5F;
+        color: white;
+        border-color: #1E3A5F;
+    }
+
+    .join-session-btn i {
+        font-size: 0.7rem;
+    }
+
+    /* Stats Card */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+        background: #F8FAFC;
+        border-radius: 20px;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1E3A5F;
+        line-height: 1;
+        margin-bottom: 0.2rem;
+    }
+
+    .stat-label {
+        font-size: 0.65rem;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* My Groups Grid */
+    .groups-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .group-mini-card {
+        background: #F8FAFC;
+        border-radius: 24px;
+        padding: 1.2rem;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        position: relative;
+    }
+
+    .group-mini-card:hover {
+        background: white;
+        border-color: #E2E8F0;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -8px rgba(0,0,0,0.1);
+    }
+
+    .group-mini-card h4 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0F172A;
+        margin-bottom: 0.3rem;
+    }
+
+    .group-mini-card p {
+        font-size: 0.65rem;
+        color: #64748B;
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
+
+    .group-mini-stats {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.6rem;
+        color: #94A3B8;
+    }
+
+    /* Activity Card */
+    .activity-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-dot {
+        width: 8px;
+        height: 8px;
+        background: #1E3A5F;
+        border-radius: 4px;
+    }
+
+    .activity-text {
+        flex: 1;
+        font-size: 0.8rem;
+        color: #0F172A;
+    }
+
+    .activity-time {
+        font-size: 0.65rem;
+        color: #94A3B8;
+    }
+
+    /* Recommended Cards */
+    .recommended-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .recommended-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: #F8FAFC;
+        border-radius: 24px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+
+    .recommended-item:hover {
+        background: white;
+        border-color: #E2E8F0;
+        transform: translateX(4px);
+    }
+
+    .recommended-avatar {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #10B981, #059669);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .recommended-info {
+        flex: 1;
+    }
+
+    .recommended-info h4 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0F172A;
+        margin-bottom: 0.2rem;
+    }
+
+    .recommended-tags {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.3rem;
+        flex-wrap: wrap;
+    }
+
+    .tag {
+        font-size: 0.55rem;
+        background: white;
+        padding: 0.1rem 0.6rem;
+        border-radius: 40px;
+        color: #1E3A5F;
+        border: 1px solid #E2E8F0;
+    }
+
+    .match-indicator {
+        font-size: 0.6rem;
+        color: #10B981;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.2rem;
+    }
+
+    .join-mini {
+        width: 32px;
+        height: 32px;
+        background: white;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #10B981;
+        text-decoration: none;
+        transition: all 0.2s;
+        border: 1px solid #E2E8F0;
+    }
+
+    .join-mini:hover {
+        background: #10B981;
+        color: white;
+        border-color: #10B981;
+    }
+
+    /* Empty State */
+    .empty-bento {
+        grid-column: 1 / -1;
+        background: white;
+        border-radius: 40px;
+        padding: 4rem;
+        text-align: center;
+        border: 2px dashed #E2E8F0;
+        width: 100%;
+    }
+
+    .empty-icon {
+        width: 80px;
+        height: 80px;
+        background: #F1F5F9;
+        border-radius: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: #1E3A5F;
+        font-size: 2rem;
+    }
+
+    .empty-bento h3 {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #0F172A;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-bento p {
+        color: #64748B;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Loading State */
+    .loading-card {
+        grid-column: span 3;
+        background: white;
+        border-radius: 32px;
+        padding: 2rem;
+        text-align: center;
+        color: #94A3B8;
+        font-size: 0.9rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .bento-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .bento-card.large {
+            grid-row: auto;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .bento-container {
+            padding: 1.5rem;
+        }
+        
+        .bento-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        
+        .bento-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .groups-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .live-class-title {
+            flex-wrap: wrap;
+        }
+    }
+</style>
+
+<div class="bento-container">
+    <!-- Elegant Header -->
+    <div class="bento-header">
+        <div class="header-title">
+            <div class="header-icon">
+                <i class="bi bi-grid-3x3-gap-fill"></i>
+            </div>
+            <div class="header-text">
+                <h1>Study Hub</h1>
+                <p>
+                    <i class="bi bi-dot"></i>
+                    Find your tribe and ace your exams together
+                </p>
+            </div>
         </div>
-        <a href="{% url 'create_study_group' %}" class="btn btn-primary rounded-pill px-4 shadow-sm">
-            <i class="bi bi-plus-lg me-1"></i> Create New Group
+        <a href="{% url 'create_study_group' %}" class="create-btn">
+            <i class="bi bi-plus-lg"></i>
+            Create New Group
         </a>
     </div>
 
-    <div class="mb-5">
-        <div class="d-flex align-items-center mb-3">
-            <h5 class="fw-bold mb-0 text-dark">My Groups</h5>
-            <span class="badge rounded-pill bg-primary ms-2">{{ my_groups|length }}</span>
-        </div>
-
-        {% if my_groups %}
-            <div class="row">
-                {% for group in my_groups %}
-                    <div class="col-lg-4 col-md-6 mb-4">
-                        <div class="card h-100 border-0 shadow-sm hover-lift transition-all">
-                            <div class="card-body p-4 text-center"> <div class="mb-3">
-                                    <span class="badge bg-light text-primary border border-primary-subtle px-3 py-2 rounded-pill small">
-                                        {{ group.major }}
-                                    </span>
-                                </div>
-
-                                <h5 class="card-title fw-bold mb-2">{{ group.name }}</h5>
-                                <p class="text-muted small mb-4" style="height: 40px; overflow: hidden;">
-                                    {{ group.description|truncatechars:80 }}
-                                </p>
-
-                                <div class="d-flex justify-content-center">
-                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-primary rounded-pill px-5 btn-sm shadow-sm">
-                                        Enter Group
-                                    </a>
-                                </div>
+    <!-- Bento Grid Layout - Full Width -->
+    <div class="bento-grid">
+        <!-- REDESIGNED LIVE SESSION SECTION - Large Card -->
+        <div class="bento-card large">
+            <!-- Live Session Header - New Elegant Design -->
+            <div class="live-session-header">
+                <div class="live-session-icon">
+                    <i class="bi bi-camera-video"></i>
+                </div>
+                <div class="live-session-text">
+                    <h4>Live Now</h4>
+                    <h3>Active Study Sessions</h3>
+                </div>
+                <div class="live-session-badge">
+                    <span class="live-pulse"></span>
+                    3 Sessions Live
+                </div>
+            </div>
+            
+            <!-- Live Class Cards - New Clean Design -->
+            <div class="live-class-grid">
+                <!-- Live Class 1 -->
+                <div class="live-class-card">
+                    <div class="live-class-avatar">
+                        <i class="bi bi-code-square"></i>
+                    </div>
+                    <div class="live-class-details">
+                        <div class="live-class-title">
+                            <h4>Python Data Structures</h4>
+                            <span class="live-tag">
+                                <span class="live-pulse" style="width: 6px; height: 6px;"></span>
+                                LIVE
+                            </span>
+                        </div>
+                        <div class="live-class-meta">
+                            <span class="meta-item">
+                                <i class="bi bi-person"></i>
+                                Prof. Anderson
+                            </span>
+                            <span class="meta-item">
+                                <i class="bi bi-clock"></i>
+                                45 min left
+                            </span>
+                        </div>
+                        <div class="live-participants">
+                            <div class="participant-strip">
+                                <span class="participant-avatar-sm">JD</span>
+                                <span class="participant-avatar-sm">ML</span>
+                                <span class="participant-avatar-sm">AK</span>
+                                <span class="participant-avatar-sm">+5</span>
                             </div>
+                            <span class="participant-count">8 studying now</span>
                         </div>
                     </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="text-center py-5 bg-light rounded-4 border-dashed">
-                <p class="text-muted mb-0">You haven't joined any study groups yet.</p>
-            </div>
-        {% endif %}
-    </div>
+                    <a href="#" class="join-session-btn">
+                        Join <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
 
-    <div>
-        <div class="d-flex align-items-center mb-3">
-            <h5 class="fw-bold mb-0 text-dark">Recommended For You</h5>
-            <i class="bi bi-stars text-warning ms-2"></i>
+                <!-- Live Class 2 -->
+                <div class="live-class-card">
+                    <div class="live-class-avatar">
+                        <i class="bi bi-cpu"></i>
+                    </div>
+                    <div class="live-class-details">
+                        <div class="live-class-title">
+                            <h4>Machine Learning Fundamentals</h4>
+                            <span class="live-tag">
+                                <span class="live-pulse" style="width: 6px; height: 6px;"></span>
+                                LIVE
+                            </span>
+                        </div>
+                        <div class="live-class-meta">
+                            <span class="meta-item">
+                                <i class="bi bi-person"></i>
+                                Prof. Chen
+                            </span>
+                            <span class="meta-item">
+                                <i class="bi bi-clock"></i>
+                                1h 30min left
+                            </span>
+                        </div>
+                        <div class="live-participants">
+                            <div class="participant-strip">
+                                <span class="participant-avatar-sm">RJ</span>
+                                <span class="participant-avatar-sm">SP</span>
+                                <span class="participant-avatar-sm">TM</span>
+                                <span class="participant-avatar-sm">+3</span>
+                            </div>
+                            <span class="participant-count">6 studying now</span>
+                        </div>
+                    </div>
+                    <a href="#" class="join-session-btn">
+                        Join <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+
+                <!-- Live Class 3 -->
+                <div class="live-class-card">
+                    <div class="live-class-avatar">
+                        <i class="bi bi-database"></i>
+                    </div>
+                    <div class="live-class-details">
+                        <div class="live-class-title">
+                            <h4>Database Systems</h4>
+                            <span class="live-tag">
+                                <span class="live-pulse" style="width: 6px; height: 6px;"></span>
+                                LIVE
+                            </span>
+                        </div>
+                        <div class="live-class-meta">
+                            <span class="meta-item">
+                                <i class="bi bi-person"></i>
+                                Prof. Williams
+                            </span>
+                            <span class="meta-item">
+                                <i class="bi bi-clock"></i>
+                                2h left
+                            </span>
+                        </div>
+                        <div class="live-participants">
+                            <div class="participant-strip">
+                                <span class="participant-avatar-sm">AC</span>
+                                <span class="participant-avatar-sm">MB</span>
+                                <span class="participant-avatar-sm">+2</span>
+                            </div>
+                            <span class="participant-count">4 studying now</span>
+                        </div>
+                    </div>
+                    <a href="#" class="join-session-btn">
+                        Join <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats Card -->
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Live Sessions</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">18</div>
+                    <div class="stat-label">Active Students</div>
+                </div>
+            </div>
         </div>
 
-        {% if recommended_groups %}
-            <div class="row">
+        <!-- My Groups -->
+        <div class="bento-card" style="grid-column: span 2;">
+            <!-- My Groups Header -->
+            <div class="section-header">
+                <div class="header-left">
+                    <div class="header-icon-wrapper">
+                        <i class="bi bi-grid-3x3"></i>
+                    </div>
+                    <h3>
+                        My Groups
+                        <span>{{ my_groups|length }} total</span>
+                    </h3>
+                </div>
+                <a href="{% url 'group_list' %}" class="header-link">
+                    View all <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            
+            <div class="groups-grid">
+                {% if my_groups %}
+                    {% for group in my_groups %}
+                    <a href="{% url 'group_detail' group.id %}" class="group-mini-card">
+                        <h4>{{ group.name }}</h4>
+                        <p>{{ group.description|truncatechars:30 }}</p>
+                        <div class="group-mini-stats">
+                            <span><i class="bi bi-person"></i> {{ group.member_count|default:0 }}</span>
+                            <span><i class="bi bi-tag"></i> {{ group.major }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div style="grid-column: span 2; padding: 2rem; text-align: center; color: #94A3B8;">
+                        <i class="bi bi-inbox me-2"></i>No groups yet
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Recent Activity Feed -->
+            <div style="margin-top: 1.5rem;">
+                <div class="section-header" style="margin-bottom: 1rem;">
+                    <div class="header-left">
+                        <div class="header-icon-wrapper" style="background: linear-gradient(135deg, #10B98110, #05966910); color: #10B981;">
+                            <i class="bi bi-activity"></i>
+                        </div>
+                        <h3>Recent Activity</h3>
+                    </div>
+                </div>
+                <div class="activity-list">
+                    <div class="activity-item">
+                        <div class="activity-dot" style="background: #DC2626;"></div>
+                        <span class="activity-text">🔴 Live session started in Python Group</span>
+                        <span class="activity-time">5m ago</span>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-dot" style="background: #10B981;"></div>
+                        <span class="activity-text">📅 Study session scheduled for tomorrow</span>
+                        <span class="activity-time">2h ago</span>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-dot" style="background: #1E3A5F;"></div>
+                        <span class="activity-text">👥 3 new members joined ML Group</span>
+                        <span class="activity-time">1d ago</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommended Section -->
+    {% if recommended_groups %}
+    <div style="margin-top: 1.5rem;">
+        <div class="bento-card" style="width: 100%;">
+            <!-- Recommended Header -->
+            <div class="section-header">
+                <div class="header-left">
+                    <div class="header-icon-wrapper" style="background: linear-gradient(135deg, #10B98110, #05966910); color: #10B981;">
+                        <i class="bi bi-stars"></i>
+                    </div>
+                    <h3>
+                        Recommended For You
+                        <span>{{ recommended_groups|length }} matches</span>
+                    </h3>
+                </div>
+                <div class="header-badge">
+                    <i class="bi bi-lightning-charge me-1"></i> AI Picks
+                </div>
+            </div>
+            
+            <div class="recommended-list">
                 {% for group in recommended_groups %}
-                    <div class="col-lg-4 col-md-6 mb-4">
-                        <div class="card h-100 border-0 shadow-sm position-relative overflow-hidden">
-                            <div class="position-absolute top-0 start-0 w-100 bg-success" style="height: 4px;"></div>
-
-                            <div class="card-body p-4 pt-5">
-                                <div class="mb-2">
-                                    {% if group.course %}
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
-                                            {{ group.course.code }}
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-light text-secondary border rounded-pill px-3">
-                                            {{ group.major }}
-                                        </span>
-                                    {% endif %}
-                                </div>
-
-                                <h5 class="card-title fw-bold mb-2">{{ group.name }}</h5>
-                                <p class="text-muted small mb-4">
-                                    {{ group.description|truncatechars:85 }}
-                                </p>
-
-                                <div class="d-flex gap-2 align-items-center">
-                                    <a href="{% url 'group_detail' group.id %}" class="btn btn-sm text-primary fw-bold text-decoration-none px-0 me-3">Learn More</a>
-                                    <a href="{% url 'join_group' group.id %}" class="btn btn-success rounded-pill px-4 btn-sm shadow-sm ms-auto">Join Group</a>
-                                </div>
-                            </div>
-                        </div>
+                <div class="recommended-item">
+                    <div class="recommended-avatar">
+                        <i class="bi bi-star"></i>
                     </div>
+                    <div class="recommended-info">
+                        <h4>{{ group.name }}</h4>
+                        <div class="recommended-tags">
+                            {% if group.course %}
+                            <span class="tag">{{ group.course.code }}</span>
+                            {% else %}
+                            <span class="tag">{{ group.major }}</span>
+                            {% endif %}
+                            <span class="tag">{{ group.member_count|default:0 }} members</span>
+                        </div>
+                        <span class="match-indicator">
+                            <i class="bi bi-lightning-charge-fill"></i>
+                            {{ group.match_score|default:85 }}% match
+                        </span>
+                    </div>
+                    <a href="{% url 'join_group' group.id %}" class="join-mini">
+                        <i class="bi bi-plus"></i>
+                    </a>
+                </div>
                 {% endfor %}
             </div>
-        {% else %}
-            <p class="text-muted small">Checking for groups matching your profile...</p>
-        {% endif %}
+        </div>
     </div>
-
+    {% else %}
+    <div style="margin-top: 1.5rem;">
+        <div class="loading-card">
+            <i class="bi bi-arrow-repeat me-2"></i>
+            Checking for groups matching your profile...
+        </div>
+    </div>
+    {% endif %}
 </div>
-
-<style>
-    .hover-lift {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .hover-lift:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-    }
-    .border-dashed {
-        border: 2px dashed #dee2e6;
-    }
-</style>
 {% endblock %}

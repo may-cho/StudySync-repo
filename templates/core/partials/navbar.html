@@ -1,0 +1,174 @@
+<!-- Floating Sidebar with Navigation Pill -->
+<nav class="aura-sidebar" id="sidebar">
+  <!-- Navigation Pill - Positioned at 25% from top -->
+  <div class="nav-pill">
+    <a href="{% url 'dashboard' %}" class="nav-item {% if request.path == '/dashboard/' %}is-active{% endif %}" title="Dashboard">
+      <span class="nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 9L12 4L21 9L12 14L3 9Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M3 15L12 20L21 15" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M3 12L12 17L21 12" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      {% if request.path == '/dashboard/' %}<span class="active-indicator"></span>{% endif %}
+    </a>
+
+    <a href="{% url 'timetable_view' %}" class="nav-item {% if request.path == '/timetable/' %}is-active{% endif %}" title="Timetable">
+      <span class="nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="3" y1="8" x2="21" y2="8" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="9" y1="2" x2="9" y2="6" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="15" y1="2" x2="15" y2="6" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="12" cy="15" r="1" fill="currentColor"/>
+          <circle cx="16" cy="15" r="1" fill="currentColor"/>
+          <circle cx="8" cy="15" r="1" fill="currentColor"/>
+        </svg>
+      </span>
+      {% if request.path == '/timetable/' %}<span class="active-indicator"></span>{% endif %}
+    </a>
+
+    <a href="{% url 'group_list' %}" class="nav-item {% if request.path == '/groups/' %}is-active{% endif %}" title="Study Groups">
+      <span class="nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </span>
+      {% if request.path == '/groups/' %}<span class="active-indicator"></span>{% endif %}
+    </a>
+
+    <a href="{% url 'find_study_partners_view' %}" class="nav-item {% if request.path == '/partners/' %}is-active{% endif %}" title="Find Partners">
+      <span class="nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M17 3.5a4 4 0 0 1 0 7" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="22" y1="11" x2="19" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="20.5" y1="8.5" x2="20.5" y2="13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </span>
+      {% if request.path == '/partners/' %}<span class="active-indicator"></span>{% endif %}
+    </a>
+  </div>
+</nav>
+
+<style>
+  /* Floating Sidebar */
+.aura-sidebar {
+    position: fixed;
+    left: 1.5rem;
+    top: 15%; 
+    transform: translateY(-35%); 
+    width: 65px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1000;
+    margin-right: 2rem;
+  }
+
+  /* Navigation Pill */
+  .nav-pill {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 32px;
+    padding: 0.8rem .2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    box-shadow: 
+      0 10px 30px -5px rgba(0, 0, 0, 0.05),
+      0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+      0 0 20px rgba(0, 0, 0, 0.02);
+    transition: all 0.3s ease;
+  }
+
+  .nav-pill:hover {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 
+      0 15px 40px -5px rgba(79, 106, 245, 0.15),
+      0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  }
+
+  /* Navigation Items */
+  .nav-item {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 24px;
+    color: #94a3b8;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .nav-item:hover {
+    background: rgba(79, 106, 245, 0.08);
+    color: #4f6af5;
+    transform: translateY(-1px);
+  }
+
+  .nav-item.is-active {
+    background: #4f6af5;
+    color: white;
+    box-shadow: 0 8px 16px -4px rgba(79, 106, 245, 0.3);
+  }
+
+  .nav-item.is-active:hover {
+    background: #3a55e0;
+  }
+
+  .nav-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 22px;
+    height: 22px;
+  }
+
+  .nav-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+  }
+
+  .active-indicator {
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #4f6af5;
+    box-shadow: 0 0 0 2px rgba(79, 106, 245, 0.2);
+  }
+
+  .nav-item.is-active .active-indicator {
+    background: white;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+  }
+
+  /* Adjust main content */
+  body {
+    margin-left: 88px;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .aura-sidebar {
+      left: 0.5rem;
+    }
+    
+    body {
+      margin-left: 72px;
+    }
+  }
+</style>

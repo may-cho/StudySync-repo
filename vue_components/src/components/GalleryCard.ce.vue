@@ -1,216 +1,136 @@
 <template>
-  <div class="gallery-card">
-    <!-- Cover with avatar -->
-    <div class="card-cover" :style="coverStyle">
-      <div class="card-avatar">{{ avatarInitials }}</div>
+  <div class="grid-card">
+    <div class="grid-row">
+      <div class="grid-avatar" :style="avatarStyle">{{ avatarInitials }}</div>
+      <div class="grid-info">
+        <div class="grid-name">{{ parsedProfile.username }}</div>
+        <div class="grid-meta">
+          {{ parsedProfile.major }} • Y{{ parsedProfile.year }}
+        </div>
+      </div>
+      <div class="grid-match">{{ matchPercent }}%</div>
     </div>
 
-    <div class="card-content">
-      <!-- Header -->
-      <div class="card-header">
-        <div>
-          <h3 class="card-name">{{ parsedProfile.username }}</h3>
-          <div class="card-meta">
-            <span>{{ parsedProfile.major }}</span>
-            <span class="dot">•</span>
-            <span>Year {{ parsedProfile.year }}</span>
-          </div>
-        </div>
-        <div class="match-pill">
-          <span class="match-value">{{ matchPercent }}</span>
-          <span class="match-symbol">%</span>
-        </div>
+    <div class="grid-stats">
+      <div class="grid-stat">
+        <span>📚</span>
+        <span>{{ parsedCourses.length }}</span>
       </div>
-
-      <!-- Compatibility Stats - horizontal in grid, vertical in list -->
-      <div class="stats-minimal" :class="{ 'list-stats': isListView }">
-        <div class="stat-minimal">
-          <span class="stat-minimal-emoji">📚</span>
-          <span class="stat-minimal-text">
-            <span class="stat-minimal-value">{{ parsedCourses.length }}</span>
-            <span class="stat-minimal-label">courses</span>
-          </span>
-        </div>
-
-        <div class="stat-minimal-divider" v-if="!isListView"></div>
-
-        <div class="stat-minimal">
-          <span class="stat-minimal-emoji">⏰</span>
-          <span class="stat-minimal-text">
-            <span class="stat-minimal-value">{{ overlapHours }}h</span>
-            <span class="stat-minimal-label">overlap</span>
-          </span>
-        </div>
-
-        <div class="stat-minimal-divider" v-if="!isListView"></div>
-
-        <div class="stat-minimal">
-          <span class="stat-minimal-emoji">{{ timeEmoji }}</span>
-          <span class="stat-minimal-text">
-            <span class="stat-minimal-value">{{ timePeriodLabel }}</span>
-            <span class="stat-minimal-label">pref</span>
-          </span>
-        </div>
+      <div class="grid-stat">
+        <span>⏰</span>
+        <span>{{ overlapHours }}h</span>
       </div>
-
-      <!-- Schedule & Courses in horizontal row for list view -->
-      <div v-if="isListView" class="list-details-row">
-        <!-- Schedule Availability - Compact for list -->
-        <div class="schedule-availability list-compact">
-          <div class="section-header list-header">
-            <div class="section-title">
-              <span>📅</span>
-              <span>Schedule</span>
-            </div>
-            <span v-if="hasSchedule" class="slot-count">{{
-              timeSlots.length
-            }}</span>
-          </div>
-
-          <div v-if="hasSchedule" class="schedule-slots list-slots">
-            <div
-              v-for="(slot, idx) in visibleTimeSlots.slice(0, 2)"
-              :key="idx"
-              class="slot-chip list-chip"
-              :title="slot.tooltip"
-            >
-              <span class="slot-day">{{ slot.dayShort }}</span>
-              <span class="slot-time">{{ slot.timeRange }}</span>
-            </div>
-            <div v-if="timeSlots.length > 2" class="slot-chip more list-chip">
-              +{{ timeSlots.length - 2 }}
-            </div>
-          </div>
-
-          <div v-else class="empty-state list-empty">
-            <span class="empty-text">No availability</span>
-          </div>
-        </div>
-
-        <!-- Shared Courses - Compact for list -->
-        <div class="shared-courses list-compact">
-          <div class="section-header list-header">
-            <div class="section-title">
-              <span>🏷️</span>
-              <span>Courses</span>
-            </div>
-            <span v-if="parsedCourses.length > 0" class="course-count">{{
-              parsedCourses.length
-            }}</span>
-          </div>
-
-          <div v-if="parsedCourses.length > 0" class="course-list list-courses">
-            <span
-              v-for="course in parsedCourses.slice(0, 2)"
-              :key="course"
-              class="course-chip list-chip"
-            >
-              {{ course }}
-            </span>
-            <span
-              v-if="parsedCourses.length > 2"
-              class="course-chip more list-chip"
-            >
-              +{{ parsedCourses.length - 2 }}
-            </span>
-          </div>
-
-          <div v-else class="empty-state list-empty">
-            <span class="empty-text">No courses</span>
-          </div>
-        </div>
+      <div class="grid-stat">
+        <span>{{ timeEmoji }}</span>
       </div>
+    </div>
 
-      <!-- Original schedule/courses sections for grid view -->
-      <template v-if="!isListView">
-        <!-- Schedule Availability -->
-        <div class="schedule-availability">
-          <div class="section-header">
-            <div class="section-title">
-              <span>📅</span>
-              <span>Schedule match</span>
-            </div>
-            <span v-if="hasSchedule" class="slot-count"
-              >{{ timeSlots.length }} slots</span
-            >
-          </div>
+    <div v-if="hasSchedule" class="grid-chips">
+      <span
+        v-for="slot in visibleTimeSlots.slice(0, 2)"
+        :key="slot.dayShort"
+        class="grid-chip"
+      >
+        {{ slot.dayShort }} {{ slot.timeRange }}
+      </span>
+      <span v-if="timeSlots.length > 2" class="grid-chip more">
+        +{{ timeSlots.length - 2 }}
+      </span>
+    </div>
+    <div v-else class="grid-empty-chip">No schedule</div>
 
-          <div v-if="hasSchedule" class="schedule-slots">
-            <div
-              v-for="(slot, idx) in visibleTimeSlots"
-              :key="idx"
-              class="slot-chip"
-              :title="slot.tooltip"
-            >
-              <span class="slot-day">{{ slot.dayShort }}</span>
-              <span class="slot-time">{{ slot.timeRange }}</span>
-            </div>
-            <div v-if="timeSlots.length > 3" class="slot-chip more">
-              +{{ timeSlots.length - 3 }}
-            </div>
-          </div>
+    <div v-if="parsedCourses.length" class="grid-chips">
+      <span
+        v-for="course in parsedCourses.slice(0, 2)"
+        :key="course"
+        class="grid-chip course"
+      >
+        {{ course }}
+      </span>
+      <span v-if="parsedCourses.length > 2" class="grid-chip more">
+        +{{ parsedCourses.length - 2 }}
+      </span>
+    </div>
+    <div v-else class="grid-empty-chip">No courses match</div>
 
-          <div v-else class="empty-state">
-            <span class="empty-text">No common availability</span>
-          </div>
-        </div>
+    <div class="grid-actions">
+      <button class="grid-btn primary" @click="viewProfile">
+        View Profile
+      </button>
+      <button class="connect-btn" @click.stop="openConnectForm">
+        Connect with {{ parsedProfile.username }}
+      </button>
+      <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
+  <div class="modal-content">
+    <h3>Setup Study Group</h3>
 
-        <!-- Shared Courses -->
-        <div class="shared-courses">
-          <div class="section-header">
-            <div class="section-title">
-              <span>🏷️</span>
-              <span>Courses in common</span>
-            </div>
-            <span v-if="parsedCourses.length > 0" class="course-count">
-              {{ parsedCourses.length }} total
-            </span>
-          </div>
+    <div class="form-group">
+      <label>Group Name</label>
+      <input v-model="formData.group_name" placeholder="Name your group..." class="modal-input" />
+    </div>
 
-          <div v-if="parsedCourses.length > 0" class="course-list">
-            <span
-              v-for="course in parsedCourses.slice(0, 3)"
-              :key="course"
-              class="course-chip"
-            >
-              {{ course }}
-            </span>
-            <span v-if="parsedCourses.length > 3" class="course-chip more">
-              +{{ parsedCourses.length - 3 }}
-            </span>
-          </div>
+    <div class="form-group">
+      <label>Group Category</label>
+      <select v-model="formData.group_type" class="modal-input" required>
+        <option value="" disabled>-- Choose a category --</option>
+        <option value="course">Course-Based (Focus on a subject)</option>
+        <option value="major">Major-Based (Connect with your department)</option>
+        <option value="general">General Study (Casual study session)</option>
+      </select>
+    </div>
 
-          <div v-else class="empty-state">
-            <span class="empty-text">No shared courses</span>
-          </div>
-        </div>
-      </template>
+    <div v-if="formData.group_type === 'course'" class="form-group animate-fade-in">
+      <label>Which course are you studying?</label>
+      <select v-model="formData.course" class="modal-input">
+        <option value="" disabled>Select a course</option>
+        <option v-for="course in parsedCourses" :key="course" :value="course">
+          {{ course }}
+        </option>
+      </select>
+    </div>
+    <div v-if="formData.group_type === 'major'" class="form-group animate-fade-in">
+      <label>Target Major</label>
+      <select v-model="formData.major" class="modal-input">
+        <option value="" disabled>Confirm major</option>
+        <option :value="parsedProfile.major">{{ parsedProfile.major }}</option>
+      </select>
+    </div>
 
-      <!-- Actions -->
-      <div class="card-actions" :class="{ 'list-actions': isListView }">
-        <button class="btn-profile" @click="viewProfile">
-          <span>👤</span>
-          <span>View Profile</span>
-        </button>
-        <button class="btn-icon invite" @click="" title="Invite to study group">
-          <span>🤝</span>
-        </button>
-        <button class="btn-icon message" @click="" title="Send message">
-          <span>💬</span>
-        </button>
-      </div>
+    <div v-if="formData.group_type === 'general'" class="form-group animate-fade-in">
+      <label>Select Primary Interest</label>
+      <select v-model="formData.interest" class="modal-input">
+        <option value="" disabled>What is the focus?</option>
+        <option v-for="item in parsedInterests" :key="item.id" :value="item.id">
+          {{ item.name || item.interest_name }}
+        </option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea v-model="formData.group_description" placeholder="Describe the goal..." class="modal-input"></textarea>
+    </div>
+
+    <div class="modal-btns">
+      <button @click="showModal = false" class="cancel-btn">Cancel</button>
+      <button class="grid-btn primary" @click="submitConnection">Create & Invite</button>
+    </div>
+  </div>
+</div>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, inject } from "vue";
+import { ref, computed } from "vue";
+import axios from "axios";
 
 const props = defineProps({
   profile: [Object, String],
   matchPercent: [Number, String],
   overlapHours: [Number, String],
   overlapCourses: [Array, String],
+  allInterests: [Array, String],
   timeSlots: {
     type: [Array, String],
     default: () => [],
@@ -221,15 +141,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["connect"]);
-
-// Use injected view mode or prop
-const injectedViewMode = inject("viewMode", null);
-const isListView = computed(
-  () => (injectedViewMode?.value || props.viewMode) === "list",
-);
-
-// Parsing utilities
+// --- Computed Properties ---
 const parsedProfile = computed(() => {
   if (typeof props.profile === "object") return props.profile;
   try {
@@ -248,7 +160,17 @@ const parsedCourses = computed(() => {
   }
 });
 
-const timeSlots = computed(() => {
+const parsedInterests = computed(() => {
+  if (Array.isArray(props.allInterests)) return props.allInterests;
+  try {
+    return props.allInterests ? JSON.parse(props.allInterests) : [];
+  } catch {
+    console.error("Failed to parse interests");
+    return [];
+  }
+});
+
+const internalTimeSlots = computed(() => {
   if (Array.isArray(props.timeSlots)) return props.timeSlots;
   try {
     return props.timeSlots ? JSON.parse(props.timeSlots) : [];
@@ -257,25 +179,18 @@ const timeSlots = computed(() => {
   }
 });
 
-// Avatar
 const avatarInitials = computed(() => {
   const name = parsedProfile.value.username || "??";
   return name.charAt(0).toUpperCase();
 });
 
-// Cover gradient
-const coverStyle = computed(() => {
-  const gradients = [
-    "linear-gradient(135deg, #4158D0 0%, #C850C0 100%)",
-    "linear-gradient(135deg, #0093E9 0%, #80D0C7 100%)",
-    "linear-gradient(135deg, #8EC5FC 0%, #E0C3FC 100%)",
-  ];
-  const index = (parsedProfile.value.username?.length || 0) % gradients.length;
-  return { background: gradients[index] };
+const avatarStyle = computed(() => {
+  const colors = ["#4158D0", "#C850C0", "#0093E9", "#80D0C7"];
+  const index = (parsedProfile.value.username?.length || 0) % colors.length;
+  return { backgroundColor: colors[index] };
 });
 
-// Time slots
-const hasSchedule = computed(() => timeSlots.value.length > 0);
+const hasSchedule = computed(() => internalTimeSlots.value.length > 0);
 
 const formatTime = (time) => {
   if (!time) return "";
@@ -287,30 +202,17 @@ const formatTime = (time) => {
 };
 
 const visibleTimeSlots = computed(() => {
-  return timeSlots.value.slice(0, 3).map((slot) => ({
+  return internalTimeSlots.value.slice(0, 3).map((slot) => ({
     dayShort: slot.day?.substring(0, 3) || "Any",
     timeRange: slot.start_time
       ? `${formatTime(slot.start_time)}-${formatTime(slot.end_time)}`
-      : "Flexible",
-    tooltip: `${slot.day || "Any day"}: ${slot.start_time || "Flexible"} - ${slot.end_time || "Flexible"}`,
+      : "Flex",
   }));
 });
 
-// Time preference
-const timePeriodLabel = computed(() => {
-  if (timeSlots.value.length === 0) return "flexible";
-  const slot = timeSlots.value[0];
-  if (!slot.start_time) return "flexible";
-  const hour = parseInt(slot.start_time.split(":")[0]);
-  if (hour < 12) return "morning";
-  if (hour < 17) return "afternoon";
-  return "evening";
-});
-
-// Emoji based on time
 const timeEmoji = computed(() => {
-  if (timeSlots.value.length === 0) return "🔄";
-  const slot = timeSlots.value[0];
+  if (internalTimeSlots.value.length === 0) return "🔄";
+  const slot = internalTimeSlots.value[0];
   if (!slot.start_time) return "🔄";
   const hour = parseInt(slot.start_time.split(":")[0]);
   if (hour < 12) return "🌅";
@@ -318,446 +220,261 @@ const timeEmoji = computed(() => {
   return "🌙";
 });
 
-// Actions
+// --- Actions ---
 const viewProfile = () => {
   window.location.href = `/profile/${parsedProfile.value.id}/`;
 };
 
-const inviteToStudyGroup = () => {
-  const username = parsedProfile.value.username.replace("@", "");
-  window.location.href = `/study-groups/create/?invite=${username}`;
+// --- Modal & Connection Logic ---
+const showModal = ref(false);
+
+// SINGLE DEFINITION OF FORMDATA
+const formData = ref({
+  group_name: '',
+  group_description: '',
+  group_type: '',
+  major: '',
+  interest: '',
+  course: '',
+  message: ''
+});
+
+const openConnectForm = () => {
+  // Reset form when opening
+  formData.value = {
+    group_name: '',
+    group_description: '',
+    group_type: '',
+    course: parsedCourses.value.length > 0 ? parsedCourses.value[0] : '',
+    major: '',
+    interest: '',
+    message: ''
+  };
+  showModal.value = true;
 };
 
-const sendMessage = () => {
-  const username = parsedProfile.value.username.replace("@", "");
-  window.location.href = `/messages/new/?to=${username}`;
-};
+const submitConnection = async () => {
+  if (!formData.value.group_type) {
+    alert("Please select a Group Type (Course, Major, or General).");
+    return;
+  }
+  if (!formData.value.group_name || !formData.value.group_description) {
+    alert("Please provide a name and description for the group.");
+    return;
+  }
 
-const handleConnect = () => {
-  emit("connect", parsedProfile.value.username);
+  const data = new FormData();
+  data.append('group_name', formData.value.group_name);
+  data.append('group_description', formData.value.group_description);
+  data.append('group_type', formData.value.group_type);
+  data.append('course_name', formData.value.course);
+  data.append('invite_message', formData.value.message || `Hi! I'd like to study together.`);
+
+  if (formData.value.group_type === 'course') data.append('course_name', formData.value.course);
+  if (formData.value.group_type === 'major') data.append('major_name', formData.value.major);
+  if (formData.value.group_type === 'general') data.append('interest', formData.value.interest); // Sending the ID
+
+  try {
+    const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+
+    await axios.post(`/student/${parsedProfile.value.id}/create-group/`, data, {
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    alert("Invite sent! Awaiting Admin approval.");
+    showModal.value = false;
+  } catch (err) {
+    console.error(err);
+    alert("Connection failed. Please check your inputs.");
+  }
 };
 </script>
-
 <style scoped>
-/* Base styles */
-.gallery-card {
+.grid-card {
   background: white;
-  border-radius: 28px;
-  overflow: hidden;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f2f5;
-  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.gallery-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px -12px rgba(65, 88, 208, 0.2);
-  border-color: transparent;
-}
-
-/* Card Cover */
-.card-cover {
-  height: 110px;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.card-avatar {
-  width: 100px;
-  height: 100px;
-  background: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 500;
-  font-size: 2.2rem;
-  color: white;
-  position: absolute;
-  bottom: -45px;
-  left: 5px;
-  border: 4px solid white;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-  background: linear-gradient(135deg, #4158d0, #c850c0);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  z-index: 2;
-}
-
-.card-content {
-  padding: 3rem 1.5rem 1.25rem;
-  flex: 1;
+  border-radius: 24px;
+  padding: 1.5rem;
+  border: 1px solid #f1f5f9;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  transition: all 0.3s ease;
+
+  /* FIXED: Height auto allows content to fit, min-height ensures consistency */
+  width: 100%;
+  min-height: 420px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-/* Header */
-.card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-shrink: 0;
+.grid-card:hover {
+  border-color: #3b82f6;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
 }
 
-.card-name {
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: #1e293b;
-  margin: 0 0 0.25rem;
-  letter-spacing: -0.01em;
-}
-
-.card-meta {
+.grid-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #64748b;
-  font-size: 0.85rem;
+  gap: 1rem;
 }
 
-.dot {
-  color: #cbd5e1;
-}
-
-.match-pill {
-  background: linear-gradient(135deg, #4158d0, #c850c0);
-  padding: 0.35rem 0.75rem;
-  border-radius: 40px;
+.grid-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.4rem;
   color: white;
-  font-weight: 600;
-  font-size: 1.1rem;
-  line-height: 1;
-  box-shadow: 0 4px 10px rgba(65, 88, 208, 0.2);
   flex-shrink: 0;
 }
 
-.match-symbol {
-  font-size: 0.7rem;
-  opacity: 0.9;
-  margin-left: 1px;
-}
-
-/* Compatibility Stats */
-.stats-minimal {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-  margin-bottom: 0.75rem;
-  border-bottom: 1px dashed #e2e8f0;
-}
-
-.stat-minimal {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.grid-info {
   flex: 1;
+  min-width: 0;
 }
 
-.stat-minimal-emoji {
-  font-size: 1.2rem;
-  opacity: 0.7;
-}
-
-.stat-minimal-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-minimal-value {
-  font-weight: 500;
-  font-size: 0.9rem;
-  color: #1e293b;
-  line-height: 1.2;
-}
-
-.stat-minimal-label {
-  font-size: 0.6rem;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.stat-minimal-divider {
-  width: 1px;
-  height: 30px;
-  background: linear-gradient(to bottom, transparent, #e2e8f0, transparent);
-  margin: 0 0.5rem;
-}
-
-/* Section Headers */
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.slot-count,
-.course-count {
-  font-size: 0.7rem;
-  color: #4158d0;
-  background: #f0f2ff;
-  padding: 0.2rem 0.6rem;
-  border-radius: 30px;
-  font-weight: 500;
-}
-
-/* Schedule Slots */
-.schedule-availability,
-.shared-courses {
-  flex-shrink: 0;
-}
-
-.schedule-slots,
-.course-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  min-height: 36px;
-}
-
-.slot-chip {
-  background: #f8fafc;
-  padding: 0.4rem 0.75rem;
-  border-radius: 30px;
-  font-size: 0.75rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid #eef2f6;
-  transition: all 0.2s;
-  cursor: help;
-}
-
-.slot-chip:hover {
-  background: #f0f2ff;
-  border-color: #4158d0;
-}
-
-.slot-day {
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.slot-time {
-  color: #64748b;
-}
-
-.slot-chip.more {
-  background: transparent;
-  border: 1px dashed #cbd5e1;
-  color: #94a3b8;
-  cursor: default;
-}
-
-.slot-chip.more:hover {
-  background: transparent;
-  border-color: #cbd5e1;
-}
-
-/* Course Chips */
-.course-chip {
-  background: #f8fafc;
-  padding: 0.4rem 0.9rem;
-  border-radius: 30px;
-  font-size: 0.75rem;
-  color: #475569;
-  border: 1px solid #eef2f6;
-  transition: all 0.2s;
-  max-width: 120px;
+.grid-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #0f172a;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.course-chip:hover {
-  border-color: #c850c0;
-  color: #c850c0;
-  background: #fdf2f8;
-}
-
-.course-chip.more {
-  background: transparent;
-  border: 1px dashed #cbd5e1;
-  color: #94a3b8;
-  cursor: default;
-}
-
-.course-chip.more:hover {
-  background: transparent;
-  border-color: #cbd5e1;
-  color: #94a3b8;
-}
-
-/* Empty State */
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f8fafc;
-  border-radius: 30px;
-  padding: 0.5rem 1rem;
-  min-height: 36px;
-}
-
-.empty-text {
+.grid-meta {
   font-size: 0.75rem;
-  color: #94a3b8;
-}
-
-/* Actions */
-.card-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: auto;
-  padding-top: 0.5rem;
-  flex-shrink: 0;
-}
-
-.btn-profile {
-  flex: 2;
-  padding: 0.7rem;
-  border: none;
-  border-radius: 40px;
-  font-weight: 500;
-  font-size: 0.8rem;
-  background: linear-gradient(135deg, #4158d0, #c850c0);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: 0 6px 14px rgba(65, 88, 208, 0.2);
-  transition: all 0.2s;
-}
-
-.btn-profile:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(65, 88, 208, 0.3);
-}
-
-.btn-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: none;
-  background: white;
   color: #64748b;
-  cursor: pointer;
-  font-size: 1.2rem;
+}
+
+.grid-match {
+  background: #f0f9ff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0369a1;
+  border: 1px solid #e0f2fe;
+}
+
+.grid-stats {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.grid-stat {
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.grid-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-height: 32px;
+}
+
+.grid-chip {
+  background: #f8fafc;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #475569;
   border: 1px solid #e2e8f0;
+}
+
+.grid-chip.course {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #dbeafe;
+}
+
+.grid-empty-chip {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  padding: 0.3rem;
+  font-style: italic;
+}
+
+.grid-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.grid-btn {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: none;
+  background: #0f172a;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.grid-btn:hover {
+  background: #1e293b;
+}
+
+.connect-btn {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.2s;
-  flex-shrink: 0;
 }
 
-.btn-icon:hover {
-  transform: translateY(-2px);
+.connect-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #f0f9ff;
 }
 
-.btn-icon.invite:hover {
-  background: #4158d0;
-  color: white;
-  border-color: #4158d0;
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white; padding: 2rem; border-radius: 20px;
+  width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 1rem;
+}
+.modal-content select, .modal-content textarea {
+  padding: 0.5rem; border: 1px solid #ddd; border-radius: 8px;
 }
 
-.btn-icon.message:hover {
-  background: #c850c0;
-  color: white;
-  border-color: #c850c0;
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
 }
-
-/* Responsive */
-@media (max-width: 768px) {
-  .gallery-card.list-view {
-    flex-direction: column;
-    min-height: auto;
-  }
-
-  .list-view .card-cover {
-    width: 100%;
-    height: 100px;
-    border-radius: 24px 24px 0 0;
-  }
-
-  .list-view .card-avatar {
-    width: 80px;
-    height: 80px;
-    font-size: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    top: auto;
-    bottom: -40px;
-    margin-top: 0;
-  }
-
-  .list-view .card-content {
-    padding: 3rem 1.25rem 1.25rem;
-  }
-
-  .list-details-row {
-    flex-direction: column;
-    gap: 1rem;
-  }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 @media (max-width: 640px) {
-  .card-avatar {
-    width: 80px;
-    height: 80px;
-    font-size: 2rem;
-    bottom: -40px;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-
-  .card-content {
-    padding: 2.8rem 1.25rem 1.25rem;
-  }
-
-  .card-name {
-    font-size: 1.1rem;
-  }
-
-  .stat-minimal-emoji {
-    font-size: 1rem;
-  }
-
-  .stat-minimal-value {
-    font-size: 0.85rem;
-  }
-
-  .btn-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 1rem;
-  }
-
-  .list-view .card-avatar {
-    width: 70px;
-    height: 70px;
-    font-size: 1.8rem;
-    bottom: -35px;
+  .grid-card {
+    min-height: 400px;
   }
 }
 </style>

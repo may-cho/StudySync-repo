@@ -4,119 +4,556 @@
 
 {% block content %}
 <style>
-    /* Fix for the overlapping/vertical checkboxes */
-    .day-selector ul {
-        display: flex;
-        flex-wrap: wrap;
-        list-style: none;
-        padding: 0;
+    /* MINIMAL LUXURY - 2024 Design Language */
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+    * {
         margin: 0;
-        gap: 15px; /* Spacing between days */
+        padding: 0;
+        box-sizing: border-box;
     }
 
-    .day-selector li {
+    body {
+        background: #F2F0EA;
+        font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .bento-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    /* HEADER - Minimal */
+    .glass-header {
+        background: #FFFFFF;
+        border-radius: 2rem;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
         display: flex;
         align-items: center;
-        gap: 8px;
-        white-space: nowrap;
+        gap: 1.5rem;
+        border: 1px solid #E9E8E4;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    /* Style the checkboxes to be neat */
-    .day-selector input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
+    .header-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        background: #1A1F2E;
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 300;
     }
 
-    .day-selector label {
-        margin-bottom: 0;
-        cursor: pointer;
+    .header-title h1 {
+        font-size: 1.8rem;
+        font-weight: 500;
+        color: #1A1F2E;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }
+
+    .header-title p {
+        color: #8A8F99;
+        font-size: 0.9rem;
+        font-weight: 400;
+    }
+
+    /* GRID SYSTEM */
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* CARDS - Clean & Minimal */
+    .card {
+        background: #FFFFFF;
+        border-radius: 2rem;
+        padding: 2rem;
+        border: 1px solid #F0EFEA;
+        transition: all 0.2s ease;
+    }
+
+    .card:hover {
+        border-color: #D9D7D1;
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+    }
+
+    .card-header svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: #1A1F2E;
+        opacity: 0.5;
+    }
+
+    .card-header h2 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1A1F2E;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        opacity: 0.5;
+    }
+
+    /* FORM ELEMENTS - Clean */
+    .field {
+        margin-bottom: 1.5rem;
+    }
+
+    .field-label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #8A8F99;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.01em;
+    }
+
+    .field-input {
+        width: 100%;
+        padding: 0.9rem 1.2rem;
+        background: #F8F7F4;
+        border: 1px solid #F0EFEA;
+        border-radius: 1rem;
         font-size: 0.95rem;
+        font-family: 'Space Grotesk', sans-serif;
+        color: #1A1F2E;
+        transition: all 0.2s ease;
     }
 
-    /* Fix for generic field spacing */
-    .form-control, .form-select {
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
+    .field-input:focus {
+        outline: none;
+        background: #FFFFFF;
+        border-color: #1A1F2E;
+    }
+
+    /* Textarea */
+    textarea.field-input {
+        min-height: 6rem;
+        resize: vertical;
+        line-height: 1.5;
+    }
+
+    /* SELECT FIELDS */
+    select.field-input {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8F99' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1.2rem center;
+        padding-right: 2.5rem;
+    }
+
+    /* DAY TOGGLES - Minimal */
+    .day-grid {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0 1.5rem 0;
+    }
+
+    .day-btn {
+        flex: 1;
+    }
+
+    .day-btn input {
+        display: none;
+    }
+
+    .day-btn label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 0.7rem 0;
+        background: #F8F7F4;
+        border: 1px solid #F0EFEA;
+        border-radius: 2rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #8A8F99;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .day-btn input:checked + label {
+        background: #1A1F2E;
+        border-color: #1A1F2E;
+        color: white;
+    }
+
+    .day-btn label:hover {
+        background: #EDECE8;
+        border-color: #D9D7D1;
+    }
+
+    /* TIME GROUP */
+    .time-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .time-group .field {
+        margin-bottom: 0;
+    }
+
+    /* INFO BLOCK */
+    .info-panel {
+        background: #F8F7F4;
+        border-radius: 1.5rem;
+        padding: 1.25rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #EDECE8;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        color: #8A8F99;
+        font-size: 0.85rem;
+    }
+
+    .info-value {
+        color: #1A1F2E;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    /* SECTION DIVIDER */
+    .section-divider {
+        margin: 1.5rem 0 1rem 0;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #F0EFEA;
+    }
+
+    .section-divider span {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #8A8F99;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    /* BUTTONS */
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .btn {
+        padding: 0.9rem 2rem;
+        border-radius: 2rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        font-family: 'Space Grotesk', sans-serif;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.2s ease;
+        letter-spacing: -0.01em;
+    }
+
+    .btn-primary {
+        background: #1A1F2E;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #2A2F3E;
+    }
+
+    .btn-secondary {
+        background: #F8F7F4;
+        color: #1A1F2E;
+        border: 1px solid #F0EFEA;
+    }
+
+    .btn-secondary:hover {
+        background: #EDECE8;
+    }
+
+    /* DANGER ZONE - Clean */
+    .danger-zone {
+        margin-top: 2rem;
+        padding: 1.5rem 2rem;
+        background: #FEF8F8;
+        border: 1px solid #FEE2E2;
+        border-radius: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .danger-info h3 {
+        color: #991B1B;
+        font-size: 1rem;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .danger-info p {
+        color: #B91C1C;
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+
+    .btn-danger {
+        background: #DC2626;
+        color: white;
+        border: none;
+        padding: 0.7rem 2rem;
+        border-radius: 2rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-danger:hover {
+        background: #B91C1C;
+    }
+
+    /* CONDITIONAL FIELDS */
+    .conditional-field {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #F0EFEA;
+    }
+
+    @media (max-width: 700px) {
+        .grid-2 {
+            grid-template-columns: 1fr;
+        }
+        
+        .danger-zone {
+            flex-direction: column;
+            text-align: center;
+            gap: 1rem;
+        }
     }
 </style>
 
-<div class="container mt-5" style="max-width: 800px;">
-    <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body p-4 p-md-5">
-            <div class="d-flex align-items-center mb-4">
-                <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
-                    <i class="fas fa-edit text-primary fs-4"></i>
+<div class="bento-container">
+    <!-- Header -->
+    <div class="glass-header">
+        <div class="header-icon">✎</div>
+        <div class="header-title">
+            <h1>Edit {{ group.name }}</h1>
+            <p>{{ group.member_count }} members · {{ group.group_type }}</p>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Grid Layout -->
+        <div class="grid-2">
+            <!-- Left Column - Basic Info -->
+            <div class="card">
+                <div class="card-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="8" r="4"/>
+                        <path d="M5.5 20v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2"/>
+                    </svg>
+                    <h2>Information</h2>
                 </div>
-                <h3 class="fw-bold mb-0 text-dark">Edit Group Details</h3>
+
+                <div class="field">
+                    <label class="field-label">Group name</label>
+                    {{ form.name }}
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Description</label>
+                    {{ form.description }}
+                </div>
+
+                <!-- Conditional Fields Based on Group Type -->
+                {% if group.group_type == 'major' %}
+                <div class="conditional-field">
+                    <div class="field">
+                        <label class="field-label">Major</label>
+                        {{ form.major }}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if group.group_type == 'course' %}
+                <div class="conditional-field">
+                    <div class="field">
+                        <label class="field-label">Course</label>
+                        {{ form.course }}
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
-            <form method="post">
-                {% csrf_token %}
-
-                <div class="mb-4">
-                    <label class="form-label fw-bold small text-muted">GROUP NAME</label>
-                    {{ form.name }}
-                    {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+            <!-- Right Column - Overview -->
+            <div class="card">
+                <div class="card-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M3 12h4l3-9 4 18 3-9h4"/>
+                    </svg>
+                    <h2>Overview</h2>
                 </div>
-
-                <div class="mb-4">
-                    <label class="form-label fw-bold small text-muted">DESCRIPTION</label>
-                    {{ form.description }}
-                    {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
-                </div>
-
-                <hr class="my-4 opacity-50">
-
-                <div class="row g-3">
-                    <div class="col-12 mb-2">
-                        <label class="form-label fw-bold small text-muted">STUDY DAYS</label>
-                        <div class="p-3 bg-light rounded-3 border day-selector">
-                            {{ form.study_day }}
-                        </div>
-                        {% if form.study_day.errors %}<div class="text-danger small">{{ form.study_day.errors }}</div>{% endif %}
+                <div class="info-panel">
+                    <div class="info-row">
+                        <span class="info-label">Created</span>
+                        <span class="info-value">{{ group.created_at|date:"M d, Y" }}</span>
                     </div>
-
-
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold small text-muted">START TIME</label>
-                        {{ form.start_time }}
-                        {% if form.start_time.errors %}<div class="text-danger small">{{ form.start_time.errors }}</div>{% endif %}
+                    <div class="info-row">
+                        <span class="info-label">Members</span>
+                        <span class="info-value">{{ group.member_count }}/{{ group.max_members }}</span>
                     </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold small text-muted">END TIME</label>
-                        {{ form.end_time }}
-                        {% if form.end_time.errors %}<div class="text-danger small">{{ form.end_time.errors }}</div>{% endif %}
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold small text-muted">MAX MEMBERS</label>
-                        {{ form.max_members }}
-                        {% if form.max_members.errors %}<div class="text-danger small">{{ form.max_members.errors }}</div>{% endif %}
+                    <div class="info-row">
+                        <span class="info-label">Type</span>
+                        <span class="info-value">{{ group.group_type|title }}</span>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="row">
-                    {% for field in form %}
-                        {% if field.name not in "name,description,study_day,start_time,end_time,max_members" %}
-                            <div class="col-md-6 mt-4">
-                                <label class="form-label fw-bold small text-muted">{{ field.label|upper }}</label>
-                                {{ field }}
-                                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
-                            </div>
-                        {% endif %}
+        <!-- Second Row - Schedule + Settings -->
+        <div class="grid-2">
+            <!-- Schedule Card -->
+            <div class="card">
+                <div class="card-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                    </svg>
+                    <h2>Schedule</h2>
+                </div>
+
+                <div class="section-divider">
+                    <span>Study days</span>
+                </div>
+
+                <div class="day-grid">
+                    {% for value, text in form.fields.study_day.choices %}
+                    <div class="day-btn">
+                        <input type="checkbox" name="study_day" value="{{ value }}" 
+                            id="day_{{ value }}" 
+                            {% if value in form.study_day.value or value in form.initial.study_day %}checked{% endif %}>
+                        <label for="day_{{ value }}">
+                            {{ text|slice:":3" }}
+                        </label>
+                    </div>
                     {% endfor %}
                 </div>
 
-                <div class="d-flex justify-content-end gap-2 mt-5">
-                    <a href="{% url 'group_detail' group.id %}" class="btn btn-light rounded-pill px-4">Cancel</a>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">
-                        Save Changes
-                    </button>
+                <div class="section-divider">
+                    <span>Time</span>
                 </div>
-            </form>
+
+                <div class="time-group">
+                    <div class="field">
+                        <label class="field-label">Start</label>
+                        {{ form.start_time }}
+                    </div>
+                    <div class="field">
+                        <label class="field-label">End</label>
+                        {{ form.end_time }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Card -->
+            <div class="card">
+                <div class="card-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <h2>Settings</h2>
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Max members</label>
+                    {{ form.max_members }}
+                </div>
+
+                <!-- Additional settings fields -->
+                {% for field in form %}
+                    {% if field.name not in "name,description,study_day,start_time,end_time,max_members,major,course" %}
+                        <div class="field">
+                            <label class="field-label">{{ field.label }}</label>
+                            {{ field }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
         </div>
+
+        <!-- Actions -->
+        <div class="actions">
+            <a href="{% url 'group_detail' group.id %}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+    </form>
+
+    <!-- Danger Zone -->
+    {% if is_creator %}
+    <div class="danger-zone">
+        <div class="danger-info">
+            <h3>Delete group</h3>
+            <p>This action cannot be undone</p>
+        </div>
+        <button onclick="if(confirm('Delete this group?')) document.getElementById('delete-form').submit();" class="btn-danger">
+            Delete
+        </button>
+        <form id="delete-form" method="post" action="{% url 'group_delete' group.id %}" style="display: none;">{% csrf_token %}</form>
     </div>
+    {% endif %}
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dayBtns = document.querySelectorAll('.day-btn input');
+        const start = document.getElementById('id_study_start_time');
+        const end = document.getElementById('id_study_end_time');
+        const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        
+        dayBtns.forEach(btn => {
+            btn.addEventListener('change', function() {
+                const selected = Array.from(document.querySelectorAll('.day-btn input:checked')).map(cb => cb.value);
+                
+                if (selected.length > 0) {
+                    const hasWeekday = selected.some(day => weekdays.includes(day));
+                    if (hasWeekday) {
+                        start.value = '16:00'; 
+                        end.value = '18:00';
+                    } else {
+                        start.value = '10:00'; 
+                        end.value = '12:00';
+                    }
+                }
+            });
+        });
+    });
+    </script>
 </div>
 {% endblock %}

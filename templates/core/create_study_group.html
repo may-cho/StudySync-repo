@@ -4,166 +4,596 @@
 {% block title %}Create Study Group - StudySync{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            
-            <div class="text-center mb-5">
-                <h2 class="fw-bold text-dark">Start a New Study Journey</h2>
-                <p class="text-muted">Fill in the details below to create your group and invite others.</p>
-            </div>
-
-            <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
-                {% csrf_token %}
-
-                {% if messages %}
-                    {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show border-0 shadow-sm mb-4">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-
-                <div class="row g-4 d-flex align-items-stretch">
-                    
-                    <div class="col-md-7">
-                        <div class="card border-0 shadow-sm h-100">
-                            <div class="card-body p-4 d-flex flex-column">
-                                <h5 class="card-title mb-4 text-primary fw-bold">
-                                    <i class="fas fa-edit me-2"></i>Group Details
-                                </h5>
-
-                                <div class="mb-4">
-                                    <label for="id_name" class="form-label">Group Name *</label>
-                                    <input type="text" name="name" id="id_name"
-                                           class="form-control form-control-lg {% if form.name.errors %}is-invalid{% endif %}"
-                                           value="{{ form.name.value|default:'' }}"
-                                           placeholder="e.g., Python Masters 2026" required>
-                                </div>
-
-                                <div class="mb-4">
-                                    <label for="id_description" class="form-label">Description *</label>
-                                    <textarea name="description" id="id_description"
-                                              class="form-control {% if form.description.errors %}is-invalid{% endif %}"
-                                              rows="4" placeholder="What are the goals of this group?" required>{{ form.description.value|default:'' }}</textarea>
-                                </div>
-
-                                <div class="bg-light p-3 rounded-3 mt-auto">
-                                    <label for="id_group_type" class="form-label text-primary fw-bold">Group Type</label>
-                                    <select name="group_type" class="form-select border-primary-subtle" id="id_group_type"
-                                            hx-target="#dynamic-field"
-                                            hx-get="{% url 'ajax_load_group_fields' %}"
-                                            hx-trigger="change">
-                                        {% for key, val in form.fields.group_type.choices %}
-                                            <option value="{{ key }}">{{ val }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    
-                                    <div id="dynamic-field" class="mt-3">
-                                        {% include 'core/partials/group_type_fields.html' %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-5">
-                        <div class="card border-0 shadow-sm h-100">
-                            <div class="card-body p-4 d-flex flex-column">
-                                <h5 class="card-title mb-4 text-primary fw-bold">
-                                    <i class="fas fa-calendar-alt me-2"></i>Session Details
-                                </h5>
-
-                                <div class="mb-4">
-                                    <label class="form-label d-block fw-bold small text-muted text-uppercase">Study Days</label>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        {% for value, text in form.fields.study_day.choices %}
-                                        <div class="day-toggle">
-                                            <input type="checkbox" name="study_day" value="{{ value }}" 
-                                                class="btn-check day-checkbox" id="day_{{ value }}" 
-                                                {% if value in form.study_day.value or value in form.initial.study_day %}checked{% endif %}>
-                                            <label class="btn btn-outline-primary rounded-pill px-3 btn-sm" for="day_{{ value }}">
-                                                {{ text|slice:":3" }}
-                                            </label>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-
-                                <div class="row g-2 mb-4">
-                                    <div class="col-6">
-                                        <label class="form-label small text-muted">Starts</label>
-                                        <input type="time" name="start_time" id="id_study_start_time" class="form-control" value="16:00">
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label small text-muted">Ends</label>
-                                        <input type="time" name="end_time" id="id_study_end_time" class="form-control" value="18:00">
-                                    </div>
-                                </div>
-
-                                <div class="mb-4">
-                                    <label for="id_max_members" class="form-label text-muted small fw-bold">MAX PARTICIPANTS</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-white"><i class="fas fa-users"></i></span>
-                                        <input type="number" name="max_members" id="id_max_members" class="form-control" value="10" min="2" max="50">
-                                    </div>
-                                </div>
-
-                                <div class="alert alert-info border-0 shadow-sm p-3 mt-auto mb-0">
-                                    <h6 class="fw-bold small mb-1"><i class="fas fa-lightbulb me-2 text-warning"></i>Senior Tip</h6>
-                                    <p class="extra-small mb-0 text-dark">Most successful groups meet <strong>2 hours</strong> per session.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="d-flex align-items-center justify-content-between mt-5 pt-4 border-top">
-                    <a href="{% url 'group_list' %}" class="text-decoration-none text-muted fw-bold">
-                        <i class="fas fa-chevron-left me-1"></i> Back to Dashboard
-                    </a>
-                    <button type="submit" class="btn btn-primary btn-lg px-5 shadow rounded-pill">
-                        Create Study Group <i class="fas fa-rocket ms-2"></i>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <style>
-    body { background-color: #f4f7f6; }
-    .card { border-radius: 1rem; border: none !important; }
-    .extra-small { font-size: 0.75rem; }
-    .btn-check:checked + .btn-outline-primary {
-        background-color: #0d6efd;
-        color: white;
+    /* BENTO GRID STYLE - Matching Study Hub */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
-    .btn-outline-primary:hover {
-        background-color: rgba(13, 110, 253, 0.1);
-        color: #0d6efd;
+
+    body {
+        background: #F5F7FA;
+        font-family: 'Inter', sans-serif;
+        color: #1A2E35;
+        min-height: 100vh;
+    }
+
+    .bento-create-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+
+    /* Elegant Header */
+    .create-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2.5rem;
+        background: white;
+        border-radius: 40px;
+        padding: 1.2rem 2rem;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02);
+    }
+
+    .header-icon {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #1E3A5F, #2D4B75);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        box-shadow: 0 8px 16px -4px rgba(30,58,95,0.2);
+    }
+
+    .header-text h1 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #0F172A;
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+    }
+
+    .header-text p {
+        color: #64748B;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .header-text p i {
+        color: #1E3A5F;
+        font-size: 0.8rem;
+    }
+
+    /* Bento Grid Layout */
+    .bento-create-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    /* Elegant Cards */
+    .bento-card {
+        background: white;
+        border-radius: 32px;
+        padding: 2rem;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        height: fit-content;
+    }
+
+    .bento-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px -15px rgba(30,58,95,0.1), 0 0 0 1px rgba(30,58,95,0.1);
+    }
+
+    /* Section Headers */
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #F1F5F9;
+        position: relative;
+    }
+
+    .section-header::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 60px;
+        height: 2px;
+        background: linear-gradient(90deg, #1E3A5F, #4F6AF5);
+        border-radius: 2px;
+    }
+
+    .header-icon-wrapper {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #1E3A5F10, #4F6AF510);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1E3A5F;
+        font-size: 1.1rem;
+        border: 1px solid rgba(30,58,95,0.1);
+    }
+
+    .section-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0F172A;
+        letter-spacing: -0.01em;
+    }
+
+    /* Form Elements */
+    .form-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .form-control, .form-select {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        border: 1px solid #E2E8F0;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        background: #F8FAFC;
+    }
+
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #1E3A5F;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(30,58,95,0.1);
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    /* Group Type Section */
+    .group-type-section {
+        background: #F8FAFC;
+        border-radius: 24px;
+        padding: 1.2rem;
+        margin-top: 1rem;
+    }
+
+    /* Day Toggle Buttons */
+    .day-toggle-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .day-toggle-btn {
+        flex: 1;
+        min-width: 60px;
+    }
+
+    .day-toggle-btn input[type="checkbox"] {
+        display: none;
+    }
+
+    .day-toggle-btn label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 0.6rem 0;
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 40px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #64748B;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .day-toggle-btn input[type="checkbox"]:checked + label {
+        background: #1E3A5F;
+        border-color: #1E3A5F;
+        color: white;
+        box-shadow: 0 4px 8px -2px rgba(30,58,95,0.3);
+    }
+
+    .day-toggle-btn label:hover {
+        background: #F1F5F9;
+        border-color: #94A3B8;
+    }
+
+    /* Time Input Row */
+    .time-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .time-input-group {
+        flex: 1;
+    }
+
+    /* Input Group */
+    .input-group-custom {
+        display: flex;
+        align-items: center;
+        border: 1px solid #E2E8F0;
+        border-radius: 20px;
+        overflow: hidden;
+        background: #F8FAFC;
+    }
+
+    .input-group-text {
+        padding: 0.8rem 1rem;
+        background: white;
+        color: #1E3A5F;
+        border-right: 1px solid #E2E8F0;
+    }
+
+    .input-group-custom .form-control {
+        border: none;
+        border-radius: 0;
+        background: transparent;
+    }
+
+    .input-group-custom .form-control:focus {
+        box-shadow: none;
+    }
+
+    /* Tip Card */
+    .tip-card {
+        background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+        border-radius: 24px;
+        padding: 1.2rem;
+        margin-top: 1.5rem;
+        border: 1px solid #C7D2FE;
+    }
+
+    .tip-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .tip-header i {
+        color: #F59E0B;
+        font-size: 1rem;
+    }
+
+    .tip-header h6 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #1E3A5F;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .tip-text {
+        font-size: 0.8rem;
+        color: #0F172A;
+        line-height: 1.5;
+    }
+
+    .tip-text strong {
+        color: #1E3A5F;
+        font-weight: 600;
+    }
+
+    /* Footer Actions */
+    .form-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #E2E8F0;
+    }
+
+    .back-link {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        color: #64748B;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .back-link:hover {
+        color: #1E3A5F;
+        gap: 0.6rem;
+    }
+
+    .submit-btn {
+        background: linear-gradient(135deg, #1E3A5F, #2D4B75);
+        color: white;
+        border: none;
+        border-radius: 40px;
+        padding: 0.8rem 2.5rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        box-shadow: 0 8px 16px -4px rgba(30,58,95,0.3);
+        cursor: pointer;
+    }
+
+    .submit-btn:hover {
+        background: #14273F;
+        transform: translateY(-2px);
+        box-shadow: 0 12px 20px -6px rgba(30,58,95,0.4);
+    }
+
+    /* Alert Messages */
+    .alert-messages {
+        margin-bottom: 1.5rem;
+    }
+
+    .alert-custom {
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        border-radius: 20px;
+        padding: 1rem 1.2rem;
+        color: #991B1B;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .alert-custom.success {
+        background: #F0FDF4;
+        border-color: #BBF7D0;
+        color: #166534;
+    }
+
+    .alert-custom i {
+        margin-right: 0.5rem;
+    }
+
+    .btn-close-custom {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        font-size: 1rem;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+    .btn-close-custom:hover {
+        opacity: 1;
+    }
+
+    /* Dynamic Field Section */
+    #dynamic-field {
+        margin-top: 1rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .bento-create-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .create-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        
+        .day-toggle-grid {
+            flex-wrap: wrap;
+        }
+        
+        .day-toggle-btn {
+            flex: 0 0 calc(33.333% - 0.5rem);
+        }
     }
 </style>
 
+<div class="bento-create-container">
+    <!-- Elegant Header -->
+    <div class="create-header">
+        <div class="header-icon">
+            <i class="bi bi-plus-circle"></i>
+        </div>
+        <div class="header-text">
+            <h1>Start a New Study Journey</h1>
+            <p>
+                <i class="bi bi-dot"></i>
+                Fill in the details below to create your group and invite others
+            </p>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="alert-messages">
+        {% for message in messages %}
+        <div class="alert-custom {% if message.tags == 'success' %}success{% endif %}">
+            <div>
+                {% if message.tags == 'success' %}
+                <i class="bi bi-check-circle-fill"></i>
+                {% else %}
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                {% endif %}
+                {{ message }}
+            </div>
+            <button type="button" class="btn-close-custom" data-bs-dismiss="alert">✕</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        <!-- Bento Grid Layout -->
+        <div class="bento-create-grid">
+            <!-- Left Column - Group Details -->
+            <div class="bento-card">
+                <div class="section-header">
+                    <div class="header-icon-wrapper">
+                        <i class="bi bi-pencil-square"></i>
+                    </div>
+                    <h3>Group Details</h3>
+                </div>
+
+                <div class="mb-4">
+                    <label for="id_name" class="form-label">Group Name *</label>
+                    <input type="text" name="name" id="id_name"
+                           class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+                           value="{{ form.name.value|default:'' }}"
+                           placeholder="e.g., Python Masters 2026" required>
+                </div>
+
+                <div class="mb-4">
+                    <label for="id_description" class="form-label">Description *</label>
+                    <textarea name="description" id="id_description"
+                              class="form-control {% if form.description.errors %}is-invalid{% endif %}"
+                              rows="4" placeholder="What are the goals of this group?" required>{{ form.description.value|default:'' }}</textarea>
+                </div>
+
+                <div class="group-type-section">
+                    <label for="id_group_type" class="form-label" style="color: #1E3A5F;">Group Type</label>
+                    <select name="group_type" class="form-select" id="id_group_type"
+                            hx-target="#dynamic-field"
+                            hx-get="{% url 'ajax_load_group_fields' %}"
+                            hx-trigger="change">
+                        {% for key, val in form.fields.group_type.choices %}
+                            <option value="{{ key }}">{{ val }}</option>
+                        {% endfor %}
+                    </select>
+                    
+                    <div id="dynamic-field">
+                        {% include 'core/partials/group_type_fields.html' %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Session Details -->
+            <div class="bento-card">
+                <div class="section-header">
+                    <div class="header-icon-wrapper">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                    <h3>Session Details</h3>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Study Days</label>
+                    <div class="day-toggle-grid">
+                        {% for value, text in form.fields.study_day.choices %}
+                        <div class="day-toggle-btn">
+                            <input type="checkbox" name="study_day" value="{{ value }}" 
+                                class="day-checkbox" id="day_{{ value }}" 
+                                {% if value in form.study_day.value or value in form.initial.study_day %}checked{% endif %}>
+                            <label for="day_{{ value }}">
+                                {{ text|slice:":3" }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="time-row">
+                    <div>
+                        <label class="form-label">Starts</label>
+                        <input type="time" name="start_time" id="id_study_start_time" class="form-control" value="16:00">
+                    </div>
+                    <div>
+                        <label class="form-label">Ends</label>
+                        <input type="time" name="end_time" id="id_study_end_time" class="form-control" value="18:00">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="id_max_members" class="form-label">Max Participants</label>
+                    <div class="input-group-custom">
+                        <span class="input-group-text"><i class="bi bi-people"></i></span>
+                        <input type="number" name="max_members" id="id_max_members" class="form-control" value="10" min="2" max="50">
+                    </div>
+                </div>
+
+                <!-- Tip Card -->
+                <div class="tip-card">
+                    <div class="tip-header">
+                        <i class="bi bi-lightbulb"></i>
+                        <h6>Senior Tip</h6>
+                    </div>
+                    <p class="tip-text">
+                        Most successful groups meet <strong>2 hours</strong> per session.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Footer -->
+        <div class="form-footer">
+            <a href="{% url 'group_list' %}" class="back-link">
+                <i class="bi bi-chevron-left"></i>
+                Back to Dashboard
+            </a>
+            <button type="submit" class="submit-btn">
+                Create Study Group <i class="bi bi-rocket"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
 <script>
     // Logic for Multiple Day Toggles
-    const dayCheckboxes = document.querySelectorAll('.day-checkbox');
-    dayCheckboxes.forEach(cb => {
-        cb.addEventListener('change', function() {
-            const selected = Array.from(document.querySelectorAll('.day-checkbox:checked')).map(c => c.value);
-            const start = document.getElementById('id_study_start_time');
-            const end = document.getElementById('id_study_end_time');
-            const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-            
-            if (selected.length > 0) {
-                const hasWeekday = selected.some(day => weekdays.includes(day));
-                if (hasWeekday) {
-                    start.value = '16:00'; end.value = '18:00';
-                } else {
-                    start.value = '10:00'; end.value = '12:00';
+    document.addEventListener('DOMContentLoaded', function() {
+        const dayCheckboxes = document.querySelectorAll('.day-checkbox');
+        dayCheckboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                const selected = Array.from(document.querySelectorAll('.day-checkbox:checked')).map(c => c.value);
+                const start = document.getElementById('id_study_start_time');
+                const end = document.getElementById('id_study_end_time');
+                const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+                
+                if (selected.length > 0) {
+                    const hasWeekday = selected.some(day => weekdays.includes(day));
+                    if (hasWeekday) {
+                        start.value = '16:00'; 
+                        end.value = '18:00';
+                    } else {
+                        start.value = '10:00'; 
+                        end.value = '12:00';
+                    }
                 }
-            }
+            });
         });
     });
 </script>

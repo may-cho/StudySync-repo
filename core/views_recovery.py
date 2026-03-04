@@ -1519,12 +1519,12 @@ def create_course_group(request, course_id):
 #     messages.error(request, 'Could not find suitable time for group creation.')
 #     return redirect('course_partners_list', course_id=course_id)
 
+@login_required
 def create_group_with_student(request, student_id):
     """Create a new group and invite a student"""
     if request.method == 'POST':
-   
-        target_profile = get_object_or_404(StudentProfile, id=student_id)
-        target_user = target_profile.user
+        target_user = get_object_or_404(User, id=student_id)
+        target_profile = target_user.studentprofile
         viewer_profile = request.user.studentprofile
 
         study_day = request.POST.get("study_day", viewer_profile.preferred_study_days)
@@ -1571,40 +1571,16 @@ def create_group_with_student(request, student_id):
             expires_at=timezone.now() + timedelta(days=7)
         )
 
-        trigger_notification_update(
-            target_user,
-            f"{request.user.username} invited you to join '{group.name}'"
-        )
-
-        #  ✅ ADMIN NOTIFICATIONS: Notify all admins to approve the group
-        all_admins = AdminProfile.objects.select_related("user").all()
-        admin_notifications = []
-
-        for admin in all_admins:
-            admin_notifications.append(
-                ActivityNotification(
-                    recipient=admin.user,
-                    sender=request.user,
-                    notification_type='create',
-                    group=group,
-                    content_preview=f"New group from invite: {group.name}"
-                )
-            )
-            # Trigger live bubble update for each admin
-            trigger_notification_update(admin.user, f"New group approval required: {group.name}")
-
-        if admin_notifications:
-            ActivityNotification.objects.bulk_create(admin_notifications)
-
         # Create chat room
         from chat.models import ChatRoom
         ChatRoom.objects.create(group=group)
 
         messages.success(request,
-                            f'Group "{group.name}" created! It will be visible and invitations will be active once an Admin approves it.')
+                         f'Group "{group.name}" created! It will be visible and invitations will be active once an Admin approves it.')
         return redirect('group_list') # Redirect to list instead of detail while pending
 
     return redirect('student_profile', user_id=student_id)
+
 
 from django.utils import timezone
 from datetime import timedelta

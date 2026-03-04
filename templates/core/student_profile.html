@@ -1,618 +1,230 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ student.get_full_name|default:student.username }} - StudySync Profile{% endblock %}
-
-{% block extra_css %}
-<style>
-    :root {
-        --primary-color: #4361ee;
-        --secondary-color: #3a0ca3;
-        --accent-color: #4cc9f0;
-        --light-color: #f8f9fa;
-        --dark-color: #212529;
-        --success-color: #4CAF50;
-        --warning-color: #ffc107;
-    }
-    
-    .profile-card {
-        background: white;
-        border-radius: 15px;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-        overflow: hidden;
-        transition: transform 0.3s ease;
-        border: none;
-    }
-    
-    .profile-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    .profile-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        color: white;
-        padding: 30px 20px;
-        position: relative;
-        text-align: center;
-    }
-    
-    .profile-avatar {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        border: 4px solid white;
-        object-fit: cover;
-        margin-bottom: 20px;
-        background: white;
-    }
-    
-    .avatar-placeholder {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        border: 4px solid white;
-        background: var(--accent-color);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 3rem;
-        margin: 0 auto 20px auto;
-    }
-    
-    .profile-badge {
-        display: inline-block;
-        padding: 5px 15px;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        backdrop-filter: blur(10px);
-    }
-    
-    .info-card {
-        background: var(--light-color);
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
-        border-left: 4px solid var(--primary-color);
-    }
-    
-    .course-card {
-        background: white;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 10px;
-        border: 1px solid #e0e0e0;
-        transition: all 0.3s ease;
-    }
-    
-    .course-card:hover {
-        background: #f0f7ff;
-        border-color: var(--accent-color);
-        transform: translateX(5px);
-    }
-    
-    .stats-card {
-        background: white;
-        border-radius: 10px;
-        padding: 20px;
-        text-align: center;
-        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e0e0e0;
-    }
-    
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: var(--primary-color);
-    }
-    
-    .social-icons a {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        margin: 0 5px;
-        transition: all 0.3s ease;
-        text-decoration: none;
-    }
-    
-    .social-icons a:hover {
-        background: white;
-        color: var(--primary-color);
-        transform: translateY(-3px);
-    }
-    
-    .tag {
-        display: inline-block;
-        padding: 5px 12px;
-        background: #e3f2fd;
-        color: var(--primary-color);
-        border-radius: 20px;
-        font-size: 0.85rem;
-        margin: 3px;
-    }
-    
-    .action-buttons .btn {
-        padding: 10px 25px;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-gradient {
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        border: none;
-        color: white;
-    }
-    
-    .btn-gradient:hover {
-        background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
-        color: white;
-    }
-    
-    .shared-courses-section {
-        background: white;
-        border-radius: 15px;
-        padding: 25px;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-    }
-    
-    .empty-state {
-        padding: 40px 20px;
-        text-align: center;
-        color: #6c757d;
-    }
-    
-    .empty-state i {
-        font-size: 3rem;
-        margin-bottom: 20px;
-        color: #dee2e6;
-    }
-
-    .invitation-card {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-left: 4px solid var(--primary-color);
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 15px;
-    }
-
-    .invitation-card.expired {
-        border-left-color: #6c757d;
-        opacity: 0.7;
-    }
-
-    .invitation-card.accepted {
-        border-left-color: var(--success-color);
-    }
-
-    .invitation-card.declined {
-        border-left-color: #dc3545;
-    }
-
-    .group-creation-form .form-label {
-        font-weight: 600;
-        color: var(--dark-color);
-    }
-</style>
-{% endblock %}
+{% block title %}{{ student.username }} | StudySync Network{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-
-    <div class="row">
-        <!-- Left Column: Profile Information -->
-        <div class="col-lg-4 mb-4">
-            <div class="profile-card">
-                <div class="profile-header">
-                    <!-- Profile Picture -->
-                    {% if student_profile.profile_picture %}
-                        <img src="{{ student_profile.profile_picture.url }}" alt="Profile" class="profile-avatar">
-                    {% else %}
-                        <div class="avatar-placeholder">
-                            <i class="fas fa-user"></i>
-                        </div>
-                    {% endif %}
-                    
-                    <h3 class="mb-2">{{ student.get_full_name|default:student.username }}</h3>
-                    <span class="profile-badge mb-3">
-                        <i class="fas fa-user-graduate me-1"></i> StudySync Member
-                    </span>
-                    
-                    <div class="social-icons mb-3">
-                        <a href="mailto:{{ student.email }}" title="Send Email">
-                            <i class="fas fa-envelope"></i>
-                        </a>
-                        <a href="#" title="View LinkedIn">
-                            <i class="fab fa-linkedin"></i>
-                        </a>
-                        <a href="#" title="View GitHub">
-                            <i class="fab fa-github"></i>
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="p-4">
-                    <!-- Student Information -->
-                    <div class="info-card">
-                        <h5 class="d-flex align-items-center">
-                            <i class="fas fa-info-circle text-primary me-2"></i> 
-                            Student Information
-                        </h5>
-                        <hr class="my-2">
-                        <div class="mb-2">
-                            <strong><i class="fas fa-book me-2"></i> Major:</strong>
-                            <span class="float-end">{{ student_profile.get_major_display }}</span>
-                        </div>
-                        <div class="mb-2">
-                            <strong><i class="fas fa-calendar-alt me-2"></i> Year:</strong>
-                            <span class="float-end">{{ student_profile.get_year_display }}</span>
-                        </div>
-                        <div class="mb-2">
-                            <strong><i class="fas fa-clock me-2"></i> Semester:</strong>
-                            <span class="float-end">{{ student_profile.get_semester_display }}</span>
-                        </div>
-                        <div class="mb-0">
-                            <strong><i class="fas fa-calendar me-2"></i> Joined:</strong>
-                            <span class="float-end">{{ student.date_joined|date:"M d, Y" }}</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Study Preferences -->
-                    <div class="info-card">
-                        <h5 class="d-flex align-items-center">
-                            <i class="fas fa-chart-line text-primary me-2"></i> 
-                            Study Preferences
-                        </h5>
-                        <hr class="my-2">
-                        <div class="mb-2">
-                            <strong><i class="fas fa-calendar-day me-2"></i> Preferred Days:</strong>
-                            <span class="float-end">{{ student_profile.preferred_study_days }}</span>
-                        </div>
-                        <div class="mb-2">
-                            <strong><i class="fas fa-clock me-2"></i> Study Time:</strong>
-                            <span class="float-end">{{ student_profile.preferred_study_start|time:"g:i A" }} - {{ student_profile.preferred_study_end|time:"g:i A" }}</span>
-                        </div>
-                        <div class="mb-0">
-                            <strong><i class="fas fa-weekend me-2"></i> Weekend Study:</strong>
-                            <span class="float-end">
-                                {% if student_profile.weekend_study %}
-                                    <span class="badge bg-success">Yes</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">No</span>
-                                {% endif %}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <!-- Bio -->
-                    {% if student_profile.bio %}
-                    <div class="info-card">
-                        <h5 class="d-flex align-items-center">
-                            <i class="fas fa-id-card text-primary me-2"></i> 
-                            About
-                        </h5>
-                        <hr class="my-2">
-                        <p class="mb-0">{{ student_profile.bio }}</p>
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Action Buttons -->
-                    <div class="action-buttons mt-4">
-                        <a href="mailto:{{ student.email }}" class="btn btn-gradient w-100 mb-2">
-                            <i class="fas fa-envelope me-2"></i> Send Message
-                        </a>
-                        <a href="{% url 'find_study_partners_view' %}" class="btn btn-outline-secondary w-100">
-                            <i class="fas fa-arrow-left me-2"></i> Back to Partners
-                        </a>
-                    </div>
-                </div>
-            </div>
+<div class="profile-container py-5">
+    <div class="container">
+        <div class="row g-4">
             
-            <!-- Stats Card -->
-            <div class="stats-card mt-4">
-                <div class="mb-3">
-                    <i class="fas fa-users fa-2x text-primary mb-3"></i>
-                    <h4 class="stat-number mb-0">{{ shared_courses.count }}</h4>
-                    <p class="text-muted mb-0">Shared Courses</p>
-                </div>
-                <small class="text-muted">
-                    {% if shared_courses.count > 0 %}
-                        You have {{ shared_courses.count }} course{{ shared_courses.count|pluralize }} in common
-                    {% else %}
-                        No shared courses yet
-                    {% endif %}
-                </small>
-            </div>
-        </div>
-        
-        <!-- Right Column: Shared Courses & More -->
-        <div class="col-lg-8">
-            <div class="shared-courses-section">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h3 class="mb-1">
-                            <i class="fas fa-book-open text-primary me-2"></i>
-                            Shared Courses
-                        </h3>
-                        <p class="text-muted mb-0">Courses you're both enrolled in</p>
-                    </div>
-                    <span class="badge bg-primary fs-6">
-                        {{ shared_courses.count }} course{{ shared_courses.count|pluralize }}
-                    </span>
-                </div>
-                
-                {% if shared_courses %}
-                    <div class="row">
-                        {% for course in shared_courses %}
-                        <div class="col-md-6 mb-3">
-                            <div class="course-card">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="col-lg-4 col-xl-3">
+                <div class="sticky-sidebar">
+                    <div class="identity-card shadow-sm border-0">
+                        <div class="identity-banner"></div>
+                        <div class="card-body px-4 pb-4 pt-0 text-center">
+                            <div class="avatar-wrapper mb-3">
+                                {% if student_profile.profile_picture %}
+                                    <img src="{{ student_profile.profile_picture.url }}" class="main-avatar">
+                                {% else %}
+                                    <div class="avatar-initials">{{ student.username|slice:":1"|upper }}</div>
+                                {% endif %}
+                                <div class="status-dot online"></div>
+                            </div>
+
+                            <h4 class="fw-bold mb-1">{{ student.get_full_name|default:student.username }}</h4>
+                            <p class="text-primary-aura fw-semibold small mb-3">{{ student_profile.get_major_display }}</p>
+
+                            <div class="social-pills d-flex justify-content-center gap-2 mb-4">
+                                <a href="mailto:{{ student.email }}" class="social-btn" title="Email Student"><i class="bi bi-envelope-at"></i></a>
+                                <a href="#" class="social-btn"><i class="bi bi-linkedin"></i></a>
+                                <a href="#" class="social-btn"><i class="bi bi-github"></i></a>
+                            </div>
+
+                            <div class="info-grid text-start">
+                                <div class="info-row">
+                                    <i class="bi bi-mortarboard"></i>
                                     <div>
-                                        <h5 class="mb-1">{{ course.code }}</h5>
-                                        <h6 class="text-primary mb-2">{{ course.name }}</h6>
+                                        <small>Classification</small>
+                                        <p>Year {{ student_profile.year }} · Sem {{ student_profile.semester }}</p>
                                     </div>
-                                    <span class="badge bg-info">
-                                        {{ course.credits }} credit{{ course.credits|pluralize }}
-                                    </span>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">
-                                        <i class="fas fa-calendar me-1"></i>
-                                        Semester {{ course.semester }}
-                                    </small>
-<!--                                    <a href="#" class="btn btn-sm btn-outline-primary">-->
-<!--                                        <i class="fas fa-eye me-1"></i> View Details-->
-<!--                                    </a>-->
+                                <div class="info-row">
+                                    <i class="bi bi-calendar-check"></i>
+                                    <div>
+                                        <small>Active Hours</small>
+                                        <p>{{ student_profile.preferred_study_start|time:"g:i A" }} - {{ student_profile.preferred_study_end|time:"g:i A" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr class="my-4 opacity-10">
+
+                            {% if student_profile.bio %}
+                            <div class="bio-section text-start mb-4">
+                                <label class="section-label">Biography</label>
+                                <p class="small text-muted italic">"{{ student_profile.bio }}"</p>
+                            </div>
+                            {% endif %}
+
+                            <a href="mailto:{{ student.email }}" class="btn btn-aura-primary w-100 rounded-pill py-2 fw-bold">
+                                <i class="bi bi-chat-left-dots me-2"></i>Send Message
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="stats-widget mt-4 p-4 text-center shadow-sm">
+                        <div class="stat-circle mx-auto mb-3">
+                            <span class="fs-2 fw-bold">{{ shared_courses.count }}</span>
+                        </div>
+                        <h6 class="fw-bold mb-1">Mutual Courses</h6>
+                        <p class="small text-muted mb-0">Overlap in your current curriculum</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8 col-xl-9">
+                
+                <div class="canvas-card mb-4 border-0">
+                    <div class="d-flex align-items-center justify-content-between mb-4">
+                        <h5 class="fw-bold mb-0 text-dark">
+                            <i class="bi bi-intersect me-2 text-primary"></i>Mutual Academic Focus
+                        </h5>
+                        <span class="badge bg-soft-primary px-3 rounded-pill">{{ shared_courses.count }} Shared</span>
+                    </div>
+
+                    {% if shared_courses %}
+                    <div class="row g-3">
+                        {% for course in shared_courses %}
+                        <div class="col-md-6">
+                            <div class="course-match-card h-100">
+                                <div class="match-icon-box"><i class="bi bi-journal-check"></i></div>
+                                <div class="match-info">
+                                    <span class="course-code">{{ course.code }}</span>
+                                    <h6 class="course-name mb-0">{{ course.name }}</h6>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
-                    
-                    <!-- Suggested Action -->
-                    <div class="alert alert-info mt-4">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-lightbulb fa-2x text-info"></i>
-                            </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h5 class="alert-heading">Study Together!</h5>
-                                <p class="mb-0">
-                                    You have <strong>{{ shared_courses.count }}</strong> course{{ shared_courses.count|pluralize }} in common with {{ student.get_full_name|default:student.username }}.
-                                    Consider forming a study group or scheduling a study session together.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Group Creation & Invitation Section -->
-                    <div class="card mt-4">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-users me-2"></i>
-                                Create Study Group Together
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <!-- Option 1: Create New Group -->
-                            <div class="mb-4">
-                                <h6 class="mb-3">
-                                    <i class="fas fa-plus-circle text-success me-2"></i>
-                                    Create New Group
-                                </h6>
-                                <form method="post" action="{% url 'create_group_with_student' student.id %}" class="row g-3">
-                                    {% csrf_token %}
-                                    <div class="col-md-6">
-                                        <label for="group_name" class="form-label">Group Name *</label>
-                                        <input type="text" class="form-control" id="group_name" name="group_name"
-                                               placeholder="e.g., {{ student.username }} & {{ user.username }} Study Group" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="group_type" class="form-label">Group Type *</label>
-                                        <select class="form-select" id="group_type" name="group_type" required>
-                                            <option value="">Select...</option>
-                                            <option value="major">Major-Based</option>
-                                            <option value="course">Course-Based</option>
-                                            <option value="general">General Study</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="max_members" class="form-label">Max Members</label>
-                                        <input type="number" class="form-control" id="max_members" name="max_members" value="20" min="2" max="50">
-                                    </div>
-
-                                    <div class="col-md-4">
-                                        <label for="study_day" class="form-label">Study Day</label>
-                                        <input type="text" class="form-control" id="study_day" name="study_day"
-                                               value="{{ user.studentprofile.preferred_study_days }}" placeholder="e.g. Mon, Wed, Fri">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="start_time" class="form-label">Start Time</label>
-                                        <input type="time" class="form-control" id="start_time" name="start_time"
-                                               value="{{ user.studentprofile.preferred_study_start|time:'H:i' }}">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="end_time" class="form-label">End Time</label>
-                                        <input type="time" class="form-control" id="end_time" name="end_time"
-                                               value="{{ user.studentprofile.preferred_study_end|time:'H:i' }}">
-                                    </div>
-
-                                    <div class="col-12">
-                                        <label for="group_description" class="form-label">Description *</label>
-                                        <textarea class="form-control" id="group_description" name="group_description"
-                                                  rows="2" placeholder="Describe what this group will focus on..." required></textarea>
-                                    </div>
-                                    <div class="col-12">
-                                        <label for="invite_message" class="form-label">Personal Message (Optional)</label>
-                                        <textarea class="form-control" id="invite_message" name="invite_message"
-                                                  rows="2" placeholder="Add a personal message for {{ student.username }}..."></textarea>
-                                    </div>
-                                    <div class="col-12">
-                                        <div class="d-grid">
-                                            <button type="submit" class="btn btn-success">
-                                                <i class="fas fa-plus me-2"></i> Create Group & Invite {{ student.username }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <hr>
-
-                            <!-- Option 2: Invite to Existing Group -->
-                            <div class="mt-4">
-    <h6 class="mb-3">
-        <i class="fas fa-user-plus text-primary me-2"></i>
-        Invite to Existing Group
-    </h6>
-
-    {% if user_admin_groups %}
-    <form method="post" action="{% url 'invite_to_existing_group' student.id %}" class="row g-3">
-        {% csrf_token %}
-        <div class="col-md-8">
-            <label for="group_id" class="form-label">Select Group *</label>
-            <select class="form-select" id="group_id" name="group_id" required>
-                <option value="">Choose a group...</option>
-                {% for group in user_admin_groups %}
-
-                    {% if group.id in already_member_group_ids %}
-                        <option value="{{ group.id }}" disabled style="color: #999;">
-                            {{ group.name }} — (Already a Member)
-                        </option>
-                    {% elif group.id in pending_invites %}
-                        <option value="{{ group.id }}" disabled style="color: #999;">
-                            {{ group.name }} — (Invitation Already Sent)
-                        </option>
                     {% else %}
-                        <option value="{{ group.id }}">
-                            {{ group.name }} ({{ group.member_count }} members)
-                        </option>
+                    <div class="empty-overlap text-center py-4 rounded-4">
+                        <i class="bi bi-slash-circle fs-2 text-muted mb-2 d-block"></i>
+                        <p class="text-muted small mb-0">No direct course overlaps found.</p>
+                    </div>
                     {% endif %}
+                </div>
 
-                {% endfor %}
-            </select>
-            <small class="text-muted">Only groups where you are an admin are shown.</small>
-        </div>
-
-        <div class="col-md-4">
-            <label for="invite_message2" class="form-label">Message (Optional)</label>
-            <input type="text" class="form-control" id="invite_message2" name="invite_message"
-                   placeholder="Join our study group!">
-        </div>
-
-        <div class="col-12">
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-paper-plane me-2"></i> Send Invitation
-                </button>
-            </div>
-        </div>
-    </form>
-    {% else %}
-    <div class="alert alert-light border">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-info-circle me-3 text-info"></i>
-            <div>
-                <p class="mb-0">You don't have any groups where you are an admin.</p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-</div>
-                        </div>
-                    </div>
-                    
-                {% else %}
-                    <div class="empty-state">
-                        <i class="fas fa-book-open"></i>
-                        <h4 class="mb-3">No Shared Courses</h4>
-                        <p class="text-muted mb-4">
-                            You don't have any courses in common with {{ student.get_full_name|default:student.username }}.
-                        </p>
-                        <div class="row justify-content-center">
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-search text-muted fa-2x mb-3"></i>
-                                        <h5>Find Common Ground</h5>
-                                        <p class="small text-muted mb-3">
-                                            Look for other students who share your courses
-                                        </p>
-                                        <a href="{% url 'find_study_partners_view' %}" class="btn btn-outline-primary">
-                                            <i class="fas fa-user-friends me-1"></i> Browse Partners
-                                        </a>
-                                    </div>
+                <div class="canvas-card mb-4 border-0">
+                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Availability & Habits</h5>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="habit-item p-3 rounded-4 bg-light-subtle d-flex align-items-center">
+                                <div class="habit-icon me-3 bg-white shadow-sm"><i class="bi bi-calendar3"></i></div>
+                                <div>
+                                    <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Preferred Days</small>
+                                    <span class="fw-semibold">{{ student_profile.preferred_study_days|default:"Flexible" }}</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                {% endif %}
-            </div>
-            
-            <!-- Additional Info (if available) -->
-            {% if student_profile.studentcourse_set.exists %}
-            <div class="mt-4">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0">
-                            <i class="fas fa-graduation-cap me-2"></i>
-                            All Enrolled Courses
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            {% for enrollment in student_profile.studentcourse_set.all|slice:":6" %}
-                            <div class="col-md-6 mb-2">
-                                <div class="d-flex align-items-center p-2 border rounded">
-                                    <i class="fas fa-book text-primary me-3"></i>
-                                    <div>
-                                        <small class="text-muted d-block">{{ enrollment.course.code }}</small>
-                                        <strong>{{ enrollment.course.name }}</strong>
-                                    </div>
+                        <div class="col-md-6">
+                            <div class="habit-item p-3 rounded-4 bg-light-subtle d-flex align-items-center">
+                                <div class="habit-icon me-3 bg-white shadow-sm"><i class="bi bi-sun"></i></div>
+                                <div>
+                                    <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Weekend Study</small>
+                                    <span class="fw-semibold">{% if student_profile.weekend_study %}Available{% else %}Unavailable{% endif %}</span>
                                 </div>
                             </div>
-                            {% endfor %}
                         </div>
-                        {% if student_profile.studentcourse_set.count > 6 %}
-                        <div class="text-center mt-3">
-                            <small class="text-muted">
-                                +{{ student_profile.studentcourse_set.count|add:"-6" }} more course{{ student_profile.studentcourse_set.count|add:"-6"|pluralize }}
-                            </small>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
+
+                <div class="canvas-card border-0">
+                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-collection me-2 text-primary"></i>All Enrolled Courses</h5>
+                    {% if student_profile.studentcourse_set.exists %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle custom-inventory-table">
+                            <thead>
+                                <tr>
+                                    <th>Course Code</th>
+                                    <th>Title</th>
+                                    <th class="text-end">Units</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for enrollment in student_profile.studentcourse_set.all %}
+                                <tr>
+                                    <td><span class="fw-bold text-primary">{{ enrollment.course.code }}</span></td>
+                                    <td class="text-dark">{{ enrollment.course.name }}</td>
+                                    <td class="text-end text-muted">{{ enrollment.course.credits }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted small">No enrollment data available.</p>
+                    {% endif %}
+                </div>
+
             </div>
-            {% endif %}
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-    // Add any JavaScript needed for this page
-    document.addEventListener('DOMContentLoaded', function() {
-        // Smooth hover effects
-        const courseCards = document.querySelectorAll('.course-card');
-        courseCards.forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.boxShadow = '0 5px 15px rgba(67, 97, 238, 0.1)';
-            });
-            card.addEventListener('mouseleave', function() {
-                this.style.boxShadow = 'none';
-            });
-        });
-    });
-</script>
+<style>
+    :root {
+        --aura-primary: #4361ee;
+        --aura-bg: #f8fafc;
+        --aura-card: #ffffff;
+        --aura-accent: #4cc9f0;
+    }
+
+    body { background-color: var(--aura-bg); color: #334155; }
+
+    /* Identity Sidebar */
+    .identity-card { background: var(--aura-card); border-radius: 24px; overflow: hidden; border: 1px solid rgba(0,0,0,0.05); }
+    .identity-banner { height: 100px; background: linear-gradient(135deg, #4361ee, #3a0ca3); }
+    .avatar-wrapper { position: relative; margin-top: -60px; display: inline-block; }
+    .main-avatar, .avatar-initials {
+        width: 120px; height: 120px; border-radius: 40px; border: 6px solid #fff; object-fit: cover;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .avatar-initials {
+        background: var(--aura-accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: 800;
+    }
+    .status-dot { position: absolute; bottom: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; border: 4px solid #fff; }
+    .status-dot.online { background: #10b981; }
+
+    .social-btn {
+        width: 38px; height: 38px; border-radius: 12px; background: #f1f5f9; color: #64748b;
+        display: flex; align-items: center; justify-content: center; text-decoration: none; transition: 0.3s;
+    }
+    .social-btn:hover { background: var(--aura-primary); color: #fff; transform: translateY(-3px); }
+
+    .info-row { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+    .info-row i { width: 32px; height: 32px; background: #eef2ff; color: var(--aura-primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .info-row small { display: block; font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+    .info-row p { margin: 0; font-size: 0.85rem; font-weight: 600; color: #334155; }
+
+    /* Canvas Card & Components */
+    .canvas-card { background: var(--aura-card); padding: 30px; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+    
+    .course-match-card {
+        display: flex; align-items: center; gap: 15px; padding: 18px; background: #f8fafc; border-radius: 20px; border: 1px solid #edf2f7; transition: 0.3s;
+    }
+    .course-match-card:hover { transform: translateY(-3px); border-color: var(--aura-primary); background: #fff; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+    .match-icon-box { color: var(--aura-primary); font-size: 1.5rem; }
+    .course-code { font-size: 0.7rem; font-weight: 800; color: var(--aura-primary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .course-name { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+
+    .habit-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--aura-primary); }
+    
+    .empty-overlap { background: #f8fafc; border: 2px dashed #e2e8f0; }
+
+    /* Table Styling */
+    .custom-inventory-table thead th { border: none; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; padding: 15px; }
+    .custom-inventory-table tbody td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+    .custom-inventory-table tbody tr:last-child td { border: none; }
+
+    .btn-aura-primary { background: var(--aura-primary); border: none; color: white; transition: 0.3s; }
+    .btn-aura-primary:hover { background: #3a0ca3; transform: scale(1.02); box-shadow: 0 8px 15px rgba(67, 97, 238, 0.2); }
+
+    .stats-widget { background: #fff; border-radius: 24px; }
+    .stat-circle {
+        width: 70px; height: 70px; border-radius: 50%; background: #eef2ff; color: var(--aura-primary);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .section-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; }
+</style>
 {% endblock %}

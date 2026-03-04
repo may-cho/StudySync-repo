@@ -181,6 +181,7 @@ class StudentProfile(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    last_seen = models.DateTimeField(default=timezone.now)
     # university = models.ForeignKey(University, on_delete=models.CASCADE)
     major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
     year = models.IntegerField(choices=YEAR_CHOICES)
@@ -189,6 +190,7 @@ class StudentProfile(models.Model):
     bio = models.TextField(blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # active_hours = models.
 
     # Study preferences
     preferred_study_days = models.CharField(max_length=100, default='Mon,Tue,Wed,Thu,Fri')
@@ -206,6 +208,13 @@ class StudentProfile(models.Model):
     def get_courses(self):
         """Get all courses this student is taking"""
         return Course.objects.filter(studentcourse__student=self).distinct()
+    
+    @property
+    def is_online(self) :
+       if self.last_seen:
+            # Consider online if active in the last 5 minutes
+            return timezone.now() < self.last_seen + timedelta(minutes=5)
+       return False 
 
 
 class Course(models.Model):
@@ -299,12 +308,13 @@ class TimetableSlot(models.Model):
         return self.slot_type in ['free', 'self_study']
     def get_color(self):
         type_colors = {
-            'class': '#6366f1',    
-            'self_study': '#8b5cf6',
-            'break': '#10b981',     
-            'activity': '#f59e0b',  
-            'free': '#3b82f6'     
-        }
+        'class': "#6366F1",
+        'self_study': "#8B5CF6",
+        'break': "#14B8A6",
+        'activity': "#F59E0B",
+        'free': "#3B82F6",      
+};
+        
         return type_colors.get(self.slot_type, '#6366f1') 
     def get_styles(self):
         total_height = 1200 
@@ -437,8 +447,7 @@ class StudyGroup(models.Model):
         else:
             return {
                 'start': '16:00',
-                'end': '22:00',
-                'availability': len(members)
+                'end': '22:00',                'availability': len(members)
             }
 
     def is_admin(self, user):
@@ -461,7 +470,49 @@ class StudyGroup(models.Model):
             return False
 
 
+class Post(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    group = models.ForeignKey(
+        'core.StudyGroup',
+        on_delete=models.CASCADE,
+        related_name='posts'
+    )
 
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    image = models.ImageField(upload_to='post_images/', blank=True, null=True)
+    likes = models.ManyToManyField(User, related_name='liked_posts', blank=True)
+    tags = models.TextField()
+    status = models.CharField(max_length=15,default="pending")
+    is_approved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Post by {self.author.username}"
+
+    @property
+    def total_likes(self):
+        return self.likes.count()
+
+class Comment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    image = models.ImageField(upload_to='post_comments/',blank=True,null=True)
+    likes = models.ManyToManyField(User, related_name='liked_comments', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    @property
+    def total_likes(self):
+        return self.likes.count()
 
 class GroupInvitation(models.Model):
     STATUS_CHOICES = [
@@ -671,6 +722,12 @@ class ActivityNotification(models.Model):
         ('deny', 'Group Denied'),         # Admin -> Student
         ('delete', 'Group Deleted'),      # System -> Members
         
+
+        #Post 
+        ('post-create', 'Post Proposal'),
+        ('approve','Post Approved'),
+        ('deny', 'Post Denied'),
+        
         # System
         ('register', 'Registered User')  # New user joined the platform
     ]
@@ -678,7 +735,7 @@ class ActivityNotification(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activity_notifications')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_activity')
-    notification_type = models.CharField(max_length=10, choices=NOTIFICATION_TYPES)
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
 
     # Link to the Group where activity happened
     group = models.ForeignKey(
