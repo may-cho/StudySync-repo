@@ -48,6 +48,8 @@ urlpatterns = [
     path('groups/<uuid:group_id>/post/create', views.create_group_post,name="create_group_post"),
     
     #api for posts
+    path('api/posts/<uuid:post_id>/approve',views.approve_post,name="approve_post"),
+    path('api/posts/<uuid:post_id>/reject',views.reject_post,name="reject_post"),
     path('api/posts/<uuid:post_id>/like', views.toggle_post_like, name='toggle_post_like'),
     path('api/posts/<uuid:post_id>/comment', views.add_comment, name='add_comment'),
     path('api/posts/<uuid:post_id>/delete', views.delete_post, name='delete_post'),

@@ -139,9 +139,9 @@
         </div>
       </div>
 
-      <!-- Two Column Layout - SWITCHED: Left column now takes more space (2fr) -->
+      <!-- Two Column Layout -->
       <div class="two-column">
-        <!-- LEFT COLUMN - Now MAIN content area (Create Post + Feed) - 2fr -->
+        <!-- LEFT COLUMN - Main content area (Create Post + Feed) -->
         <div class="main-column">
           <!-- Create Post -->
           <div class="create-post-card">
@@ -271,7 +271,7 @@
             </div>
           </transition>
 
-          <!-- Feed View (All Posts) with Fade Transition -->
+          <!-- Feed View (All Posts) -->
           <transition name="fade" mode="out-in">
             <div
               v-if="viewMode === 'feed'"
@@ -284,13 +284,13 @@
                 :post="post"
                 :current-user="currentUser"
                 :group-creator-id="group.creator?.id"
-                @like="handleLike"
+                @like="handlePostLike"
                 @delete="handleDelete"
                 @view-comments="viewPostDetail"
               />
             </div>
 
-            <!-- Detail View (Single Post with Comments) with Fade Transition -->
+            <!-- Detail View (Single Post with Comments) -->
             <div
               v-else-if="viewMode === 'detail'"
               key="detail"
@@ -310,9 +310,9 @@
           </transition>
         </div>
 
-        <!-- RIGHT COLUMN - Now Sidebar (Members Preview & Sessions) - 1fr -->
+        <!-- RIGHT COLUMN - Sidebar -->
         <div class="sidebar-column">
-          <!-- Members Preview Card - Compact -->
+          <!-- Members Preview Card -->
           <div class="compact-card">
             <div class="card-header-compact">
               <div class="header-title">
@@ -366,8 +366,8 @@
             </div>
           </div>
 
-          <!-- Sessions Card - Compact -->
-          <div class="compact-card">
+          <!-- Approval Requests Card - Post Approvals Only -->
+          <div v-if="currentUser.is_admin" class="compact-card">
             <div class="card-header-compact">
               <div class="header-title">
                 <svg
@@ -378,33 +378,159 @@
                   stroke="currentColor"
                   stroke-width="2"
                 >
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                  <line x1="16" y1="2" x2="16" y2="6"></line>
-                  <line x1="8" y1="2" x2="8" y2="6"></line>
-                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                  <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
                 </svg>
-                <span>Sessions</span>
+                <span>Posts to Review</span>
+                <span class="header-count">{{ pendingPosts.length }}</span>
+              </div>
+              <a href="#" class="header-link">View all</a>
+            </div>
+
+            <div class="approval-list">
+              <!-- Empty State -->
+              <div v-if="pendingPosts.length === 0" class="empty-state">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+                  <line x1="2" y1="2" x2="22" y2="22"></line>
+                </svg>
+                <p>No posts to review</p>
+                <span class="empty-sub">All caught up!</span>
+              </div>
+
+              <!-- Post Approval Items -->
+              <div
+                v-for="post in pendingPosts"
+                :key="post.id"
+                class="post-item"
+              >
+                <div class="post-content">
+                  <div class="post-header">
+                    <div class="post-author">
+                      <div
+                        class="author-avatar"
+                        :style="{
+                          backgroundColor: getAvatarColor(post.author.username),
+                        }"
+                      >
+                        {{ post.author.username.charAt(0).toUpperCase() }}
+                      </div>
+                      <div class="author-info">
+                        <span class="author-name">{{
+                          post.author.username
+                        }}</span>
+                        <span class="post-time"> 2 hours ago</span>
+                      </div>
+                    </div>
+                    <span class="post-badge">Pending Review</span>
+                  </div>
+
+                  <p class="post-message">{{ post.content }}</p>
+
+                  <div v-if="post.image" class="post-image-indicator">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <rect
+                        x="2"
+                        y="2"
+                        width="20"
+                        height="20"
+                        rx="2"
+                        ry="2"
+                      ></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <span>Contains image</span>
+                  </div>
+                </div>
+
+                <div class="post-actions">
+                  <button
+                    @click="viewPost(post.id)"
+                    class="action-btn review"
+                    title="Review post"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <path
+                        d="M22 12c-2.667 4.667-6 7-10 7s-7.333-2.333-10-7c2.667-4.667 6-7 10-7s7.333 2.333 10 7z"
+                      ></path>
+                    </svg>
+                  </button>
+                  <button
+                    @click="approvePost(post.id)"
+                    class="action-btn approve"
+                    title="Approve post"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                    >
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </button>
+                  <button
+                    @click="rejectPost(post.id)"
+                    class="action-btn reject"
+                    title="Reject post"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
-            <div class="compact-session-list">
-              <div v-if="group.study_day" class="compact-session-item">
-                <div class="session-time">
-                  {{ group.study_day.substring(0, 3) }} •
-                  {{ formatTime(group.start_time) }}
-                </div>
-                <div class="session-name">Regular Meeting</div>
-                <span class="compact-live-badge">Live</span>
-              </div>
-              <div class="compact-session-item">
-                <div class="session-time">WED • 3:30 PM</div>
-                <div class="session-name">Practice Problems</div>
-                <span class="session-attendees">5 going</span>
-              </div>
-              <div class="compact-session-item">
-                <div class="session-time">FRI • 2:00 PM</div>
-                <div class="session-name">Midterm Prep</div>
-                <span class="session-attendees">12 going</span>
-              </div>
+
+            <!-- View All Link -->
+            <div class="card-footer-link">
+              <a href="#" class="view-all-link">
+                <span>View all pending posts</span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </a>
             </div>
           </div>
         </div>
@@ -425,8 +551,10 @@ import PostDetails from "./PostDetails.ce.vue";
 // Dummy Data
 const group = ref(null);
 const currentUser = ref(null);
-
 const members = ref(null);
+
+// Pending Posts for Approval Only
+const pendingPosts = ref(null);
 
 const posts = ref([
   {
@@ -438,7 +566,7 @@ const posts = ref([
     created_at: "2024-03-15T14:30:00Z",
     likesCount: 24,
     isLiked: false,
-    isHot: true,
+    status: "pending",
     tags: ["python", "binarytrees", "algorithms"],
     comments: [
       {
@@ -467,7 +595,7 @@ const posts = ref([
     created_at: "2024-03-14T09:15:00Z",
     likesCount: 12,
     isLiked: true,
-    isHot: false,
+    status: "pending",
     tags: ["help", "bfs", "dfs"],
     comments: [
       {
@@ -489,7 +617,7 @@ const posts = ref([
     created_at: "2024-03-13T18:20:00Z",
     likesCount: 18,
     isLiked: false,
-    isHot: false,
+    status: "approved",
     tags: ["resources", "sorting", "visualization"],
     comments: [],
   },
@@ -508,13 +636,17 @@ const fetchData = async () => {
     group.value = response.data.group;
     members.value = response.data.members;
     currentUser.value = response.data.current_user;
+    pendingPosts.value = response.data.pending_posts;
+    posts.value = response.data.posts;
   } catch (err) {
     console.error("Error fetching group details.", err);
   }
 };
+
 onMounted(() => {
   fetchData();
 });
+
 // Create post state
 const newPostContent = ref("");
 const imagePreview = ref(null);
@@ -528,15 +660,15 @@ const newCommentContent = ref("");
 
 // Computed properties
 const isCreator = computed(() => {
-  return group.value.creator?.id === currentUser.value.id;
+  return group.value?.creator?.id === currentUser.value?.id;
 });
 
 const isMember = computed(() => {
-  return members.value.some((m) => m.id === currentUser.value.id);
+  return members.value?.some((m) => m.id === currentUser.value?.id);
 });
 
 const previewMembers = computed(() => {
-  return members.value.slice(0, 5);
+  return members.value?.slice(0, 5) || [];
 });
 
 const sortedPosts = computed(() => {
@@ -544,6 +676,48 @@ const sortedPosts = computed(() => {
     (a, b) => new Date(b.created_at) - new Date(a.created_at),
   );
 });
+
+// Post approval methods only
+const approvePost = async (postId) => {
+  const post = pendingPosts.value.find((p) => p.id === postId);
+  try {
+    const response = await axios.get(`/api/posts/${postId}/approve`);
+
+    if (response.status === 200) {
+      const data = response.data;
+      console.log("Approved post successfully");
+      console.log(data);
+      pendingPosts.value = pendingPosts.value.filter((p) => p.id !== postId);
+      posts.value.unshift(data);
+    }
+  } catch (err) {
+    console.log("Error approving post request.", err);
+  }
+};
+
+const rejectPost = async (postId) => {
+  const post = pendingPosts.value.find((p) => p.id === postId);
+  pendingPosts.value = pendingPosts.value.filter((p) => p.id !== postId);
+
+  try {
+    const response = await axios.get(`/api/posts/${postId}/reject`);
+
+    if (response.status === 200) {
+      const data = response.data;
+      console.log("Rejected successfully");
+    }
+  } catch (err) {
+    console.error("Error in rejecting post.", err);
+  }
+  console.log(`Rejected post ${postId}`);
+};
+
+const viewPost = (postId) => {
+  const post = pendingPosts.value.find((p) => p.id === postId);
+  selectedPost.value = post;
+  viewMode.value = "review";
+  console.log(`Viewing post ${postId} for review`);
+};
 
 const handleAddComment = async ({ postId, comment }) => {
   try {
@@ -553,25 +727,64 @@ const handleAddComment = async ({ postId, comment }) => {
 
     if (response.status === 200 || response.status === 201) {
       const data = response.data.data;
-      console.log(data);
+      const targetPost = posts.value.find(
+        (p) => p.id === selectedPost.value.id,
+      );
 
-      posts.value.unshift({
-        id: data.id,
-        author: data.author,
-        content: data.content,
-        likesCount: data.likes,
-        created_at: data.created_at,
-      });
+      if (targetPost) {
+        if (!targetPost.comments) targetPost.comments = [];
+
+        targetPost.comments.push(data);
+      }
+      console.log(selectedPost.value);
     }
   } catch (err) {
     console.error("Error commenting to the post.", err);
   }
 };
 
-const handleCommentLike = () => {};
-const handlePostDelete = () => {};
+const handleCommentLike = async (commentId) => {
+  const post = posts.value.find((p) => p.id === selectedPost.value.id);
+  const comment = post?.comments.find((c) => c.id === commentId);
 
-const handlePostLike = () => {};
+  if (!comment) return;
+
+  const originalIsLiked = comment.isLiked;
+  comment.isLiked = !comment.isLiked;
+  comment.likesCount += comment.isLiked ? 1 : -1;
+
+  try {
+    const response = await axios.post(`/api/comments/${commentId}/like`);
+
+    if (response.data.likesCount !== undefined) {
+      comment.likesCount = response.data.likesCount;
+    }
+  } catch (error) {
+    comment.isLiked = originalIsLiked;
+    comment.likesCount += comment.isLiked ? 1 : -1;
+
+    console.error("Like failed to save:", error);
+  }
+};
+const handlePostDelete = () => {};
+const handlePostLike = async (postId) => {
+  try {
+    const response = await axios.post(`/api/posts/${postId}/like`);
+    const targetPost = posts.value.find((p) => p.id === postId);
+
+    if (response.status === 200 || response.status === 201) {
+      const data = response.data;
+      console.log(data);
+      if (targetPost) {
+        targetPost.isLiked = !targetPost.isLiked;
+        targetPost.likesCount += targetPost.isLiked ? 1 : -1;
+      }
+    }
+  } catch (err) {
+    console.error("Error liking the post.", err);
+  }
+};
+
 // Methods
 const getAvatarColor = (username) => {
   const colors = [
@@ -583,7 +796,7 @@ const getAvatarColor = (username) => {
     "#DDA0DD",
   ];
   const index =
-    username.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+    username?.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
     colors.length;
   return colors[index];
 };
@@ -650,44 +863,24 @@ const createPost = async () => {
 
   try {
     const formData = new FormData();
-
     formData.append("content", newPostContent.value.trim());
     formData.append("image", imageFile.value);
 
     const response = await axios.post(
-      `/groups/${group.id}/post/create`,
+      `/groups/${group.value.id}/post/create`,
       formData,
     );
 
     if (response.status === 200 || response.status === 201) {
       const data = response.data;
-
-      console.log(data);
+      posts.value.unshift(data);
+      newPostContent.value = "";
+      removeImage();
     }
     console.log("Uploaded successfully:", response.data);
   } catch (err) {
     console.log("Error creating post.", err);
   }
-  const newPost = {
-    id: Date.now(),
-    author: {
-      id: currentUser.id,
-      username: currentUser.username,
-      isOnline: true,
-    },
-    content: newPostContent.value,
-    image: imagePreview.value,
-    created_at: new Date().toISOString(),
-    likesCount: 0,
-    isLiked: false,
-    isHot: false,
-    tags: [],
-    comments: [],
-  };
-
-  posts.value.unshift(newPost);
-  newPostContent.value = "";
-  removeImage();
 };
 
 const handleLike = (post) => {
@@ -709,6 +902,11 @@ const handleDelete = (post) => {
       closeDetailView();
     }
   }
+};
+// Truncate text helper
+const truncateText = (text, length) => {
+  if (!text) return "Requested to join";
+  return text.length > length ? text.substring(0, length) + "..." : text;
 };
 
 // View toggle methods
@@ -841,12 +1039,11 @@ const leaveGroup = () => {
 .group-fullscreen {
   width: 100%;
   min-height: 100vh;
-  /* padding: 2rem 2.5rem; */
   background: transparent;
   font-family: "Inter", sans-serif;
 }
 
-/* Group Header - Fixed overflow */
+/* Group Header */
 .group-header {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
@@ -1004,14 +1201,14 @@ const leaveGroup = () => {
   border-color: #1e3a5f;
 }
 
-/* Two Column Layout - SWITCHED: Main column now 2fr, Sidebar 1fr */
+/* Two Column Layout */
 .two-column {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 2rem;
 }
 
-/* Main Column (Left) - Feed and Posts */
+/* Main Column */
 .main-column {
   display: flex;
   flex-direction: column;
@@ -1020,7 +1217,7 @@ const leaveGroup = () => {
   overflow: hidden;
 }
 
-/* Sidebar Column (Right) - Members and Sessions */
+/* Sidebar Column */
 .sidebar-column {
   display: flex;
   flex-direction: column;
@@ -1109,7 +1306,7 @@ const leaveGroup = () => {
   border-color: #1e3a5f;
 }
 
-/* Compact Member List */
+/* Member List Styles */
 .compact-member-list {
   display: flex;
   flex-direction: column;
@@ -1194,59 +1391,232 @@ const leaveGroup = () => {
   color: #0369a1;
 }
 
-/* Compact Session List */
-.compact-session-list {
+/* ===== POST APPROVALS ONLY ===== */
+.approval-list {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  max-height: 535px;
+  overflow-y: auto;
 }
 
-.compact-session-item {
+.approval-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.post-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.2rem;
+  border-radius: 20px;
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.post-item:hover {
+  border-color: #1e3a5f;
+  box-shadow: 0 8px 20px -8px rgba(30, 58, 95, 0.15);
+}
+
+.post-content {
+  width: 100%;
+}
+
+.post-header {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+}
+
+.post-author {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.author-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.author-name {
+  font-weight: 600;
+  color: #0f172a;
   font-size: 0.85rem;
 }
 
-.compact-session-item:last-child {
-  border-bottom: none;
+.post-time {
+  font-size: 0.65rem;
+  color: #94a3b8;
 }
 
-.session-time {
-  min-width: 90px;
-  font-size: 0.75rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.session-name {
-  flex: 1;
-  color: #0f172a;
-  font-weight: 500;
-}
-
-.compact-live-badge {
-  background: #dc2626;
-  color: white;
-  padding: 0.2rem 0.8rem;
-  border-radius: 30px;
+.post-badge {
   font-size: 0.6rem;
   font-weight: 600;
+  text-transform: uppercase;
   letter-spacing: 0.02em;
-  animation: float 2s infinite;
-}
-
-.session-attendees {
-  font-size: 0.7rem;
-  color: #64748b;
-  background: rgba(241, 245, 249, 0.7);
+  color: #b45309;
+  background: #fffbeb;
   padding: 0.2rem 0.8rem;
   border-radius: 30px;
+  border: 1px solid #fcd34d;
 }
 
-/* Create Post Card - White background */
+.post-message {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #0f172a;
+  margin: 0 0 0.8rem 0;
+  font-weight: 400;
+  word-wrap: break-word;
+}
+
+.post-image-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: #1e3a5f;
+  background: rgba(30, 58, 95, 0.05);
+  padding: 0.3rem 0.8rem;
+  border-radius: 30px;
+  border: 1px solid rgba(30, 58, 95, 0.1);
+}
+
+.post-image-indicator svg {
+  stroke: #1e3a5f;
+  width: 14px;
+  height: 14px;
+}
+
+.post-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid rgba(226, 232, 240, 0.5);
+  padding-top: 1rem;
+}
+
+.action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.action-btn.review {
+  color: #1e3a5f;
+}
+
+.action-btn.review:hover {
+  background: #1e3a5f;
+  color: white;
+  border-color: #1e3a5f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(30, 58, 95, 0.2);
+}
+
+.action-btn.approve {
+  color: #10b981;
+}
+
+.action-btn.approve:hover {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.2);
+}
+
+.action-btn.reject {
+  color: #dc2626;
+}
+
+.action-btn.reject:hover {
+  background: #dc2626;
+  color: white;
+  border-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.2);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #94a3b8;
+}
+
+.empty-state svg {
+  stroke: #cbd5e1;
+  margin-bottom: 0.8rem;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+  color: #64748b;
+}
+
+.empty-sub {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.card-footer-link {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(226, 232, 240, 0.5);
+  text-align: center;
+}
+
+.view-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #1e3a5f;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.view-all-link:hover {
+  gap: 0.5rem;
+  opacity: 0.8;
+}
+
+/* Create Post Card */
 .create-post-card {
   background: white;
   border-radius: 28px;
@@ -1357,7 +1727,7 @@ const leaveGroup = () => {
   cursor: not-allowed;
 }
 
-/* Hidden file input - completely hidden */
+/* Hidden file input */
 .hidden-input {
   display: none;
 }

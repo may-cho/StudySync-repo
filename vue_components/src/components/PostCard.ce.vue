@@ -1,6 +1,6 @@
 <template>
   <div class="post-card-improved">
-    <div v-if="post.isHot" class="hot-badge-improved">
+    <div v-if="post.status == 'pending'" class="hot-badge-improved">
       <svg
         width="12"
         height="12"
@@ -9,9 +9,10 @@
         stroke="currentColor"
         stroke-width="2"
       >
-        <path d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
       </svg>
-      Hot
+      Pending
     </div>
     <div class="post-header-improved">
       <div
@@ -51,11 +52,42 @@
       <p>{{ post.content }}</p>
     </div>
 
-    <div v-if="post.image" class="post-media-container" @click="viewFullImage">
-      <div class="image-wrapper">
-        <img :src="post.image" :alt="post.content" class="actual-post-image" />
+    <div v-if="post.image" class="post-media-improved">
+      <div class="media-icon-improved">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+      </div>
+      <div class="media-info-improved">
+        <h5>Image</h5>
+        <p>Click to view full size</p>
+      </div>
+      <div class="media-action-improved">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <polyline points="9 21 3 21 3 15"></polyline>
+          <line x1="21" y1="3" x2="14" y2="10"></line>
+          <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
       </div>
     </div>
+
     <div v-if="post.tags && post.tags.length" class="post-tags-improved">
       <span v-for="tag in post.tags" :key="tag" class="tag-improved"
         >#{{ tag }}</span
@@ -63,23 +95,21 @@
     </div>
 
     <div class="post-engagement-improved">
-      <button
-        @click="toggleLike"
-        class="engagement-item"
-        :class="{ liked: post.isLiked }"
-      >
+      <button @click="toggleLike" class="engagement-item">
         <svg
-          width="18"
-          height="18"
+          width="12"
+          height="12"
           viewBox="0 0 24 24"
-          :fill="post.isLiked ? 'currentColor' : 'none'"
-          stroke="currentColor"
           stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          :class="['heart-icon', { liked: post.isLiked }]"
         >
           <path
             d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
           ></path>
         </svg>
+
         <span>{{ post.likesCount }}</span>
       </button>
       <button @click="viewComments" class="engagement-item">
@@ -114,7 +144,6 @@
 </template>
 
 <script setup>
-import { watch } from "vue";
 const props = defineProps({
   post: { type: Object, required: true },
   currentUser: { type: Object, required: true },
@@ -123,12 +152,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["like", "delete", "view-comments"]);
-import { ref } from "vue";
 
-const isModalOpen = ref(false);
-watch(isModalOpen, (val) => {
-  document.body.style.overflow = val ? "hidden" : "auto";
-});
 const getAvatarColor = (username) => {
   const colors = [
     "#FF6B6B",
@@ -160,7 +184,7 @@ const formatTime = (timestamp) => {
 };
 
 const toggleLike = () => {
-  emit("like", props.post);
+  emit("like", props.post.id);
 };
 
 const viewComments = () => {
@@ -248,7 +272,6 @@ const viewComments = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.1rem;
 }
 
 .post-badge-improved {
@@ -284,67 +307,7 @@ const viewComments = () => {
   line-height: 1.6;
   margin-bottom: 0.8rem;
 }
-.post-media-container {
-  margin: 1rem 0;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.2s ease;
-}
 
-.post-media-container:hover {
-  transform: scale(1.01);
-}
-
-.image-wrapper {
-  position: relative;
-  width: 100%;
-  max-height: 450px; /* Limits very tall images */
-  display: flex;
-  background: #f8fafc;
-}
-
-.actual-post-image {
-  width: 100%;
-  height: auto;
-  object-fit: cover; /* Keeps image proportions nice */
-  display: block;
-}
-
-/* Glassmorphism Overlay */
-.image-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(30, 58, 95, 0.4); /* StudySync Blue with transparency */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  backdrop-filter: blur(2px);
-}
-
-.post-media-container:hover .image-overlay {
-  opacity: 1;
-}
-
-.expand-btn {
-  background: white;
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #1e3a5f;
-  font-weight: 600;
-  font-size: 0.85rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
 .post-media-improved {
   display: flex;
   align-items: center;
@@ -451,34 +414,56 @@ const viewComments = () => {
   padding-top: 1rem;
   border-top: 1px solid #e2e8f0;
 }
-
 .engagement-item {
+  /* Reset default button styles */
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.5rem;
   color: #64748b;
-  font-size: 0.8rem;
-  transition: all 0.2s;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  outline: none;
 }
 
 .engagement-item:hover {
   color: #1e3a5f;
 }
 
-.engagement-item.liked {
-  color: #dc2626;
-}
-
-.engagement-item.liked svg {
-  fill: #dc2626;
+.engagement-item:hover svg:not(.liked) {
+  stroke: #1e3a5f;
 }
 
 .engagement-item svg {
-  width: 18px;
-  height: 18px;
+  transition: all 0.3s ease;
+  fill: transparent;
+  stroke: #64748b;
+}
+
+.engagement-item svg.liked {
+  fill: #ef4444;
+  stroke: #ef4444;
+  transform: scale(1.2);
+}
+
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1.2);
+  }
+}
+
+.engagement-item svg.liked {
+  animation: heartBeat 0.3s ease-out forwards;
 }
 </style>
