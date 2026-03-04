@@ -470,14 +470,17 @@
  <div class="notif-wrapper">
     <div class="notif-trigger" onclick="toggleNotif()">
         <i class="bi bi-bell-fill"></i>
-        <span class="pulse-badge"></span>
-    </div>
+        <span id="unread-count-badge"
+              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              {% if unread_notifications_count == 0 %}style="display: none;"{% endif %}>
+            {{ unread_notifications_count }}
+        </span>    </div>
 
     <div class="notif-card" id="notifCard">
         <div class="notif-card-header">
             <div>
                 <h5>Notifications</h5>
-                <p>You have {{ unread_notifications_count|length }} unread messages</p>
+                <p>You have {{ unread_notifications_count }} unread messages</p>
             </div>
            <button class="btn-close-svg" onclick="toggleNotif()" aria-label="Close">
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -550,7 +553,9 @@
                         <div class="mt-2">
                             <a href="{% url 'group_detail' n.group.id %}" class="btn btn-success btn-sm">Go to Group</a>
                         </div>
-
+                    {% elif n.notification_type == 'register' %}
+                        <p class="mb-2 text-primary fw-bold">New Member!</p>
+                        <p class="mb-0"><strong>{{ n.sender.username }}</strong> has just joined StudySync.</p>
                     {% elif n.notification_type == 'deny' %}
                          <p class="mb-2 text-danger fw-bold">Group Rejected</p>
                         <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been denied.</p>
