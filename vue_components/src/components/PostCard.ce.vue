@@ -1,6 +1,6 @@
 <template>
   <div class="post-card-improved">
-    <div v-if="post.isHot" class="hot-badge-improved">
+    <div v-if="post.status == 'pending'" class="hot-badge-improved">
       <svg
         width="12"
         height="12"
@@ -9,9 +9,10 @@
         stroke="currentColor"
         stroke-width="2"
       >
-        <path d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
       </svg>
-      Hot
+      Pending
     </div>
     <div class="post-header-improved">
       <div
@@ -94,23 +95,21 @@
     </div>
 
     <div class="post-engagement-improved">
-      <button
-        @click="toggleLike"
-        class="engagement-item"
-        :class="{ liked: post.isLiked }"
-      >
+      <button @click="toggleLike" class="engagement-item">
         <svg
-          width="18"
-          height="18"
+          width="12"
+          height="12"
           viewBox="0 0 24 24"
-          :fill="post.isLiked ? 'currentColor' : 'none'"
-          stroke="currentColor"
           stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          :class="['heart-icon', { liked: post.isLiked }]"
         >
           <path
             d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
           ></path>
         </svg>
+
         <span>{{ post.likesCount }}</span>
       </button>
       <button @click="viewComments" class="engagement-item">
@@ -185,7 +184,7 @@ const formatTime = (timestamp) => {
 };
 
 const toggleLike = () => {
-  emit("like", props.post);
+  emit("like", props.post.id);
 };
 
 const viewComments = () => {
@@ -415,34 +414,56 @@ const viewComments = () => {
   padding-top: 1rem;
   border-top: 1px solid #e2e8f0;
 }
-
 .engagement-item {
+  /* Reset default button styles */
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.5rem;
   color: #64748b;
-  font-size: 0.8rem;
-  transition: all 0.2s;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  outline: none;
 }
 
 .engagement-item:hover {
   color: #1e3a5f;
 }
 
-.engagement-item.liked {
-  color: #dc2626;
-}
-
-.engagement-item.liked svg {
-  fill: #dc2626;
+.engagement-item:hover svg:not(.liked) {
+  stroke: #1e3a5f;
 }
 
 .engagement-item svg {
-  width: 18px;
-  height: 18px;
+  transition: all 0.3s ease;
+  fill: transparent;
+  stroke: #64748b;
+}
+
+.engagement-item svg.liked {
+  fill: #ef4444;
+  stroke: #ef4444;
+  transform: scale(1.2);
+}
+
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1.2);
+  }
+}
+
+.engagement-item svg.liked {
+  animation: heartBeat 0.3s ease-out forwards;
 }
 </style>

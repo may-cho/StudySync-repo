@@ -478,11 +478,13 @@ class Post(models.Model):
         on_delete=models.CASCADE,
         related_name='posts'
     )
+
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
     image = models.ImageField(upload_to='post_images/', blank=True, null=True)
     likes = models.ManyToManyField(User, related_name='liked_posts', blank=True)
     tags = models.TextField()
+    status = models.CharField(max_length=15,default="pending")
     is_approved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

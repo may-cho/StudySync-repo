@@ -620,11 +620,45 @@ from django.utils import timezone
 @login_required
 def get_group_data(request,group_id) :
      group = get_object_or_404(StudyGroup, id=group_id)
-     profile = get_object_or_404(StudentProfile, user=request.user)
+     all_posts = Post.objects.filter(group=group,is_approved=True,status='approved').select_related("group","author").all();
+     posts = [];
+     is_admin = group.creator.user == request.user
+     
+     pending_posts = Post.objects.filter(group=group,is_approved=False,status='pending').select_related('author').all();
+     
+     for post in all_posts: 
+         comments = Comment.objects.filter(post__id=post.id)
+         posts.append({
+            'id' : post.id,
+            'author' : {
+                'id' : post.author.id,
+                'username' : post.author.username
+            },
+            'content': post.content,
+            'image': post.image.url if post.image else None,
+            'created_at': post.created_at,
+            'likesCount': post.likes.count(),
+            'isLiked': post.likes.filter(id=request.user.id).exists(),
+            'status': post.status,
+            'tags': post.tags,
+            'comments': [
+                {
+                    'id' : comment.id,
+                    'author' : {'username': comment.author.username,'id': comment.author.id},
+                    'content': comment.content,
+                    'likesCount': comment.likes.count(),
+                    'isLiked': comment.likes.filter(id=request.user.id).exists(),
+                    'created_at': comment.created_at
+
+                } for comment in  comments
+            ]
+    })
+    
      all_memberships = group.memberships.all().select_related('student__user')
      
      
      json_data = {
+        
          'group': {
              'id': group.id,
              'name': group.name,
@@ -651,9 +685,25 @@ def get_group_data(request,group_id) :
             } for mem in all_memberships
              
          ],
+         'posts': posts,
+         'pending_posts':[
+            {
+                'id': post.id,
+                'author': {
+                   'id': post.author.id,
+                   'username' : post.author.username
+                },
+                'content': post.content,
+                "image": post.image if post.image else None,
+                "createdAt": post.created_at
+                
+            } for post in pending_posts
+         ],
          'current_user': {
              'id' : request.user.id,
              'username': request.user.username,
+             'is_admin': is_admin
+             
          }
          
              
@@ -2014,36 +2064,69 @@ def mark_notifications_read(request):
 def create_group_post(request,group_id):
     if request.method == 'POST':
         content = request.POST.get('content')
-        image_file = request.FILES.get('image')
+        image_file = request.FILES.get('image',None)
         
         group = get_object_or_404(StudyGroup,id=group_id);
+        is_admin = group.creator.user == request.user 
         
-        post_data = []
-        if content or image_file:
+        post_data = None
+        if is_admin:
+            new_post = Post.objects.create(
+                    author = request.user,
+                    content = content,
+                    image = image_file,
+                    group = group,
+                    is_approved= True,
+                    status = 'approved'
+            )
+            post_data = {
+                'id': new_post.id,
+                'author': {
+                    'id' : new_post.author.id,
+                    'username': new_post.author.username
+                },
+                'content': new_post.content,
+                'image' : new_post.image.url if new_post.image else None,
+                'created_at': new_post.created_at,
+                'likesCount': 0,
+                'isLiked': False,
+                'tags': [],
+                'status': new_post.status,
+                'comments' : []
+            }
+
+                 
+        else:
+    
             new_post = Post.objects.create(
                 author = request.user,
                 content = content,
                 image = image_file,
+                group = group,
                 # tags = tags
             )
             
-            post_data = [{
+            post_data = {
                 'id': new_post.id,
-                'author': new_post.author,
+                'author': {
+                    'id' : new_post.author.id,
+                    'username': new_post.author.username
+                },
                 'content': new_post.content,
-                'likes': new_post.likes,
-                'image_url' : new_post.image.url,
-                'likes_count': new_post.likes.count,
-                'is_approved': new_post.is_approved,
+                'image' : new_post.image.url if new_post.image else None,
                 'created_at': new_post.created_at,
-            }]
-        
+                'likesCount': 0,
+                'isLiked': False,
+                'tags': [],
+                'status': 'pending',
+                'comments' : []
+            }
 
             notifications = []
             
             #notify to creator
             notifications = [
-                 ActivityNotification(
+                    ActivityNotification(
                         recipient=request.user, 
                         sender=request.user,  
                         notification_type='post-create',
@@ -2053,8 +2136,8 @@ def create_group_post(request,group_id):
             ]
             
             notifications.append(
-               ActivityNotification(
-                        recipient=group.creator,
+                ActivityNotification(
+                        recipient=group.creator.user,
                         sender=request.user,
                         notification_type='post-create',
                         group=group,
@@ -2066,15 +2149,63 @@ def create_group_post(request,group_id):
                 ActivityNotification.objects.bulk_create(notifications)
                 
             
-            messages.success(request,
-                             'Your post has been submitted to review.')
-        
-        
+            messages.success(
+            request,
+            'Your post has been submitted to review.'
+            )
+            
+            
+            
         return JsonResponse(post_data)
+            
     
     return JsonResponse({  "status": 400,
                 "message": "failed"})
         
+@login_required
+def approve_post(request,post_id):
+    post = get_object_or_404(Post,id=post_id)
+    group = get_object_or_404(StudyGroup,id=post.group.id) 
+
+    if not request.user == group.creator.user: 
+        return HttpResponseForbidden("You are not an admin")
+    post.is_approved = True
+    post.status = "approved"
+    post.created_at = timezone.now()
+    post.save()
+    
+    data = {
+      'id': post.id,
+      'author': {
+          'id': post.author.id,
+          'username' :post.author.username
+      },
+      'content': post.content,
+      'image': post.image.url if post.image else None,
+      'created_at': post.updated_at,
+      'likesCount': 0,
+      'isLiked': False,
+      'status': "approved",
+      'tags': [],
+      'comments': [],
+    }
+    
+
+    return JsonResponse(data,status=200)
+
+@login_required
+def reject_post(request,post_id):
+    
+    post = get_object_or_404(Post,id=post_id)
+    group = get_object_or_404(StudyGroup,id=post.group.id) 
+
+    if not request.user == group.creator.user: 
+       
+        return HttpResponseForbidden("You are not an admin")
+    post.status = "rejected"
+    post.save()
+    return JsonResponse({"message": 'rejected successfully'},status=200)
+
 
 @login_required
 def add_comment(request, post_id):
@@ -2106,10 +2237,13 @@ def add_comment(request, post_id):
             comment_data = {
             "id": comment_obj.id,
             "content": comment_obj.content,
-            "author": comment_obj.author,
-            "image": comment_obj.image,
-            "likes": comment_obj.likes,
-            "created_at": comment_obj.created_at.strftime("%Y-%m-%d %H:%M"),
+            "author":{ 
+               'id': comment_obj.author.id,
+               'username' : comment_obj.author.username
+            },
+            "image": comment_obj.image.url if comment_obj.image else None,
+            "likesCount": comment_obj.likes.count(),
+            "created_at": comment_obj.created_at,
         }
             
             # ✅ NEW: Notify post author about the comment
