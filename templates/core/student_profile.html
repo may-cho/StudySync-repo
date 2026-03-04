@@ -157,6 +157,33 @@
                     {% endif %}
                 </div>
 
+                <div class="canvas-card border-0 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold mb-0 text-dark">
+                            <i class="bi bi-heart-fill me-2 text-danger"></i>My Interests
+                        </h5>
+                        <span class="badge bg-light text-primary border">{{ student_profile.interests.count }} Total</span>
+                    </div>
+
+                    {% if student_profile.interests.exists %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for interest in student_profile.interests.all %}
+                        <div class="interest-tag d-flex align-items-center bg-white border px-3 py-2 rounded-pill shadow-sm">
+                            <span class="dot bg-primary me-2"></span>
+                            <span class="fw-medium text-dark">{{ interest.name }}</span>
+                            <small class="ms-2 text-muted" style="font-size: 0.7rem;">#{{ interest.category|default:"General" }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+    {% else %}
+    <div class="text-center py-4 bg-light rounded-3">
+        <i class="bi bi-tag text-muted mb-2" style="font-size: 2rem;"></i>
+        <p class="text-muted small mb-0">No interests added yet.</p>
+        <a href="{% url 'edit_profile' %}" class="btn btn-link btn-sm text-decoration-none">Add Interests</a>
+    </div>
+    {% endif %}
+</div>
+
             </div>
         </div>
     </div>
@@ -171,6 +198,21 @@
     }
 
     body { background-color: var(--aura-bg); color: #334155; }
+
+    .interest-tag {
+        transition: all 0.2s ease;
+        cursor: default;
+    }
+    .interest-tag:hover {
+        transform: translateY(-2px);
+        border-color: #0d6efd !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05) !important;
+    }
+    .interest-tag .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
 
     /* Identity Sidebar */
     .identity-card { background: var(--aura-card); border-radius: 24px; overflow: hidden; border: 1px solid rgba(0,0,0,0.05); }

@@ -53,6 +53,20 @@
     </div>
     <div v-else class="grid-empty-chip">No courses match</div>
 
+    <div v-if="parsedInterests.length" class="grid-chips">
+      <span
+        v-for="interest in parsedInterests.slice(0, 2)"
+        :key="interest.id"
+        class="grid-chip interest"
+      >
+        {{ interest.name }}
+      </span>
+      <span v-if="parsedInterests.length > 2" class="grid-chip more">
+        +{{ parsedInterests.length - 2 }}
+      </span>
+    </div>
+    <div v-else class="grid-empty-chip">No common interests</div>
+
     <div class="grid-actions">
       <button class="grid-btn primary" @click="viewProfile">
         View Profile
@@ -86,6 +100,7 @@
         <option v-for="course in parsedCourses" :key="course" :value="course">
           {{ course }}
         </option>
+
       </select>
     </div>
     <div v-if="formData.group_type === 'major'" class="form-group animate-fade-in">
@@ -161,13 +176,19 @@ const parsedCourses = computed(() => {
 });
 
 const parsedInterests = computed(() => {
+  // 1. If it's already an array, return it
   if (Array.isArray(props.allInterests)) return props.allInterests;
-  try {
-    return props.allInterests ? JSON.parse(props.allInterests) : [];
-  } catch {
-    console.error("Failed to parse interests");
-    return [];
+
+  // 2. If it's a string, try to parse it
+  if (typeof props.allInterests === 'string' && props.allInterests.trim() !== "") {
+    try {
+      return JSON.parse(props.allInterests);
+    } catch (e) {
+      console.error("JSON Parse Error for interests:", e);
+      return [];
+    }
   }
+  return [];
 });
 
 const internalTimeSlots = computed(() => {

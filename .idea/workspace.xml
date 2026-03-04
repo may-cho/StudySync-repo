@@ -6,11 +6,16 @@
   <component name="ChangeListManager">
     <list default="true" id="5ce9893c-7d9d-4c03-b8b2-b3302399372e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/migrations/0001_initial.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/migrations/0001_initial.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/static/js/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/static/js/main.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/base.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/base.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/core/all_notifications.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/all_notifications.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/vue/vue_components.css" beforeDir="false" afterPath="$PROJECT_DIR$/static/vue/vue_components.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/vue/vue_components.mjs" beforeDir="false" afterPath="$PROJECT_DIR$/static/vue/vue_components.mjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/core/create_group_from_match.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/core/find_study_partners.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/find_study_partners.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/core/profile.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/profile.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/core/student_profile.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/core/student_profile.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vue_components/src/components/GalleryCard.ce.vue" beforeDir="false" afterPath="$PROJECT_DIR$/vue_components/src/components/GalleryCard.ce.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vue_components/src/components/GalleryCardCompat.ce.vue" beforeDir="false" afterPath="$PROJECT_DIR$/vue_components/src/components/GalleryCardCompat.ce.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vue_components/src/components/GalleryManager.ce.vue" beforeDir="false" afterPath="$PROJECT_DIR$/vue_components/src/components/GalleryManager.ce.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,12 +119,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/core/views.py</url>
-          <line>1789</line>
+          <line>1775</line>
           <option name="timeStamp" value="33" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/core/views.py</url>
-          <line>1472</line>
+          <line>1458</line>
           <option name="timeStamp" value="34" />
         </line-breakpoint>
       </breakpoints>
