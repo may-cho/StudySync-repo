@@ -1,26 +1,49 @@
 <template>
   <div class="container" ref="rootContainer">
-    <aside class="sidebar">
-      <div class="brand">
-        <span class="emoji-icon">📚</span>
-        STUDYSYNC
-      </div>
-      <nav>
-        <a href="/admin-dashboard/" class="nav-item active">
-          <span class="nav-emoji">📊</span> Analytics
-        </a>
-        <a href="/students/" class="nav-item">
-          <span class="nav-emoji">👨‍🎓</span> Students
-        </a>
-      </nav>
-    </aside>
-
     <main class="viewport">
       <header class="header">
         <h1>Command Center</h1>
-        <div class="status-badge" v-if="!isLoading">
-          <div class="dot-live"></div>
-          OPERATIONAL
+        <div class="header-actions">
+          <div class="status-badge" v-if="!isLoading">
+            <div class="dot-live"></div>
+            OPERATIONAL
+          </div>
+          <!-- Logout Button with SVG -->
+          <button @click="handleLogout" class="logout-btn">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <polyline
+                points="16 17 21 12 16 7"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <line
+                x1="21"
+                y1="12"
+                x2="9"
+                y2="12"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="logout-text">Logout</span>
+          </button>
         </div>
       </header>
 
@@ -389,6 +412,7 @@ const handleAction = (group_id, action) => {
     deny(group_id);
   }
 };
+
 const approve = async (id) => {
   try {
     await axios.post(`/api/group/${id}/approve`);
@@ -398,6 +422,7 @@ const approve = async (id) => {
     console.error(err);
   }
 };
+
 const deny = async (id) => {
   try {
     await axios.post(`/api/group/${id}/deny`);
@@ -407,6 +432,21 @@ const deny = async (id) => {
     console.error(err);
   }
 };
+
+// Logout function
+const handleLogout = async () => {
+  try {
+    // Use Django's logout URL
+    await axios.post("/logout/");
+    // Redirect to login page or home page
+    window.location.href = "/login/";
+  } catch (error) {
+    console.error("Logout failed:", error);
+    // Even if the POST fails, you can redirect to logout via GET as fallback
+    window.location.href = "/logout/";
+  }
+};
+
 onMounted(fetchData);
 </script>
 
@@ -418,7 +458,6 @@ onMounted(fetchData);
   min-height: 100vh;
   --primary: #4f46e5;
   --bg-canvas: #f1f5f9;
-  --sidebar: #0f172a;
   --panel: #ffffff;
   --text-main: #1e293b;
   --text-muted: #64748b;
@@ -437,51 +476,8 @@ onMounted(fetchData);
 .container {
   width: 100%;
   max-width: 1200px;
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 24px;
+  margin: 0 auto;
   padding: 40px 20px;
-}
-
-/* --- Sidebar --- */
-.sidebar {
-  background: var(--sidebar);
-  border-radius: 20px;
-  padding: 24px 16px;
-  color: white;
-  height: fit-content;
-  position: sticky;
-  top: 40px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 800;
-  margin-bottom: 40px;
-  padding-left: 10px;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  color: #94a3b8;
-  text-decoration: none;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  margin-bottom: 4px;
-}
-
-.nav-item.active {
-  color: white;
-  background: var(--primary);
-}
-
-.nav-emoji {
-  font-size: 1.1rem;
 }
 
 /* --- Main Content --- */
@@ -490,10 +486,23 @@ onMounted(fetchData);
   flex-direction: column;
   gap: 32px;
 }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .header h1 {
   font-size: 1.5rem;
   font-weight: 800;
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .status-badge {
@@ -508,12 +517,49 @@ onMounted(fetchData);
   border: 1px solid var(--border);
 }
 
-.dot {
+.dot-live {
   width: 6px;
   height: 6px;
   background: var(--accent-success);
   border-radius: 50%;
   animation: pulse-op 2s infinite;
+}
+
+/* Logout Button with SVG */
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 40px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.logout-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.logout-btn:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.15);
+}
+
+.logout-btn:hover svg {
+  transform: translateX(3px);
+}
+
+.logout-text {
+  font-weight: 600;
 }
 
 /* --- Stats Cards --- */
@@ -1017,6 +1063,21 @@ onMounted(fetchData);
   .meta-chip {
     padding: 0.2rem 0.5rem;
     font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    align-items: flex-end;
   }
 }
 </style>

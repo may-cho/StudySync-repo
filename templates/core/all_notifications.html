@@ -10,98 +10,160 @@
                 </div>
                 <div class="list-group list-group-flush">
     {% for n in notifications %}
-        <div class="list-group-item p-4 {% if not n.is_read %}bg-light{% endif %} border-start-0 border-end-0">
-            <div class="d-flex align-items-start">
+<div class="list-group-item p-4 {% if not n.is_read %}unread{% endif %} border-start-0 border-end-0">
+  <div class="d-flex align-items-start">
+    <div class="flex-shrink-0 me-3">
+      {% if n.notification_type == 'request' %}
+      <div class="rounded-circle bg-warning-subtle p-3 text-warning">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M5.5 20v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2"/>
+          <circle cx="18" cy="8" r="2"/>
+          <path d="M22 20v-2a2 2 0 0 0-2-2h-2"/>
+        </svg>
+      </div>
 
-                <div class="flex-shrink-0 me-3">
-                    {% if n.notification_type == 'request' %}
-                        <div class="rounded-circle bg-warning-subtle p-3 text-warning"><i class="fas fa-user-clock fa-lg"></i></div>
-                    {% elif n.notification_type == 'accept' or n.notification_type ==  'approve' %}
-                        <div class="rounded-circle bg-success-subtle p-3 text-success"><i class="fas fa-check-circle fa-lg"></i></div>
-                    {% elif n.notification_type == 'deny' or n.notification_type == 'decline' %}
-                        <div class="rounded-circle bg-danger-subtle p-3 text-danger"><i class="fas fa-times-circle fa-lg"></i></div>
-                    {% elif n.invited_by %}
-                        <div class="rounded-circle bg-primary-subtle p-3 text-primary"><i class="fas fa-users fa-lg"></i></div>
-                    {% elif n.initiator %}
-                        <div class="rounded-circle bg-info-subtle p-3 text-info"><i class="fas fa-bolt fa-lg"></i></div>
-                    {% else %}
-                        {% if n.notification_type == 'like' %}
-                            <div class="rounded-circle bg-danger-subtle p-3 text-danger"><i class="fas fa-heart fa-lg"></i></div>
-                        {% elif n.notification_type == 'comment' or n.notification_type == 'reply' %}
-                            <div class="rounded-circle bg-success-subtle p-3 text-success"><i class="fas fa-comment fa-lg"></i></div>
-                        {% else %}
-                            <div class="rounded-circle bg-secondary-subtle p-3 text-secondary"><i class="fas fa-bell fa-lg"></i></div>
-                        {% endif %}
-                    {% endif %}
-                </div>
+      {% elif n.notification_type == 'invite' %}
+      <div class="rounded-circle bg-primary-subtle p-3 text-primary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/>
+          <line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+      </div>
 
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <small class="text-muted">{{ n.created_at|timesince }} ago</small>
-                        {% if not n.is_read %}<span class="badge rounded-pill bg-primary" style="font-size: 0.6rem;">NEW</span>{% endif %}
-                    </div>
+      {% elif n.notification_type == 'accept' or n.notification_type == 'approve' %}
+      <div class="rounded-circle bg-success-subtle p-3 text-success">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
 
-                    {% if n.notification_type == 'request' %}
-                        <p class="mb-2"><strong>{{ n.sender.username }}</strong> requested to join <strong>{{ n.group.name }}</strong></p>
-                        <div class="mt-2">
-                            <a href="{% url 'group_manage' n.group.id %}" class="btn btn-outline-primary btn-sm">Manage Requests</a>
-                        </div>
+      {% elif n.notification_type == 'deny' or n.notification_type == 'decline' %}
+      <div class="rounded-circle bg-danger-subtle p-3 text-danger">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </div>
 
-                    {% elif n.notification_type == 'accept' %}
-                        <p class="mb-2 text-success fw-bold">Request Approved!</p>
-                        <p class="mb-2">You have been accepted into <strong>{{ n.group.name }}</strong>.</p>
-                        <div class="mt-2">
-                            <a href="{% url 'group_detail' n.group.id %}" class="btn btn-success btn-sm">Go to Group</a>
-                        </div>
+      {% elif n.invited_by %}
+      <div class="rounded-circle bg-primary-subtle p-3 text-primary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
 
-                    {% elif n.notification_type == 'decline' %}
-                        <p class="mb-2 text-danger fw-bold">Request Declined</p>
-                        <p class="mb-0">Your request to join <strong>{{ n.group.name }}</strong> was not approved at this time.</p>
+      {% elif n.initiator %}
+      <div class="rounded-circle bg-info-subtle p-3 text-info">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13 2L3 14h5l-2 8 10-12h-5l2-8z"/>
+        </svg>
+      </div>
 
-                    {% elif n.notification_type == 'create'%}
-                        <p class="mb-2 text-info fw-bold">Group Proposal</p>
-                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been requested.</p>
-                    {% elif n.notification_type == 'approve'%}
-                         <p class="mb-2 text-success fw-bold">Group Approved</p>
-                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been approved.</p>
-                        <div class="mt-2">
-                            <a href="{% url 'group_detail' n.group.id %}" class="btn btn-outline-success btn-sm">Go to Group</a>
-                        </div>
-
-                    {% elif n.notification_type == 'deny' %}
-                         <p class="mb-2 text-danger fw-bold">Group Rejected</p>
-                        <p class="mb-0">Your request to create group <strong>{{ n.group.name}}</strong> has been denied.</p>
-                    {% elif n.invited_by %}
-
-                        <p class="mb-2"><strong>{{ n.invited_by.user.username }}</strong> invited you to <strong>{{ n.group.name }}</strong></p>
-                        <div class="mt-2">
-                            <a href="{% url 'accept_invitation' n.id %}" class="btn btn-success btn-sm">Accept</a>
-                            <a href="{% url 'decline_invitation' n.id %}" class="btn btn-outline-secondary btn-sm">Decline</a>
-                        </div>
-
-                    {% elif n.initiator %}
-                        <p class="mb-2">Match! <strong>{{ n.initiator.user.username }}</strong> is taking <strong>{{ n.course.code }}</strong></p>
-                        <div class="mt-2">
-                            <a href="{% url 'respond_invite' n.id 'accept' %}" class="btn btn-primary btn-sm">Connect</a>
-                        </div>
-
-                    {% else %}
-                        <p class="mb-1">
-                            <strong>{{ n.sender.username }}</strong>
-                            {% if n.notification_type == 'like' %}liked your post
-                            {% elif n.notification_type == 'comment' %}commented on your post
-                            {% elif n.notification_type == 'reply' %}replied to your comment
-                            {% else %}posted an update
-                            {% endif %}
-                            in <strong>{{ n.group.name }}</strong>
-                        </p>
-                        {% if n.content_preview %}
-                            <p class="text-muted small italic">"{{ n.content_preview }}"</p>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            </div>
+      {% else %}
+        {% if n.notification_type == 'like' %}
+        <div class="rounded-circle bg-danger-subtle p-3 text-danger">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
         </div>
+
+        {% elif n.notification_type == 'comment' or n.notification_type == 'reply' %}
+        <div class="rounded-circle bg-success-subtle p-3 text-success">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+
+        {% else %}
+        <div class="rounded-circle bg-secondary-subtle p-3 text-secondary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="flex-grow-1">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <small class="text-muted">{{ n.created_at|timesince }} ago</small>
+        {% if not n.is_read %}<span class="badge rounded-pill bg-primary" style="font-size: 0.6rem;">NEW</span>{% endif %}
+      </div>
+
+      {% if n.notification_type == 'request' %}
+      <p class="mb-2"><strong>{{ n.sender.username }}</strong> requested to join <strong>{{ n.group.name }}</strong></p>
+      <div class="mt-2">
+        <a href="{% url 'group_manage' n.group.id %}" class="btn btn-primary btn-sm">Manage Requests</a>
+      </div>
+
+      {% elif n.notification_type == 'accept' %}
+      <p class="mb-2 text-success fw-bold">Request Approved!</p>
+      <p class="mb-2">You have been accepted into <strong>{{ n.group.name }}</strong>.</p>
+      <div class="mt-2">
+        <a href="{% url 'group_detail' n.group.id %}" class="btn btn-success btn-sm">Go to Group</a>
+      </div>
+
+      {% elif n.notification_type == 'decline' %}
+      <p class="mb-2 text-danger fw-bold">Request Declined</p>
+      <p class="mb-0">Your request to join <strong>{{ n.group.name }}</strong> was not approved at this time.</p>
+
+      {% elif n.notification_type == 'create' %}
+      <p class="mb-2 text-info fw-bold">Group Proposal</p>
+      <p class="mb-0">Your request to create group <strong>{{ n.group.name }}</strong> has been requested.</p>
+
+      {% elif n.notification_type == 'approve' %}
+      <p class="mb-2 text-success fw-bold">Group Approved</p>
+      <p class="mb-0">Your request to create group <strong>{{ n.group.name }}</strong> has been approved.</p>
+      <div class="mt-2">
+        <a href="{% url 'group_detail' n.group.id %}" class="btn btn-success btn-sm">Go to Group</a>
+      </div>
+
+      {% elif n.notification_type == 'register' %}
+      <p class="mb-2 text-primary fw-bold">New Member!</p>
+      <p class="mb-0"><strong>{{ n.sender.username }}</strong> has just joined StudySync.</p>
+
+      {% elif n.notification_type == 'deny' %}
+      <p class="mb-2 text-danger fw-bold">Group Rejected</p>
+      <p class="mb-0">Your request to create group <strong>{{ n.group.name }}</strong> has been denied.</p>
+
+      {% elif n.invited_by %}
+      <p class="mb-2"><strong>{{ n.invited_by.user.username }}</strong> invited you to <strong>{{ n.group.name }}</strong></p>
+      <div class="mt-2">
+        <a href="{% url 'accept_invitation' n.id %}" class="btn btn-success btn-sm">Accept</a>
+        <a href="{% url 'decline_invitation' n.id %}" class="btn btn-outline-secondary btn-sm">Decline</a>
+      </div>
+
+      {% elif n.initiator %}
+      <p class="mb-2">Match! <strong>{{ n.initiator.user.username }}</strong> is taking <strong>{{ n.course.code }}</strong></p>
+      <div class="mt-2">
+        <a href="{% url 'respond_invite' n.id 'accept' %}" class="btn btn-primary btn-sm">Connect</a>
+      </div>
+
+      {% else %}
+      <p class="mb-1">
+        <strong>{{ n.sender.username }}</strong>
+        {% if n.notification_type == 'like' %}liked your post
+        {% elif n.notification_type == 'comment' %}commented on your post
+        {% elif n.notification_type == 'reply' %}replied to your comment
+        {% else %}posted an update
+        {% endif %}
+        in <strong>{{ n.group.name }}</strong>
+      </p>
+      {% if n.content_preview %}
+      <p class="text-muted small italic">"{{ n.content_preview }}"</p>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
     {% empty %}
         <div class="text-center py-5">
             <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>

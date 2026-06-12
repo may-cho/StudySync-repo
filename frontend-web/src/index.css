@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand Identity */
+  --color-brand-primary: #4f46e5; /* Indigo-600 */
+  --color-brand-accent: #38bdf8; /* Sky-400 */
+
+  /* Semantic Surfaces */
+  --color-bg-main: #f8fafc; /* Slate-50 */
+  --color-bg-card: #ffffff; /* White */
+
+  /* Typography */
+  --color-tx-main: #0f172a; /* Slate-900 */
+  --color-tx-muted: #64748b; /* Slate-500 */
+
+  /* Shared Radii */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+}
+
+/* Dark Mode Overrides */
+@variant dark (&:where(.dark, .dark *));
+
+.dark {
+  /* Brand Identity (Slightly brighter for dark backgrounds) */
+  --color-brand-primary: #6366f1; /* Indigo-500 */
+  --color-brand-accent: #0ea5e9; /* Sky-500 */
+
+  /* Semantic Surfaces */
+  --color-bg-main: #020617; /* Slate-950 */
+  --color-bg-card: #0f172a; /* Slate-900 */
+
+  /* Typography */
+  --color-tx-main: #f1f5f9; /* Slate-100 */
+  --color-tx-muted: #94a3b8; /* Slate-400 */
+}
+
+@layer base {
+  body {
+    /* Apply smooth transitions and the primary text/background colors */
+    @apply transition-colors duration-500 bg-bg-main text-tx-main antialiased selection:bg-brand-primary/20;
+  }
+}
+
+/* Custom Utilities */
+@utility card {
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-3xl);
+  border: 1px solid color-mix(in srgb, var(--color-tx-main) 5%, transparent);
+  transition: all 0.5s ease;
+}
+
+@utility scrollbar-custom {
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-brand-primary);
+    border-radius: 20px;
+  }
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Custom scrollbar for consistent appearance */
+.custom-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: var(--color-tx-main);
+  opacity: 0.05;
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-brand-primary);
+  opacity: 0.3;
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  opacity: 0.5;
+}

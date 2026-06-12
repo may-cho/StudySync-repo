@@ -1,0 +1,40 @@
+# --- Core Django Framework ---
+Django==6.0.1
+asgiref==3.11.0
+sqlparse==0.5.5
+
+# --- Database & Storage ---
+# Keep mysqlclient if using MySQL, or change to psycopg2-binary for PostgreSQL
+mysqlclient==2.2.7
+# Required for ImageField (Profile pictures, Post images)
+pillow==12.1.0
+
+# --- API Layer (The "Bridge" to React/Mobile) ---
+# For converting models to JSON
+djangorestframework==3.16.1
+# For Secure Mobile/Web Login
+djangorestframework-simplejwt==5.5.1
+PyJWT==2.12.1
+# To allow React (port 5173) to talk to Django (port 8000)
+django-cors-headers==4.9.0
+
+# --- Real-time Features (WebSockets) ---
+# Powers Chat and Live Notifications
+channels==4.3.2
+channels-redis==4.1.0
+# The server that runs WebSockets
+daphne==4.2.1
+# Python client for Redis
+redis==4.5.4
+
+# --- Developer Utilities ---
+# Helps with Date/Time logic (Online status, Timetable)
+python-dateutil==2.8.2
+# Provides extra management commands (like shell_plus)
+django-extensions==4.1
+# For the Admin panel (Importing/Exporting student data)
+django-import-export==4.4.0
+
+# --- Production Utilities ---
+# For environment variables (SECRET_KEY, DB_PASSWORD)
+python-dotenv==1.0.1
